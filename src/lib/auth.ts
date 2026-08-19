@@ -9,6 +9,7 @@ const hash = (t: string) => createHash('sha256').update(t).digest('hex');
 
 export interface SessionUser {
   id: string;
+department_org: string | null;
   email: string;
   full_name: string;
   roles: string[];
@@ -38,7 +39,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
   if (!token) return null;
 
   const user = await one<SessionUser>(
-    `SELECT u.id, u.email, u.full_name,
+    `SELECT u.id, u.email, u.full_name, u.department_org,
             coalesce(array_agg(ur.role) FILTER (WHERE ur.role IS NOT NULL), '{}') AS roles
        FROM sessions s
        JOIN users u ON u.id = s.user_id
