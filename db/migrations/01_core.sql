@@ -17,6 +17,7 @@
 -- ============================================================
 
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+CREATE EXTENSION IF NOT EXISTS "citext";
 
 -- ------------------------------------------------------------
 -- Enumerated types
@@ -496,3 +497,4 @@ LEFT JOIN LATERAL (
    WHERE request_id = r.id
    ORDER BY created_at DESC LIMIT 1
 ) ra ON true;
+

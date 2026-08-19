@@ -79,7 +79,7 @@ CREATE TABLE policy_exceptions (
   recommended_at          timestamptz,
 
   -- F. Final authorization
-  authorization           authorization_state,
+  authorization_state     authorization_state,
   final_decision          text,
   final_conditions        text,
   authorized_by           uuid REFERENCES users(id),
@@ -98,7 +98,7 @@ CREATE TABLE policy_exceptions (
   updated_at              timestamptz NOT NULL DEFAULT now(),
 
   -- An authorization must name who gave it and under what authority.
-  CHECK (authorization IS NULL OR
+  CHECK (authorization_state IS NULL OR
          (authorized_by IS NOT NULL AND authority_title IS NOT NULL
           AND authorized_at IS NOT NULL)),
   CHECK (recommendation IS NULL OR
@@ -106,9 +106,9 @@ CREATE TABLE policy_exceptions (
 );
 
 CREATE INDEX ON policy_exceptions (request_id);
-CREATE INDEX ON policy_exceptions (authorization, authorized_at DESC);
+CREATE INDEX ON policy_exceptions (authorization_state, authorized_at DESC);
 CREATE INDEX ON policy_exceptions (authorized_at)
-  WHERE authorization IN ('approved', 'approved_with_conditions');
+  WHERE authorization_state IN ('approved', 'approved_with_conditions');
 
 -- One exception request can span several categories.
 CREATE TABLE policy_exception_categories (
@@ -150,7 +150,7 @@ CREATE TRIGGER exception_raises_leadership_tier
 CREATE OR REPLACE FUNCTION check_exception_sequence()
 RETURNS trigger AS $$
 BEGIN
-  IF NEW.authorization IS NOT NULL AND NEW.recommendation IS NULL THEN
+  IF NEW.authorization_state IS NOT NULL AND NEW.recommendation IS NULL THEN
     RAISE EXCEPTION
       'Exception % cannot be authorized before Events & Conferences records a recommendation',
       NEW.reference_code;
@@ -173,9 +173,9 @@ CREATE VIEW exception_precedent AS
 SELECT
   pec.category,
   count(*)                                          AS times_requested,
-  count(*) FILTER (WHERE pe.authorization IN
+  count(*) FILTER (WHERE pe.authorization_state IN
     ('approved','approved_with_conditions'))         AS times_approved,
-  count(*) FILTER (WHERE pe.authorization = 'denied') AS times_denied,
+  count(*) FILTER (WHERE pe.authorization_state = 'denied') AS times_denied,
   round(avg(pe.estimated_subsidy), 2)               AS avg_estimated_subsidy,
   round(avg(pe.actual_subsidy), 2)                  AS avg_actual_subsidy,
   sum(pe.actual_subsidy)                            AS total_actual_subsidy,
@@ -211,7 +211,7 @@ SELECT
   u.full_name,
   u.department_org,
   count(*)                                           AS exceptions_requested,
-  count(*) FILTER (WHERE pe.authorization IN
+  count(*) FILTER (WHERE pe.authorization_state IN
     ('approved','approved_with_conditions'))          AS approved,
   sum(pe.actual_subsidy)                             AS total_actual_subsidy
 FROM policy_exceptions pe
@@ -233,7 +233,7 @@ SELECT
   CURRENT_DATE - r.event_date AS days_since_event
 FROM policy_exceptions pe
 JOIN event_requests r ON r.id = pe.request_id
-WHERE pe.authorization IN ('approved','approved_with_conditions')
+WHERE pe.authorization_state IN ('approved','approved_with_conditions')
   AND pe.documented_at IS NULL
   AND r.event_date < CURRENT_DATE
 ORDER BY r.event_date;
@@ -246,3 +246,5 @@ INSERT INTO review_triggers (tier, code, label, auto_rule, sort_order)
 VALUES ('leadership','policy_exception','Policy exception requested',
         'an open policy_exceptions row exists', 9)
 ON CONFLICT (code) DO NOTHING;
+
+

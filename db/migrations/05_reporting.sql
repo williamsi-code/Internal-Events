@@ -369,13 +369,13 @@ ORDER BY sum(d.estimated_revenue_lost) DESC NULLS LAST;
 CREATE VIEW quarterly_exceptions AS
 SELECT
   p.label AS period,
-  count(*) FILTER (WHERE pe.authorization IN
+  count(*) FILTER (WHERE pe.authorization_state IN
     ('approved','approved_with_conditions'))          AS exceptions_approved,
-  count(*) FILTER (WHERE pe.authorization = 'denied')  AS exceptions_denied,
+  count(*) FILTER (WHERE pe.authorization_state = 'denied')  AS exceptions_denied,
   sum(pe.actual_subsidy)                              AS actual_subsidy,
   sum(pe.estimated_subsidy)                           AS estimated_subsidy,
   count(*) FILTER (WHERE pe.documented_at IS NULL
-                     AND pe.authorization IS NOT NULL) AS undocumented
+                     AND pe.authorization_state IS NOT NULL) AS undocumented
 FROM reporting_periods p
 JOIN event_requests r
   ON r.event_date BETWEEN p.starts_on AND p.ends_on
@@ -404,3 +404,4 @@ JOIN event_requests r
   ON r.event_date BETWEEN p.starts_on AND p.ends_on
  AND r.status IN ('confirmed', 'completed')
 GROUP BY p.label;
+
