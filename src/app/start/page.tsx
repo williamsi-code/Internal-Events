@@ -10,7 +10,6 @@ export default async function StartPage() {
 
   return (
     <>
-      {/* @ts-expect-error async server component */}
       <Masthead current="/start" />
       <main id="main">
         <div className="pagehead">
@@ -33,3 +32,4 @@ export default async function StartPage() {
     </>
   );
 }
+

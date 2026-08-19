@@ -4,7 +4,6 @@ import Masthead from '@/components/Masthead';
 export default function Home() {
   return (
     <>
-      {/* @ts-expect-error async server component */}
       <Masthead />
       <main id="main">
         <div className="pagehead">
@@ -54,3 +53,4 @@ export default function Home() {
     </>
   );
 }
+
