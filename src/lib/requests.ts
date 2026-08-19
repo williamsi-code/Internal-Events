@@ -1,0 +1,162 @@
+import { query, one } from './db';
+import type { Classification } from './classify';
+
+export interface QueueRow {
+  id: string;
+  reference_code: string;
+  event_name: string;
+  event_date: string;
+  estimated_attendance: number;
+  department_org: string;
+  requester_name: string;
+  status: string;
+  submitted_at: string | null;
+  event_type_name: string | null;
+  event_type_other: string | null;
+  default_classification: Classification | null;
+  always_review: boolean | null;
+  suggested_class: Classification | null;
+  deviates_from_type: boolean;
+  current_classification: Classification | null;
+  unread_replies: number;
+}
+
+/** Everything the queue needs, in one round trip. */
+export async function listRequests(): Promise<QueueRow[]> {
+  return query<QueueRow>(`
+    SELECT r.id, r.reference_code, r.event_name,
+           to_char(r.event_date, 'YYYY-MM-DD') AS event_date,
+           r.estimated_attendance, r.department_org, r.requester_name,
+           r.status, r.submitted_at,
+           et.name AS event_type_name, r.event_type_other,
+           et.default_classification, et.always_review,
+           ca.suggested_class, ca.deviates_from_type,
+           cd.classification AS current_classification,
+           (SELECT count(*) FROM request_messages m
+             WHERE m.request_id = r.id
+               AND NOT m.is_internal
+               AND m.author_id = r.requester_id
+               AND m.read_at IS NULL) AS unread_replies
+      FROM event_requests r
+      LEFT JOIN event_types et ON et.id = r.event_type_id
+      LEFT JOIN classification_answers ca ON ca.request_id = r.id
+      LEFT JOIN classification_decisions cd
+             ON cd.request_id = r.id AND cd.is_current
+     WHERE r.status <> 'draft'
+     ORDER BY r.event_date
+  `);
+}
+
+export interface RequestDetail extends QueueRow {
+  requester_id: string;
+  contact_email: string;
+  contact_phone: string | null;
+  event_purpose: string;
+  start_time: string | null;
+  end_time: string | null;
+  space_name: string | null;
+  space_building: string | null;
+  location_freetext: string | null;
+  type_guidance: string | null;
+  deviation_detail: string | null;
+  suggested_rationale: string | null;
+
+  food_needs: string | null;
+  service_expectations: string | null;
+  room_setup: string | null;
+  equipment: string | null;
+  technology: string | null;
+  special_requests: string | null;
+  dietary_restrictions: string | null;
+
+  budget_account: string | null;
+  outside_org_name: string | null;
+  outside_org_involved: boolean;
+  outside_funding: boolean;
+  outside_funding_detail: string | null;
+  revenue_collected: boolean;
+  revenue_recipient: string | null;
+  financial_risk_bearer: string | null;
+
+  official_business: string;
+  event_owner: string;
+  primary_beneficiary: string;
+  primary_payer: string;
+  would_occur_without: string;
+  requester_notes: string | null;
+
+  decision_rationale: string | null;
+  decided_by_name: string | null;
+  decided_at: string | null;
+}
+
+export async function getRequest(id: string) {
+  return one<RequestDetail>(
+    `
+    SELECT r.id, r.reference_code, r.event_name,
+           to_char(r.event_date, 'YYYY-MM-DD') AS event_date,
+           r.estimated_attendance, r.department_org, r.requester_name,
+           r.requester_id, r.contact_email, r.contact_phone,
+           r.event_purpose, r.status, r.submitted_at,
+           to_char(r.start_time, 'HH24:MI') AS start_time,
+           to_char(r.end_time, 'HH24:MI') AS end_time,
+           r.location_freetext, r.event_type_other,
+           s.name AS space_name, s.building AS space_building,
+           et.name AS event_type_name, et.default_classification,
+           et.always_review, et.guidance AS type_guidance,
+
+           req.food_needs, req.service_expectations, req.room_setup,
+           req.equipment, req.technology, req.special_requests,
+           req.dietary_restrictions,
+
+           f.budget_account, f.outside_org_name, f.outside_org_involved,
+           f.outside_funding, f.outside_funding_detail, f.revenue_collected,
+           f.revenue_recipient, f.financial_risk_bearer,
+
+           ca.official_business, ca.event_owner, ca.primary_beneficiary,
+           ca.primary_payer, ca.would_occur_without, ca.requester_notes,
+           ca.suggested_class, ca.suggested_rationale,
+           ca.deviates_from_type, ca.deviation_detail,
+
+           cd.classification AS current_classification,
+           cd.rationale AS decision_rationale,
+           du.full_name AS decided_by_name,
+           to_char(cd.decided_at, 'Mon DD, YYYY') AS decided_at,
+           0 AS unread_replies
+      FROM event_requests r
+      LEFT JOIN spaces s ON s.id = r.space_id
+      LEFT JOIN event_types et ON et.id = r.event_type_id
+      LEFT JOIN event_requirements req ON req.request_id = r.id
+      LEFT JOIN event_funding f ON f.request_id = r.id
+      LEFT JOIN classification_answers ca ON ca.request_id = r.id
+      LEFT JOIN classification_decisions cd
+             ON cd.request_id = r.id AND cd.is_current
+      LEFT JOIN users du ON du.id = cd.decided_by
+     WHERE r.id = $1
+  `,
+    [id]
+  );
+}
+
+export interface Message {
+  id: string;
+  body: string;
+  is_internal: boolean;
+  author_name: string;
+  is_staff: boolean;
+  created_at: string;
+}
+
+export async function getMessages(requestId: string) {
+  return query<Message>(
+    `SELECT m.id, m.body, m.is_internal, u.full_name AS author_name,
+            (m.author_id <> r.requester_id) AS is_staff,
+            to_char(m.created_at, 'Mon DD, HH12:MI AM') AS created_at
+       FROM request_messages m
+       JOIN users u ON u.id = m.author_id
+       JOIN event_requests r ON r.id = m.request_id
+      WHERE m.request_id = $1
+      ORDER BY m.created_at`,
+    [requestId]
+  );
+}
