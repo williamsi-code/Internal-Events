@@ -160,3 +160,102 @@ export async function getMessages(requestId: string) {
     [requestId]
   );
 }
+
+/* ------------------------------------------------------------
+   Requester-facing queries. These deliberately never expose
+   internal notes, staff identities beyond the decision author,
+   or anything from sections F onward.
+   ------------------------------------------------------------ */
+
+export interface MyRequestRow {
+  id: string;
+  reference_code: string;
+  event_name: string;
+  event_date: string;
+  status: string;
+  estimated_attendance: number;
+  current_classification: Classification | null;
+  acknowledged_at: string | null;
+  awaiting_you: boolean;
+}
+
+export async function listMyRequests(userId: string) {
+  return query<MyRequestRow>(
+    `SELECT r.id, r.reference_code, r.event_name,
+            to_char(r.event_date, 'YYYY-MM-DD') AS event_date,
+            r.status, r.estimated_attendance,
+            cd.classification AS current_classification,
+            to_char(cd.acknowledged_at, 'Mon DD, YYYY') AS acknowledged_at,
+            (r.status = 'info_requested'
+             OR (cd.classification IS NOT NULL
+                 AND cd.acknowledged_at IS NULL)) AS awaiting_you
+       FROM event_requests r
+       LEFT JOIN classification_decisions cd
+              ON cd.request_id = r.id AND cd.is_current
+      WHERE r.requester_id = $1 AND r.status <> 'draft'
+      ORDER BY r.event_date`,
+    [userId]
+  );
+}
+
+export interface MyRequestDetail {
+  id: string;
+  reference_code: string;
+  event_name: string;
+  event_date: string;
+  start_time: string | null;
+  end_time: string | null;
+  estimated_attendance: number;
+  event_purpose: string;
+  status: string;
+  space_name: string | null;
+  space_building: string | null;
+  location_freetext: string | null;
+  event_type_name: string | null;
+  event_type_other: string | null;
+  decision_id: string | null;
+  current_classification: Classification | null;
+  decision_rationale: string | null;
+  decided_at: string | null;
+  acknowledged_at: string | null;
+}
+
+export async function getMyRequest(id: string, userId: string) {
+  return one<MyRequestDetail>(
+    `SELECT r.id, r.reference_code, r.event_name,
+            to_char(r.event_date, 'YYYY-MM-DD') AS event_date,
+            to_char(r.start_time, 'HH24:MI') AS start_time,
+            to_char(r.end_time, 'HH24:MI') AS end_time,
+            r.estimated_attendance, r.event_purpose, r.status,
+            r.location_freetext, r.event_type_other,
+            s.name AS space_name, s.building AS space_building,
+            et.name AS event_type_name,
+            cd.id AS decision_id,
+            cd.classification AS current_classification,
+            cd.rationale AS decision_rationale,
+            to_char(cd.decided_at, 'Mon DD, YYYY') AS decided_at,
+            to_char(cd.acknowledged_at, 'Mon DD, YYYY') AS acknowledged_at
+       FROM event_requests r
+       LEFT JOIN spaces s ON s.id = r.space_id
+       LEFT JOIN event_types et ON et.id = r.event_type_id
+       LEFT JOIN classification_decisions cd
+              ON cd.request_id = r.id AND cd.is_current
+      WHERE r.id = $1 AND r.requester_id = $2`,
+    [id, userId]
+  );
+}
+
+/** Internal notes are filtered out in SQL, not in the component. */
+export async function getVisibleMessages(requestId: string) {
+  return query<Message>(
+    `SELECT m.id, m.body, m.is_internal, u.full_name AS author_name,
+            (m.author_id <> r.requester_id) AS is_staff,
+            to_char(m.created_at, 'Mon DD, HH12:MI AM') AS created_at
+       FROM request_messages m
+       JOIN users u ON u.id = m.author_id
+       JOIN event_requests r ON r.id = m.request_id
+      WHERE m.request_id = $1 AND NOT m.is_internal
+      ORDER BY m.created_at`,
+    [requestId]
+  );
+}

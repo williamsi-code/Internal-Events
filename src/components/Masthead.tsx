@@ -27,6 +27,8 @@ export default async function Masthead({ current }: { current?: string }) {
             {user ? (
               <>
                 {isStaff && <Link href="/staff">Staff queue</Link>}
+{isStaff && ' · '}
+                <Link href="/my-requests">My requests</Link>
                 {isStaff && ' · '}
                 {user.full_name}
                 {' · '}

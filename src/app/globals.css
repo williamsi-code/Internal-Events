@@ -329,3 +329,34 @@ fieldset{border:0;padding:0;margin:0 0 1.1rem}
 .thread li.internal{border-left:3px solid var(--brass);background:var(--brass-soft)}
 .thread li.outbound{border-left:3px solid var(--crimson)}
 .thread .who{font-size:.77rem;color:var(--slate);margin-bottom:.25rem}
+
+/* ---------- my requests ---------- */
+.group-head{
+  font-family:Spectral,Georgia,serif;font-size:1.05rem;font-weight:600;
+  margin:2rem 0 .75rem;color:var(--slate);
+}
+.group-head:first-of-type{margin-top:0}
+
+ul.queue{list-style:none;padding:0;margin:0}
+
+/* One anchor covers the whole card: the rest of the text stays plain,
+   so a screen reader announces one link per request rather than four. */
+li.qcard{position:relative}
+.stretched{text-decoration:none}
+.stretched::after{content:"";position:absolute;inset:0}
+li.qcard:hover{border-color:var(--mute);border-left-color:var(--crimson)}
+li.qcard:focus-within{outline:2px solid var(--crimson);outline-offset:2px}
+
+li.qcard.is-past{opacity:.72;border-left-color:var(--rule)}
+li.qcard.is-past:hover{border-left-color:var(--mute)}
+
+.p-muted{color:var(--mute);border-color:var(--rule);background:var(--paper)}
+.p-pending{
+  color:var(--mute);border-color:var(--rule);background:transparent;
+  border-style:dashed;
+}
+
+.p-overdue{
+  color:#fff;background:var(--crimson);border-color:var(--crimson);
+  font-weight:500;
+}

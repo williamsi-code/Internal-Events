@@ -46,7 +46,21 @@ function daysUntil(date: string) {
   const ms = new Date(date + 'T00:00:00').getTime() - Date.now();
   return Math.round(ms / 86_400_000);
 }
+/** How much trouble an undecided request is in. Lead time matters more
+ *  for larger events, so a 200-guest event a week out is more urgent
+ *  than a 10-person meeting on the same day. */
+function urgency(r: QueueRow): 'overdue' | 'soon' | null {
+  if (r.current_classification) return null;
+  if (['cancelled', 'denied', 'completed'].includes(r.status)) return null;
 
+  const days = daysUntil(r.event_date);
+  const large = r.estimated_attendance >= 100;
+
+  if (days < 0) return 'overdue';
+  if (days <= (large ? 10 : 5)) return 'overdue';
+  if (days <= 21) return 'soon';
+  return null;
+}
 export default function StaffQueue({ requests }: { requests: QueueRow[] }) {
   const [filter, setFilter] = useState('open');
   const shown = requests.filter((r) => matches(r, filter));
@@ -112,7 +126,14 @@ export default function StaffQueue({ requests }: { requests: QueueRow[] }) {
                   {r.unread_replies > 0 && (
                     <span className="pill p-info">Requester replied</span>
                   )}
-                  {days <= 21 && days >= 0 && !r.current_classification && (
+                                   {urgency(r) === 'overdue' && (
+                    <span className="pill p-overdue">
+                      {days < 0
+                        ? 'Event has passed, still unclassified'
+                        : `Undecided, ${days} day${days === 1 ? '' : 's'} out`}
+                    </span>
+                  )}
+                  {urgency(r) === 'soon' && (
                     <span className="pill p-soon">In {days} days</span>
                   )}
                 </div>
