@@ -259,3 +259,100 @@ export async function getVisibleMessages(requestId: string) {
     [requestId]
   );
 }
+
+/* ------------------------------------------------------------
+   Menu and details step.
+   ------------------------------------------------------------ */
+
+export interface MenuItemRow {
+  id: string;
+  category: string;
+  name: string;
+  description: string | null;
+  unit: string;
+  minimum_quantity: number | null;
+  allergen_notes: string | null;
+  unit_price: string;
+}
+
+/** Resolves the price tier from the current classification, then
+ *  returns the menu priced at that tier. Returns an empty list if the
+ *  event is not yet classified - there is no correct price to show. */
+export async function getMenuForRequest(requestId: string) {
+  return query<MenuItemRow>(
+    `WITH tier AS (
+       SELECT CASE
+                WHEN cd.classification = 'internal' AND f.revenue_collected
+                  THEN cp.revenue_path
+                ELSE cp.path
+              END AS path
+         FROM event_requests r
+         JOIN classification_decisions cd
+           ON cd.request_id = r.id AND cd.is_current
+         JOIN classification_pricing cp
+           ON cp.classification = cd.classification
+         LEFT JOIN event_funding f ON f.request_id = r.id
+        WHERE r.id = $1
+     )
+     SELECT mi.id, c.name AS category, mi.name, mi.description,
+            mi.unit, mi.minimum_quantity, mi.allergen_notes,
+            mip.unit_price::text
+       FROM menu_items mi
+       JOIN menu_categories c ON c.id = mi.category_id
+       JOIN menu_item_prices mip ON mip.menu_item_id = mi.id
+       JOIN tier ON tier.path = mip.path
+      WHERE mi.is_active AND c.is_active
+        AND mip.effective_from <= CURRENT_DATE
+        AND (mip.effective_to IS NULL OR mip.effective_to > CURRENT_DATE)
+      ORDER BY c.sort_order, mi.sort_order`,
+    [requestId]
+  );
+}
+
+export interface SelectionRow {
+  menu_item_id: string;
+  quantity: number;
+  unit_price_quoted: string;
+  notes: string | null;
+}
+
+export async function getSelections(requestId: string) {
+  return query<SelectionRow>(
+    `SELECT menu_item_id, quantity, unit_price_quoted::text, notes
+       FROM request_menu_selections
+      WHERE request_id = $1`,
+    [requestId]
+  );
+}
+
+export interface DetailsState {
+  status: string;
+  classification: Classification | null;
+  acknowledged_at: string | null;
+  details_confirmed_at: string | null;
+  estimated_attendance: number;
+  room_setup: string | null;
+  equipment: string | null;
+  technology: string | null;
+  special_requests: string | null;
+  dietary_restrictions: string | null;
+  service_expectations: string | null;
+}
+
+export async function getDetailsState(requestId: string, userId: string) {
+  return one<DetailsState>(
+    `SELECT r.status, r.estimated_attendance,
+            to_char(r.details_confirmed_at, 'Mon DD, YYYY') AS details_confirmed_at,
+            cd.classification,
+            to_char(cd.acknowledged_at, 'Mon DD, YYYY') AS acknowledged_at,
+            req.room_setup, req.equipment, req.technology,
+            req.special_requests, req.dietary_restrictions,
+            req.service_expectations
+       FROM event_requests r
+       LEFT JOIN classification_decisions cd
+              ON cd.request_id = r.id AND cd.is_current
+       LEFT JOIN event_requirements req ON req.request_id = r.id
+      WHERE r.id = $1 AND r.requester_id = $2`,
+    [requestId, userId]
+  );
+}

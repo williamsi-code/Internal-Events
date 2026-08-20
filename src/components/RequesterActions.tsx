@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { classificationLabel } from '@/lib/classify';
 import type { MyRequestDetail, Message } from '@/lib/requests';
 
@@ -35,6 +36,8 @@ export default function RequesterActions({
   const [asking, setAsking] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+
+  const isConfirmed = request.status === 'confirmed';
 
   const needsAck =
     !!request.current_classification &&
@@ -95,10 +98,25 @@ export default function RequesterActions({
           </div>
 
           {request.acknowledged_at ? (
-            <div className="callout c-default">
-              <strong>You confirmed this on {request.acknowledged_at}</strong>
-              The events office is preparing the next steps for your event.
-            </div>
+            <>
+              <div className="callout c-default">
+                <strong>You confirmed this on {request.acknowledged_at}</strong>
+                {isConfirmed
+                  ? ' Your event is confirmed on the campus schedule.'
+                  : ' Next, choose your menu and confirm the setup details.'}
+              </div>
+              <div className="actions">
+                <Link
+                  href={`/my-requests/${request.id}/details`}
+                  className={isConfirmed ? 'btn btn-ghost' : 'btn btn-primary'}
+                  style={{ textDecoration: 'none' }}
+                >
+                  {isConfirmed
+                    ? 'View menu and details'
+                    : 'Choose menu and details'}
+                </Link>
+              </div>
+            </>
           ) : needsAck ? (
             <>
               <div className="callout c-warn">
