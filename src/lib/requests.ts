@@ -88,6 +88,7 @@ export interface RequestDetail extends QueueRow {
   decision_rationale: string | null;
   decided_by_name: string | null;
   decided_at: string | null;
+  details_confirmed_at: string | null;
 }
 
 export async function getRequest(id: string) {
@@ -122,6 +123,7 @@ export async function getRequest(id: string) {
            cd.rationale AS decision_rationale,
            du.full_name AS decided_by_name,
            to_char(cd.decided_at, 'Mon DD, YYYY') AS decided_at,
+           to_char(r.details_confirmed_at, 'Mon DD, YYYY') AS details_confirmed_at,
            0 AS unread_replies
       FROM event_requests r
       LEFT JOIN spaces s ON s.id = r.space_id

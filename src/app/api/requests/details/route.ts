@@ -76,14 +76,14 @@ export async function POST(req: NextRequest) {
     // Prices are re-fetched here rather than trusted from the browser.
     // The tier follows the classification as it stands right now, which
     // is why a reclassification changes what the event costs.
-    const { rows: tierRows } = await c.query(
+      const { rows: tierRows } = await c.query(
       `SELECT CASE
-                WHEN $2 = 'internal' AND $3 THEN cp.revenue_path
+                WHEN cp.classification = 'internal' AND $2 THEN cp.revenue_path
                 ELSE cp.path
               END AS path
          FROM classification_pricing cp
-        WHERE cp.classification = $2::classification`,
-      [requestId, owned.classification, owned.revenue_collected ?? false]
+        WHERE cp.classification = $1::classification`,
+      [owned.classification, owned.revenue_collected ?? false]
     );
     const path = tierRows[0]?.path;
     if (!path) throw new Error('No price tier for this classification');

@@ -2,8 +2,10 @@ import { redirect, notFound } from 'next/navigation';
 import Link from 'next/link';
 import Masthead from '@/components/Masthead';
 import DecisionPanel from '@/components/DecisionPanel';
+import ChangeFlags from '@/components/ChangeFlags';
 import { getSessionUser } from '@/lib/auth';
 import { getRequest, getMessages } from '@/lib/requests';
+import { changesSinceClassification } from '@/lib/changes';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,6 +47,13 @@ export default async function RequestDetailPage({
 
   const messages = await getMessages(id);
 
+  // Only worth computing once there is a classification to compare against.
+  const changes = request.current_classification
+    ? await changesSinceClassification(id)
+    : [];
+
+  const awaitingFinalReview = request.status === 'pending_final_review';
+
   const eventDate = new Date(request.event_date + 'T00:00:00');
   const days = Math.round((eventDate.getTime() - Date.now()) / 86_400_000);
 
@@ -61,6 +70,9 @@ export default async function RequestDetailPage({
             <div className="dhead">
               <div className="qtop">
                 <span className="qref">{request.reference_code}</span>
+                {awaitingFinalReview && (
+                  <span className="pill p-final">Awaiting final review</span>
+                )}
               </div>
               <h2>{request.event_name}</h2>
               <div className="dmeta">
@@ -85,6 +97,14 @@ export default async function RequestDetailPage({
                 <span>{request.estimated_attendance} guests</span>
               </div>
             </div>
+
+            {awaitingFinalReview && (
+              <ChangeFlags
+                requestId={id}
+                changes={changes}
+                detailsConfirmedAt={request.details_confirmed_at ?? null}
+              />
+            )}
 
             <div className="sec">
               <div className="sec-head">
@@ -121,7 +141,10 @@ export default async function RequestDetailPage({
                     <Row label="Room setup" value={request.room_setup} />
                     <Row label="Equipment" value={request.equipment} />
                     <Row label="Technology" value={request.technology} />
-                    <Row label="Special requests" value={request.special_requests} />
+                    <Row
+                      label="Special requests"
+                      value={request.special_requests}
+                    />
                   </dl>
                 </div>
 
@@ -178,12 +201,18 @@ export default async function RequestDetailPage({
                       label="Primarily benefits"
                       value={PARTY[request.primary_beneficiary]}
                     />
-                    <Row label="Primarily pays" value={PARTY[request.primary_payer]} />
+                    <Row
+                      label="Primarily pays"
+                      value={PARTY[request.primary_payer]}
+                    />
                     <Row
                       label="Happens without Central"
                       value={PARTY[request.would_occur_without]}
                     />
-                    <Row label="Requester notes" value={request.requester_notes} />
+                    <Row
+                      label="Requester notes"
+                      value={request.requester_notes}
+                    />
                   </dl>
                 </div>
               </div>
