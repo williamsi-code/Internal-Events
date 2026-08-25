@@ -1,0 +1,149 @@
+/* Append these to the end of src/app/globals.css */
+
+/* ============================================================
+   Catering sheet
+   Print-first. The screen version is a preview of the paper one,
+   not the other way round.
+   ============================================================ */
+
+.sheet-page{max-width:52rem;margin:0 auto;padding:1.5rem}
+
+.sheet-toolbar{
+  display:flex;justify-content:space-between;align-items:baseline;
+  gap:1rem;flex-wrap:wrap;margin-bottom:1rem;
+}
+.sheet-hint{font-size:.8rem;color:var(--mute)}
+
+.sheet{
+  background:var(--surface);border:1px solid var(--rule);
+  border-radius:3px;padding:2rem;
+}
+
+.sheet-head{
+  display:flex;justify-content:space-between;align-items:flex-start;
+  gap:1.5rem;padding-bottom:1.1rem;border-bottom:2px solid var(--ink);
+}
+.sheet-org{
+  font-size:.72rem;text-transform:uppercase;letter-spacing:.12em;
+  color:var(--slate);margin-bottom:.4rem;
+}
+.sheet-head h1{
+  font-family:Spectral,Georgia,serif;font-size:1.7rem;font-weight:600;
+  margin:0 0 .25rem;line-height:1.15;letter-spacing:-.01em;
+}
+.sheet-ref{font-family:"IBM Plex Mono",monospace;font-size:.8rem;color:var(--mute)}
+
+.sheet-count{text-align:right;flex:none}
+.sheet-count-n{
+  display:block;font-family:Spectral,Georgia,serif;font-size:2.6rem;
+  font-weight:600;line-height:1;color:var(--crimson);
+}
+.sheet-count-l{
+  display:block;font-size:.7rem;text-transform:uppercase;
+  letter-spacing:.1em;color:var(--slate);margin-top:.2rem;
+}
+
+.sheet-alert{
+  margin-top:1rem;padding:.6rem .85rem;font-size:.85rem;
+  border:1px solid #E3D6AE;background:var(--brass-soft);
+  color:#4A3C14;border-radius:2px;
+}
+
+.sheet-when{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+  gap:1rem;padding:1.1rem 0;border-bottom:1px solid var(--rule);
+}
+.sheet-label{
+  display:block;font-size:.68rem;text-transform:uppercase;
+  letter-spacing:.1em;color:var(--slate);margin-bottom:.2rem;
+}
+.sheet-value{display:block;font-size:.92rem}
+.sheet-value.strong,.strong{font-weight:600}
+
+/* Dietary information is a safety matter, so it gets the loudest
+   treatment on the page and never collapses into a list. */
+.sheet-dietary{
+  margin-top:1.1rem;padding:.9rem 1.1rem;border-radius:2px;
+  border:2px solid var(--crimson);background:var(--crimson-soft);
+}
+.sheet-dietary h2{
+  font-family:"Public Sans",sans-serif;font-size:.72rem;
+  text-transform:uppercase;letter-spacing:.1em;
+  color:var(--crimson);margin:0 0 .35rem;font-weight:600;
+}
+.sheet-dietary p{margin:0;font-size:.95rem;font-weight:500}
+
+.sheet-section{margin-top:1.6rem}
+.sheet-section h2{
+  font-family:Spectral,Georgia,serif;font-size:1.05rem;font-weight:600;
+  margin:0 0 .6rem;padding-bottom:.3rem;border-bottom:1px solid var(--rule);
+}
+.sheet-section p{margin:0;font-size:.9rem}
+.sheet-empty{color:var(--mute);font-style:italic;font-size:.88rem}
+
+.sheet-table{width:100%;border-collapse:collapse;font-size:.89rem}
+.sheet-table th,.sheet-table td{
+  text-align:left;padding:.45rem .5rem;border-bottom:1px solid var(--rule);
+  vertical-align:top;
+}
+.sheet-table thead th{
+  font-size:.68rem;text-transform:uppercase;letter-spacing:.09em;
+  color:var(--slate);font-weight:500;border-bottom:1px solid var(--ink);
+}
+.sheet-table .num{text-align:right;white-space:nowrap}
+.sheet-cat th{
+  font-family:Spectral,Georgia,serif;font-size:.92rem;font-weight:600;
+  padding-top:.8rem;border-bottom:0;color:var(--slate);
+}
+.sheet-item{display:block;font-weight:500}
+.sheet-item-desc{display:block;font-size:.8rem;color:var(--slate);margin-top:.1rem}
+.sheet-item-note{
+  display:block;font-size:.8rem;color:var(--crimson);margin-top:.15rem;
+}
+.sheet-table tfoot td{border-bottom:0;border-top:2px solid var(--ink);padding-top:.6rem}
+
+.sheet-allergens{
+  margin-top:.8rem;font-size:.83rem;color:var(--slate);
+  padding:.5rem .7rem;background:var(--paper);border-radius:2px;
+}
+
+.sheet-cols{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem}
+@media(max-width:640px){.sheet-cols{grid-template-columns:1fr}}
+
+.sheet-dl{display:grid;grid-template-columns:minmax(90px,30%) 1fr;gap:.3rem .8rem;margin:0;font-size:.89rem}
+.sheet-dl.inline{grid-template-columns:auto 1fr}
+.sheet-dl dt{color:var(--slate)}
+.sheet-dl dd{margin:0}
+.mono{font-family:"IBM Plex Mono",monospace;font-size:.85rem}
+
+.sheet-foot{
+  display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap;
+  margin-top:1.8rem;padding-top:.8rem;border-top:1px solid var(--rule);
+  font-size:.75rem;color:var(--mute);
+}
+
+/* ---------- print ---------- */
+@media print{
+  @page{margin:1.5cm}
+  body{background:#fff}
+  .no-print,.masthead,.sitenav{display:none !important}
+  .sheet-page{max-width:none;padding:0;margin:0}
+  .sheet{border:0;padding:0;border-radius:0}
+
+  /* Keep related blocks together across page breaks. */
+  .sheet-section,.sheet-dietary,.sheet-when{break-inside:avoid}
+  .sheet-table thead{display:table-header-group}
+  .sheet-table tr{break-inside:avoid}
+
+  /* Colour prints unreliably; keep the dietary block loud in mono. */
+  .sheet-dietary{border:2px solid #000;background:#fff}
+  .sheet-dietary h2{color:#000}
+  .sheet-count-n{color:#000}
+}
+
+.sheet-link{
+  font-size:.78rem;padding:.25rem .6rem;border:1px solid var(--rule);
+  border-radius:2rem;text-decoration:none;color:var(--slate);
+  white-space:nowrap;
+}
+.sheet-link:hover{border-color:var(--crimson);color:var(--crimson)}

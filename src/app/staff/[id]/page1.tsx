@@ -70,26 +70,9 @@ export default async function RequestDetailPage({
             <div className="dhead">
               <div className="qtop">
                 <span className="qref">{request.reference_code}</span>
-                <span
-                  style={{
-                    display: 'flex',
-                    gap: '.5rem',
-                    alignItems: 'center',
-                    flexWrap: 'wrap',
-                  }}
-                >
-                  {awaitingFinalReview && (
-                    <span className="pill p-final">Awaiting final review</span>
-                  )}
-                  {request.current_classification && (
-                    <Link
-                      href={`/staff/${id}/catering-sheet`}
-                      className="sheet-link"
-                    >
-                      Catering sheet
-                    </Link>
-                  )}
-                </span>
+                {awaitingFinalReview && (
+                  <span className="pill p-final">Awaiting final review</span>
+                )}
               </div>
               <h2>{request.event_name}</h2>
               <div className="dmeta">
