@@ -566,3 +566,120 @@ textarea:disabled{background:var(--paper);color:var(--slate)}
   color:#fff;background:var(--brass);border-color:var(--brass);font-weight:500;
 }
 .p-count-in{color:var(--sage);border-color:#C4DACF;background:var(--sage-soft)}
+/* Append these to the end of src/app/globals.css */
+
+/* ============================================================
+   Public information pages
+   ============================================================ */
+
+.info-shell{max-width:60rem}
+.info-section{margin-bottom:2.25rem}
+
+.info-h2{
+  font-family:Spectral,Georgia,serif;font-size:1.3rem;font-weight:600;
+  margin:0 0 .6rem;padding-bottom:.35rem;border-bottom:1px solid var(--rule);
+  letter-spacing:-.01em;
+}
+.info-h3{
+  font-family:Spectral,Georgia,serif;font-size:1.05rem;font-weight:600;
+  margin:0 0 .5rem;color:var(--slate);
+}
+.info-p{margin:0 0 .9rem;max-width:70ch;font-size:.95rem}
+.info-p.muted{color:var(--slate);font-size:.88rem}
+.info-list{margin:0 0 .9rem;padding-left:1.2rem;max-width:70ch;font-size:.95rem}
+.info-list li{margin-bottom:.3rem}
+.info-body{max-width:70ch}
+.info-updated{
+  margin-top:2rem;padding-top:.8rem;border-top:1px solid var(--rule);
+  font-size:.8rem;color:var(--mute);
+}
+
+.info-cta{
+  margin-top:2.5rem;padding:1.5rem;text-align:center;
+  background:var(--surface);border:1px solid var(--rule);border-radius:3px;
+}
+.info-cta p{
+  margin:0 0 .8rem;font-family:Spectral,Georgia,serif;
+  font-size:1.1rem;font-weight:600;
+}
+
+/* ---------- spaces ---------- */
+.space-grid{
+  display:grid;gap:1rem;
+  grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+}
+.space-card{
+  background:var(--surface);border:1px solid var(--rule);
+  border-radius:3px;padding:1.1rem;
+}
+.space-card h3{
+  font-family:Spectral,Georgia,serif;font-size:1.1rem;
+  font-weight:600;margin:0 0 .3rem;
+}
+.space-desc{font-size:.87rem;color:var(--slate);margin:0 0 .8rem}
+.space-caps{
+  display:grid;grid-template-columns:auto 1fr;gap:.2rem .8rem;
+  margin:0;font-size:.85rem;padding-top:.7rem;border-top:1px solid var(--rule);
+}
+.space-caps dt{color:var(--slate)}
+.space-caps dd{margin:0;font-weight:500}
+
+/* ---------- menu ---------- */
+.menu-table{width:100%;border-collapse:collapse;font-size:.9rem}
+.menu-table th,.menu-table td{
+  text-align:left;padding:.55rem .5rem;
+  border-bottom:1px solid var(--rule);vertical-align:top;
+}
+.menu-table thead th{
+  font-size:.68rem;text-transform:uppercase;letter-spacing:.09em;
+  color:var(--slate);font-weight:500;
+}
+.menu-table .num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.menu-item-name{display:block;font-weight:500}
+.menu-item-desc{display:block;font-size:.83rem;color:var(--slate);margin-top:.1rem}
+.menu-item-meta{display:block;font-size:.78rem;color:var(--mute);margin-top:.2rem}
+
+/* ---------- classification ---------- */
+.class-defs{
+  display:grid;gap:1rem;margin-bottom:1.5rem;
+  grid-template-columns:repeat(auto-fit,minmax(230px,1fr));
+}
+.class-def{
+  background:var(--surface);border:1px solid var(--rule);
+  border-radius:3px;padding:1.1rem;border-top:3px solid var(--rule);
+}
+.class-def.internal{border-top-color:var(--sage)}
+.class-def.affiliated{border-top-color:var(--brass)}
+.class-def.external{border-top-color:var(--crimson)}
+.class-def h3{
+  font-family:Spectral,Georgia,serif;font-size:1.05rem;
+  font-weight:600;margin:0 0 .4rem;
+}
+.class-def.internal h3{color:var(--sage)}
+.class-def.affiliated h3{color:var(--brass)}
+.class-def.external h3{color:var(--crimson)}
+.class-def p{margin:0 0 .7rem;font-size:.87rem;color:var(--slate)}
+.class-rate{
+  display:block;font-size:.78rem;padding-top:.6rem;
+  border-top:1px solid var(--rule);color:var(--ink);font-weight:500;
+}
+
+.class-table{width:100%;border-collapse:collapse;font-size:.9rem}
+.class-table td{
+  padding:.5rem .5rem;border-bottom:1px solid var(--rule);vertical-align:top;
+}
+.class-type{display:block;font-weight:500}
+.class-guidance{
+  display:block;font-size:.81rem;color:var(--slate);margin-top:.15rem;
+  max-width:52ch;
+}
+.class-verdict{text-align:right;white-space:nowrap;width:1%}
+
+.p-internal{color:var(--sage);border-color:#C4DACF;background:var(--sage-soft)}
+.p-affiliated{color:var(--brass);border-color:#E3D6AE;background:var(--brass-soft)}
+.p-external{color:var(--crimson);border-color:#E8CBD1;background:var(--crimson-soft)}
+
+@media(max-width:560px){
+  .menu-table thead th:nth-child(3),
+  .menu-table tbody td:nth-child(3){display:none}
+}
