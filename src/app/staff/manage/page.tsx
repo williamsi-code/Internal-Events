@@ -47,6 +47,13 @@ export default async function ManagePage() {
                 site.
               </p>
             </Link>
+            <Link href="/staff/manage/people" className="tile">
+              <h3>People and access</h3>
+              <p>
+                Who can reach the queue, the schedule, and this back office.
+                Everyone else can only submit and track their own events.
+              </p>
+            </Link>
           </div>
 
           <div className="callout c-default" style={{ marginTop: '1.5rem' }}>

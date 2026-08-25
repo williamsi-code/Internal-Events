@@ -908,3 +908,29 @@ code{
 .chk-hint{display:block;font-size:.75rem;color:var(--mute);font-weight:400}
 label.chk{align-items:flex-start}
 label.chk input{margin-top:.2rem}
+/* Append these to the end of src/app/globals.css */
+
+/* ---------- people and access ---------- */
+.people-table td{vertical-align:top}
+.people-flags{display:flex;gap:.3rem;flex-wrap:wrap;margin-top:.35rem}
+
+.role-toggles{display:flex;flex-direction:column;gap:.3rem}
+.role-toggle{
+  display:flex;gap:.5rem;align-items:center;
+  font-size:.84rem;cursor:pointer;
+}
+.role-toggle input{accent-color:var(--crimson);margin:0}
+.role-toggle input:disabled{cursor:default;opacity:.5}
+.role-toggle:has(input:checked){font-weight:500}
+
+.you-badge{
+  font-size:.68rem;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--slate);border:1px solid var(--rule);border-radius:2rem;
+  padding:.05rem .4rem;margin-left:.4rem;font-weight:400;
+}
+
+.role-history{list-style:none;margin:0;padding:0;font-size:.85rem}
+.role-history li{
+  display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap;
+  padding:.5rem 0;border-bottom:1px solid var(--rule);
+}
