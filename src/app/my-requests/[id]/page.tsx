@@ -2,6 +2,7 @@ import { redirect, notFound } from 'next/navigation';
 import Link from 'next/link';
 import Masthead from '@/components/Masthead';
 import RequesterActions from '@/components/RequesterActions';
+import HeadcountForm from '@/components/HeadcountForm';
 import { getSessionUser } from '@/lib/auth';
 import { getMyRequest, getVisibleMessages } from '@/lib/requests';
 
@@ -16,8 +17,10 @@ const STATUS_NOTE: Record<string, string> = {
   classified:
     'Your event has been classified. Please review and confirm below.',
   details_pending:
-    'Confirmed. The events office is preparing menus, setup, and an estimate.',
-  confirmed: 'Everything is confirmed for your event.',
+    'Next, choose your menu and confirm how the room should be set up.',
+  pending_final_review:
+    'Your details are with the events office for a final check. You will hear back shortly.',
+  confirmed: 'Your event is confirmed on the campus schedule.',
   completed: 'This event has taken place.',
   cancelled: 'This request was cancelled.',
   denied: 'This request could not be accommodated.',
@@ -38,6 +41,13 @@ export default async function MyRequestPage({
 
   const messages = await getVisibleMessages(id);
   const eventDate = new Date(request.event_date + 'T00:00:00');
+
+  // The count is only worth asking for once the event is actually
+  // going ahead - before that the number would be guesswork on a
+  // request that may not happen.
+  const showHeadcount =
+    ['confirmed', 'pending_final_review'].includes(request.status) &&
+    eventDate.getTime() >= Date.now() - 86_400_000;
 
   return (
     <>
@@ -72,7 +82,9 @@ export default async function MyRequestPage({
                     ? `${request.space_building} \u2014 ${request.space_name}`
                     : request.space_name ?? request.location_freetext}
                 </span>
-                <span>{request.estimated_attendance} guests</span>
+                <span>
+                  {request.final_attendance ?? request.estimated_attendance} guests
+                </span>
               </div>
             </div>
 
@@ -90,6 +102,8 @@ export default async function MyRequestPage({
                 </dl>
               </div>
             </div>
+
+            {showHeadcount && <HeadcountForm request={request} />}
 
             <RequesterActions request={request} messages={messages} />
           </div>

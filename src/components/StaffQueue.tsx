@@ -7,9 +7,10 @@ import type { QueueRow } from '@/lib/requests';
 const FILTERS: [string, string][] = [
   ['open', 'All open'],
   ['needs_decision', 'Needs classification'],
+  ['final_review', 'Final review'],
+  ['headcount', 'Headcount due'],
   ['flagged', 'Flagged'],
   ['info_requested', 'Awaiting requester'],
-  ['classified', 'Classified'],
   ['all', 'Everything'],
 ];
 
@@ -19,33 +20,29 @@ const STATUS_PILL: Record<string, [string, string]> = {
   info_requested: ['p-info', 'Awaiting requester'],
   classified: ['p-classified', 'Classified'],
   details_pending: ['p-classified', 'Details pending'],
+  pending_final_review: ['p-final', 'Final review'],
   confirmed: ['p-confirmed', 'Confirmed'],
   completed: ['p-confirmed', 'Completed'],
   cancelled: ['p-review', 'Cancelled'],
   denied: ['p-flag', 'Denied'],
 };
 
-function matches(r: QueueRow, f: string) {
-  switch (f) {
-    case 'open':
-      return !['confirmed', 'completed', 'cancelled', 'denied'].includes(r.status);
-    case 'needs_decision':
-      return !r.current_classification && r.status !== 'info_requested';
-    case 'flagged':
-      return r.deviates_from_type || r.always_review === true || !r.event_type_name;
-    case 'info_requested':
-      return r.status === 'info_requested';
-    case 'classified':
-      return !!r.current_classification;
-    default:
-      return true;
-  }
-}
+const LIVE = ['confirmed', 'pending_final_review', 'details_pending'];
 
 function daysUntil(date: string) {
   const ms = new Date(date + 'T00:00:00').getTime() - Date.now();
   return Math.round(ms / 86_400_000);
 }
+
+/** Still owes a count, and the event has not happened yet. */
+function headcountOutstanding(r: QueueRow) {
+  return (
+    !r.headcount_submitted_at &&
+    LIVE.includes(r.status) &&
+    daysUntil(r.event_date) >= 0
+  );
+}
+
 /** How much trouble an undecided request is in. Lead time matters more
  *  for larger events, so a 200-guest event a week out is more urgent
  *  than a 10-person meeting on the same day. */
@@ -61,6 +58,26 @@ function urgency(r: QueueRow): 'overdue' | 'soon' | null {
   if (days <= 21) return 'soon';
   return null;
 }
+
+function matches(r: QueueRow, f: string) {
+  switch (f) {
+    case 'open':
+      return !['completed', 'cancelled', 'denied'].includes(r.status);
+    case 'needs_decision':
+      return !r.current_classification && r.status !== 'info_requested';
+    case 'final_review':
+      return r.status === 'pending_final_review';
+    case 'headcount':
+      return headcountOutstanding(r) && (r.days_to_headcount ?? 99) <= 7;
+    case 'flagged':
+      return r.deviates_from_type || r.always_review === true || !r.event_type_name;
+    case 'info_requested':
+      return r.status === 'info_requested';
+    default:
+      return true;
+  }
+}
+
 export default function StaffQueue({ requests }: { requests: QueueRow[] }) {
   const [filter, setFilter] = useState('open');
   const shown = requests.filter((r) => matches(r, filter));
@@ -92,6 +109,9 @@ export default function StaffQueue({ requests }: { requests: QueueRow[] }) {
           {shown.map((r) => {
             const [cls, label] = STATUS_PILL[r.status] ?? ['p-submitted', r.status];
             const days = daysUntil(r.event_date);
+            const hcDays = r.days_to_headcount;
+            const needsCount = headcountOutstanding(r);
+
             return (
               <Link href={`/staff/${r.id}`} className="qcard" key={r.id}>
                 <div className="qtop">
@@ -100,13 +120,13 @@ export default function StaffQueue({ requests }: { requests: QueueRow[] }) {
                 </div>
                 <div className="qname">{r.event_name}</div>
                 <div className="qmeta">
-                  {new Date(r.event_date + 'T00:00:00').toLocaleDateString('en-US', {
-                    month: 'short',
-                    day: 'numeric',
-                    year: 'numeric',
-                  })}
+                  {new Date(r.event_date + 'T00:00:00').toLocaleDateString(
+                    'en-US',
+                    { month: 'short', day: 'numeric', year: 'numeric' }
+                  )}
                   {' \u00b7 '}
-                  {r.estimated_attendance} guests
+                  {r.final_attendance ?? r.estimated_attendance} guests
+                  {r.final_attendance ? ' (final)' : ''}
                   {' \u00b7 '}
                   {r.department_org}
                 </div>
@@ -126,7 +146,23 @@ export default function StaffQueue({ requests }: { requests: QueueRow[] }) {
                   {r.unread_replies > 0 && (
                     <span className="pill p-info">Requester replied</span>
                   )}
-                                   {urgency(r) === 'overdue' && (
+
+                  {needsCount && hcDays !== null && hcDays < 0 && (
+                    <span className="pill p-headcount-late">
+                      Headcount {-hcDays} day{hcDays === -1 ? '' : 's'} overdue
+                    </span>
+                  )}
+                  {needsCount && hcDays !== null && hcDays >= 0 && hcDays <= 7 && (
+                    <span className="pill p-headcount">
+                      Headcount due{' '}
+                      {hcDays === 0 ? 'today' : `in ${hcDays} day${hcDays === 1 ? '' : 's'}`}
+                    </span>
+                  )}
+                  {r.headcount_submitted_at && (
+                    <span className="pill p-count-in">Count in</span>
+                  )}
+
+                  {urgency(r) === 'overdue' && (
                     <span className="pill p-overdue">
                       {days < 0
                         ? 'Event has passed, still unclassified'

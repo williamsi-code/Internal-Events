@@ -19,6 +19,10 @@ export interface QueueRow {
   deviates_from_type: boolean;
   current_classification: Classification | null;
   unread_replies: number;
+  headcount_due_on: string | null;
+  days_to_headcount: number | null;
+  headcount_submitted_at: string | null;
+  final_attendance: number | null;
 }
 
 /** Everything the queue needs, in one round trip. */
@@ -220,6 +224,11 @@ export interface MyRequestDetail {
   decision_rationale: string | null;
   decided_at: string | null;
   acknowledged_at: string | null;
+  details_confirmed_at: string | null;
+  headcount_due_on: string | null;
+  days_to_headcount: number | null;
+  headcount_submitted_at: string | null;
+  final_attendance: number | null;
 }
 
 export async function getMyRequest(id: string, userId: string) {
@@ -236,7 +245,12 @@ export async function getMyRequest(id: string, userId: string) {
             cd.classification AS current_classification,
             cd.rationale AS decision_rationale,
             to_char(cd.decided_at, 'Mon DD, YYYY') AS decided_at,
-            to_char(cd.acknowledged_at, 'Mon DD, YYYY') AS acknowledged_at
+            to_char(cd.acknowledged_at, 'Mon DD, YYYY') AS acknowledged_at,
+            to_char(r.details_confirmed_at, 'Mon DD, YYYY') AS details_confirmed_at,
+            to_char(r.headcount_due_on, 'FMMonth FMDD') AS headcount_due_on,
+            (r.headcount_due_on - CURRENT_DATE) AS days_to_headcount,
+            to_char(r.headcount_submitted_at, 'Mon FMDD, YYYY') AS headcount_submitted_at,
+            r.final_attendance
        FROM event_requests r
        LEFT JOIN spaces s ON s.id = r.space_id
        LEFT JOIN event_types et ON et.id = r.event_type_id
@@ -356,5 +370,36 @@ export async function getDetailsState(requestId: string, userId: string) {
        LEFT JOIN event_requirements req ON req.request_id = r.id
       WHERE r.id = $1 AND r.requester_id = $2`,
     [requestId, userId]
+  );
+}
+
+/* ------------------------------------------------------------
+   Final headcount.
+   ------------------------------------------------------------ */
+
+export interface HeadcountDue {
+  id: string;
+  reference_code: string;
+  event_name: string;
+  event_date: string;
+  headcount_due_on: string;
+  days_remaining: number;
+  estimated_attendance: number;
+  requester_name: string;
+  contact_email: string;
+  department_org: string;
+  classification: Classification | null;
+}
+
+/** Everything still owing a final count, soonest deadline first.
+ *  Negative days_remaining means the deadline has passed. */
+export async function listHeadcountOutstanding() {
+  return query<HeadcountDue>(
+    `SELECT id, reference_code, event_name,
+            to_char(event_date, 'YYYY-MM-DD') AS event_date,
+            to_char(headcount_due_on, 'Mon FMDD') AS headcount_due_on,
+            days_remaining, estimated_attendance,
+            requester_name, contact_email, department_org, classification
+       FROM headcount_outstanding`
   );
 }

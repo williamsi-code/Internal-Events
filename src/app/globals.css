@@ -550,3 +550,19 @@ textarea:disabled{background:var(--paper);color:var(--slate)}
   white-space:nowrap;
 }
 .sheet-link:hover{border-color:var(--crimson);color:var(--crimson)}
+/* Append these to the end of src/app/globals.css */
+
+/* ---------- final headcount ---------- */
+.headcount-row{
+  display:flex;gap:.75rem;align-items:flex-end;flex-wrap:wrap;
+}
+.headcount-row .field{flex:0 1 12rem}
+.headcount-row input{font-size:1.1rem;font-weight:600;text-align:right}
+
+.p-headcount{
+  color:var(--brass);border-color:#E3D6AE;background:var(--brass-soft);
+}
+.p-headcount-late{
+  color:#fff;background:var(--brass);border-color:var(--brass);font-weight:500;
+}
+.p-count-in{color:var(--sage);border-color:#C4DACF;background:var(--sage-soft)}
