@@ -19,25 +19,43 @@ export default async function Masthead({ current }: { current?: string }) {
     <>
       <header className="masthead">
         <div className="masthead-inner">
-          <Link href="/" className="wordmark" style={{ textDecoration: 'none', color: 'inherit' }}>
+          <Link
+            href="/"
+            className="wordmark"
+            style={{ textDecoration: 'none', color: 'inherit' }}
+          >
             Central <span>College</span>
           </Link>
           <div className="unit">Events &amp; Conferences</div>
           <div className="masthead-right">
             {user ? (
               <>
-                {isStaff && <Link href="/staff">Staff queue</Link>}
-{isStaff && ' · '}
+                {isStaff && (
+                  <>
+                    <Link href="/staff">Staff queue</Link>
+                    {' \u00b7 '}
+                    <Link href="/staff/manage">Back office</Link>
+                    {' \u00b7 '}
+                  </>
+                )}
                 <Link href="/my-requests">My requests</Link>
-                {isStaff && ' · '}
+                {' \u00b7 '}
                 {user.full_name}
-                {' · '}
-                <form action="/api/auth/sign-out" method="post" style={{ display: 'inline' }}>
+                {' \u00b7 '}
+                <form
+                  action="/api/auth/sign-out"
+                  method="post"
+                  style={{ display: 'inline' }}
+                >
                   <button
                     type="submit"
                     style={{
-                      background: 'none', border: 0, padding: 0,
-                      font: 'inherit', color: 'var(--crimson)', cursor: 'pointer',
+                      background: 'none',
+                      border: 0,
+                      padding: 0,
+                      font: 'inherit',
+                      color: 'var(--crimson)',
+                      cursor: 'pointer',
                     }}
                   >
                     Sign out
@@ -53,9 +71,12 @@ export default async function Masthead({ current }: { current?: string }) {
 
       <nav className="sitenav" aria-label="Sections">
         <ul>
-          {SECTIONS.map(s => (
+          {SECTIONS.map((s) => (
             <li key={s.href}>
-              <Link href={s.href} aria-current={current === s.href ? 'page' : undefined}>
+              <Link
+                href={s.href}
+                aria-current={current === s.href ? 'page' : undefined}
+              >
                 {s.label}
               </Link>
             </li>

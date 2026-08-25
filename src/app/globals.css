@@ -683,3 +683,73 @@ textarea:disabled{background:var(--paper);color:var(--slate)}
   .menu-table thead th:nth-child(3),
   .menu-table tbody td:nth-child(3){display:none}
 }
+/* Append these to the end of src/app/globals.css */
+
+/* ============================================================
+   Back office
+   ============================================================ */
+
+.admin-bar{
+  display:flex;gap:1rem;align-items:center;flex-wrap:wrap;
+  margin-bottom:1.25rem;
+}
+.admin-note{font-size:.82rem;color:var(--slate);max-width:44ch}
+
+.admin-tabs{display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:1.25rem}
+
+.admin-editor{
+  background:var(--surface);border:1px solid var(--crimson);
+  border-radius:3px;padding:1.5rem;margin-bottom:1.75rem;
+}
+.admin-editor h3{
+  font-family:Spectral,Georgia,serif;font-size:1.2rem;
+  font-weight:600;margin:0 0 1rem;
+}
+.admin-h3{
+  font-family:Spectral,Georgia,serif;font-size:1.1rem;font-weight:600;
+  margin:0 0 .5rem;color:var(--slate);
+}
+.admin-h4{
+  font-size:.72rem;text-transform:uppercase;letter-spacing:.09em;
+  color:var(--mute);margin:1.5rem 0 .6rem;font-weight:500;
+}
+.admin-section{margin-bottom:2rem}
+.admin-meta{
+  font-size:.78rem;color:var(--mute);margin:1.2rem 0 0;
+  padding-top:.8rem;border-top:1px solid var(--rule);
+}
+
+.price-grid{
+  display:grid;gap:1rem;
+  grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
+}
+.price-grid input{text-align:right;font-variant-numeric:tabular-nums}
+
+.chk-inline{
+  display:flex;gap:.5rem;align-items:center;font-size:.88rem;
+  margin-bottom:.5rem;cursor:pointer;
+}
+.chk-inline input{accent-color:var(--crimson);margin:0}
+
+.admin-table{width:100%;border-collapse:collapse;font-size:.89rem}
+.admin-table th,.admin-table td{
+  text-align:left;padding:.55rem .5rem;
+  border-bottom:1px solid var(--rule);vertical-align:top;
+}
+.admin-table thead th{
+  font-size:.68rem;text-transform:uppercase;letter-spacing:.09em;
+  color:var(--slate);font-weight:500;
+}
+.admin-table .num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.admin-table tr.inactive{opacity:.55}
+.admin-name{display:block;font-weight:500}
+.admin-sub{display:block;font-size:.79rem;color:var(--mute);margin-top:.1rem}
+
+.body-editor{
+  min-height:22rem;font-family:"IBM Plex Mono",monospace;
+  font-size:.85rem;line-height:1.6;
+}
+code{
+  font-family:"IBM Plex Mono",monospace;font-size:.85em;
+  background:var(--paper);padding:.1em .3em;border-radius:2px;
+}
