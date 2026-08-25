@@ -3,9 +3,15 @@ import Link from 'next/link';
 import Masthead from '@/components/Masthead';
 import DecisionPanel from '@/components/DecisionPanel';
 import ChangeFlags from '@/components/ChangeFlags';
+import CapacityPanel from '@/components/CapacityPanel';
 import { getSessionUser } from '@/lib/auth';
 import { getRequest, getMessages } from '@/lib/requests';
 import { changesSinceClassification } from '@/lib/changes';
+import {
+  getCapacityContext,
+  listSameDayBookings,
+  listAlternativeSpaces,
+} from '@/lib/capacity';
 
 export const dynamic = 'force-dynamic';
 
@@ -53,6 +59,20 @@ export default async function RequestDetailPage({
     : [];
 
   const awaitingFinalReview = request.status === 'pending_final_review';
+
+  // The capacity check follows classification: there is no point
+  // weighing whether we can do an event before knowing what it is.
+  const showCapacity =
+    !!request.current_classification &&
+    !['denied', 'cancelled', 'completed'].includes(request.status);
+
+  const [capacityContext, sameDay, altSpaces] = showCapacity
+    ? await Promise.all([
+        getCapacityContext(id),
+        listSameDayBookings(id),
+        listAlternativeSpaces(id),
+      ])
+    : [null, [], []];
 
   const eventDate = new Date(request.event_date + 'T00:00:00');
   const days = Math.round((eventDate.getTime() - Date.now()) / 86_400_000);
@@ -236,6 +256,14 @@ export default async function RequestDetailPage({
             </div>
 
             <DecisionPanel request={request} messages={messages} />
+
+            {showCapacity && capacityContext && (
+              <CapacityPanel
+                context={capacityContext}
+                sameDay={sameDay}
+                alternatives={altSpaces}
+              />
+            )}
           </div>
         </div>
       </main>

@@ -870,3 +870,41 @@ code{
   .cal-day{min-height:4.5rem}
   .cal-event-title{font-size:.68rem}
 }
+/* Append these to the end of src/app/globals.css */
+
+/* ---------- capacity check ---------- */
+.cap-facts{
+  display:grid;gap:.75rem;margin-bottom:1.1rem;
+  grid-template-columns:repeat(auto-fit,minmax(130px,1fr));
+}
+.cap-fact{
+  background:var(--paper);border:1px solid var(--rule);
+  border-radius:2px;padding:.7rem .8rem;border-left:3px solid var(--rule);
+}
+.cap-fact.warn{border-left-color:var(--brass);background:var(--brass-soft)}
+.cap-fact.bad{border-left-color:var(--crimson);background:var(--crimson-soft)}
+.cap-n{
+  display:block;font-family:Spectral,Georgia,serif;
+  font-size:1.5rem;font-weight:600;line-height:1;
+}
+.cap-l{display:block;font-size:.75rem;color:var(--slate);margin-top:.25rem}
+
+.cap-sameday{
+  border:1px solid var(--rule);border-radius:2px;
+  padding:.6rem .85rem;margin-bottom:1.1rem;background:var(--paper);
+}
+.cap-sameday summary{cursor:pointer;font-size:.87rem;font-weight:500}
+.cap-sameday ul{list-style:none;margin:.7rem 0 0;padding:0;font-size:.85rem}
+.cap-sameday li{
+  display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;
+  padding:.5rem 0;border-top:1px solid var(--rule);
+}
+
+.cap-branch{
+  border-left:2px solid var(--crimson-soft);
+  padding-left:1rem;margin:1rem 0;
+}
+
+.chk-hint{display:block;font-size:.75rem;color:var(--mute);font-weight:400}
+label.chk{align-items:flex-start}
+label.chk input{margin-top:.2rem}
