@@ -753,3 +753,120 @@ code{
   font-family:"IBM Plex Mono",monospace;font-size:.85em;
   background:var(--paper);padding:.1em .3em;border-radius:2px;
 }
+/* Append these to the end of src/app/globals.css */
+
+/* ============================================================
+   Room scheduler
+   ============================================================ */
+
+.cal-bar{
+  display:flex;justify-content:space-between;align-items:center;
+  gap:1rem;flex-wrap:wrap;margin-bottom:1rem;
+}
+.cal-nav{display:flex;align-items:center;gap:.5rem}
+.cal-nav h2{
+  font-family:Spectral,Georgia,serif;font-size:1.35rem;font-weight:600;
+  margin:0;min-width:11rem;text-align:center;
+}
+.cal-nav .btn{padding:.4rem .8rem}
+.cal-tools{display:flex;gap:.6rem;align-items:center;flex-wrap:wrap}
+.cal-tools select{width:auto;min-width:12rem}
+.conflict-btn{border-color:var(--crimson);color:var(--crimson);font-weight:500}
+
+.conflict-panel{
+  background:var(--crimson-soft);border:1px solid #E8CBD1;
+  border-radius:3px;padding:1.1rem 1.25rem;margin-bottom:1.25rem;
+}
+.conflict-panel h3{
+  font-family:Spectral,Georgia,serif;font-size:1.05rem;
+  margin:0 0 .3rem;font-weight:600;color:#5E1220;
+}
+.conflict-panel ul{list-style:none;margin:.8rem 0 0;padding:0;font-size:.86rem}
+.conflict-panel li{
+  display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;
+  padding:.6rem 0;border-top:1px solid #E8CBD1;
+}
+.conflict-pair{color:var(--slate);font-size:.82rem}
+
+.cal-legend{
+  display:flex;gap:1.1rem;flex-wrap:wrap;margin-bottom:.75rem;
+  font-size:.78rem;color:var(--slate);
+}
+.legend-item{display:flex;align-items:center;gap:.4rem}
+.swatch{width:.85rem;height:.85rem;border-radius:2px;display:inline-block}
+.swatch.confirmed{background:var(--sage)}
+.swatch.tentative{background:var(--surface);border:1px dashed var(--brass)}
+.swatch.blackout{background:var(--slate)}
+.swatch.conflict{background:var(--crimson)}
+
+.calendar{
+  background:var(--surface);border:1px solid var(--rule);
+  border-radius:3px;overflow:hidden;
+}
+.cal-head{display:grid;grid-template-columns:repeat(7,1fr);background:var(--paper)}
+.cal-dayname{
+  padding:.5rem;font-size:.7rem;text-transform:uppercase;
+  letter-spacing:.09em;color:var(--slate);text-align:center;
+  border-bottom:1px solid var(--rule);
+}
+.cal-week{display:grid;grid-template-columns:repeat(7,1fr)}
+.cal-day{
+  min-height:7rem;padding:.35rem;border-right:1px solid var(--rule);
+  border-bottom:1px solid var(--rule);
+}
+.cal-week:last-child .cal-day{border-bottom:0}
+.cal-day:last-child{border-right:0}
+.cal-day.outside{background:var(--paper)}
+.cal-day.outside .cal-date{color:var(--mute)}
+.cal-day.today{background:var(--sage-soft)}
+.cal-day.today .cal-date{
+  color:var(--sage);font-weight:600;
+}
+.cal-date{font-size:.78rem;color:var(--slate);margin-bottom:.25rem;padding-left:.15rem}
+
+.cal-event{
+  display:block;width:100%;text-align:left;border:0;cursor:pointer;
+  padding:.2rem .35rem;margin-bottom:.15rem;border-radius:2px;
+  font-size:.72rem;line-height:1.25;background:none;
+  border-left:3px solid transparent;
+}
+.cal-event.confirmed{background:var(--sage-soft);border-left-color:var(--sage)}
+.cal-event.tentative{
+  background:var(--surface);border-left-color:var(--brass);
+  border-top:1px dashed var(--rule);border-bottom:1px dashed var(--rule);
+}
+.cal-event.blackout{background:#EDEEF0;border-left-color:var(--slate);color:var(--slate)}
+.cal-event.conflict{background:var(--crimson-soft);border-left-color:var(--crimson)}
+.cal-event:hover{filter:brightness(.96)}
+.cal-event-time{display:block;color:var(--slate);font-size:.68rem}
+.cal-event-title{
+  display:block;font-weight:500;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap;
+}
+
+.booking-panel{
+  position:sticky;bottom:1rem;margin-top:1.25rem;
+  background:var(--surface);border:1px solid var(--crimson);
+  border-radius:3px;padding:1.25rem;
+}
+.booking-head{
+  display:flex;justify-content:space-between;gap:1rem;
+  align-items:flex-start;margin-bottom:1rem;
+}
+.booking-head h3{
+  font-family:Spectral,Georgia,serif;font-size:1.25rem;
+  font-weight:600;margin:.4rem 0 .2rem;
+}
+.booking-dl{
+  display:grid;grid-template-columns:auto 1fr;gap:.3rem .9rem;
+  margin:0 0 1rem;font-size:.88rem;
+}
+.booking-dl dt{color:var(--slate)}
+.booking-dl dd{margin:0}
+
+.p-tentative{color:var(--brass);border-color:#E3D6AE;background:var(--brass-soft)}
+
+@media(max-width:760px){
+  .cal-day{min-height:4.5rem}
+  .cal-event-title{font-size:.68rem}
+}

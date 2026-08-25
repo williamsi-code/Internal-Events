@@ -32,7 +32,9 @@ export default async function Masthead({ current }: { current?: string }) {
               <>
                 {isStaff && (
                   <>
-                    <Link href="/staff">Staff queue</Link>
+                    <Link href="/staff">Queue</Link>
+                    {' \u00b7 '}
+                    <Link href="/staff/schedule">Schedule</Link>
                     {' \u00b7 '}
                     <Link href="/staff/manage">Back office</Link>
                     {' \u00b7 '}
