@@ -36,6 +36,8 @@ export default async function Masthead({ current }: { current?: string }) {
                     {' \u00b7 '}
                     <Link href="/staff/schedule">Schedule</Link>
                     {' \u00b7 '}
+                    <Link href="/staff/closeout">Close out</Link>
+                    {' \u00b7 '}
                     <Link href="/staff/manage">Back office</Link>
                     {' \u00b7 '}
                   </>

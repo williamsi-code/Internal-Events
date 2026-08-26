@@ -934,3 +934,25 @@ label.chk input{margin-top:.2rem}
   display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap;
   padding:.5rem 0;border-bottom:1px solid var(--rule);
 }
+/* Append these to the end of src/app/globals.css */
+
+/* ---------- close out ---------- */
+.cost-grid{
+  display:grid;gap:1rem;margin-bottom:1rem;
+  grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+}
+.cost-grid input{text-align:right;font-variant-numeric:tabular-nums}
+
+.closeout-summary{
+  display:grid;gap:1rem;margin:1.25rem 0;
+  grid-template-columns:repeat(auto-fit,minmax(130px,1fr));
+  padding:1rem;background:var(--paper);
+  border:1px solid var(--rule);border-radius:2px;
+}
+.closeout-summary.live{border-color:var(--ink)}
+.closeout-summary > div{display:flex;flex-direction:column-reverse;gap:.15rem}
+.closeout-summary .cap-n{
+  font-family:Spectral,Georgia,serif;font-size:1.35rem;font-weight:600;
+}
+.closeout-summary .pos .cap-n{color:var(--sage)}
+.closeout-summary .neg .cap-n{color:var(--crimson)}
