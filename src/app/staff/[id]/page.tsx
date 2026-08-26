@@ -4,6 +4,7 @@ import Masthead from '@/components/Masthead';
 import DecisionPanel from '@/components/DecisionPanel';
 import ChangeFlags from '@/components/ChangeFlags';
 import CapacityPanel from '@/components/CapacityPanel';
+import RequestActions from '@/components/RequestActions';
 import { getSessionUser } from '@/lib/auth';
 import { getRequest, getMessages } from '@/lib/requests';
 import { changesSinceClassification } from '@/lib/changes';
@@ -53,15 +54,12 @@ export default async function RequestDetailPage({
 
   const messages = await getMessages(id);
 
-  // Only worth computing once there is a classification to compare against.
   const changes = request.current_classification
     ? await changesSinceClassification(id)
     : [];
 
   const awaitingFinalReview = request.status === 'pending_final_review';
 
-  // The capacity check follows classification: there is no point
-  // weighing whether we can do an event before knowing what it is.
   const showCapacity =
     !!request.current_classification &&
     !['denied', 'cancelled', 'completed'].includes(request.status);
@@ -100,6 +98,9 @@ export default async function RequestDetailPage({
                 >
                   {awaitingFinalReview && (
                     <span className="pill p-final">Awaiting final review</span>
+                  )}
+                  {request.status === 'cancelled' && (
+                    <span className="pill p-cancelled">Cancelled</span>
                   )}
                   {request.current_classification && (
                     <Link
@@ -264,6 +265,14 @@ export default async function RequestDetailPage({
                 alternatives={altSpaces}
               />
             )}
+
+            <RequestActions
+              requestId={id}
+              referenceCode={request.reference_code}
+              status={request.status}
+              isAdmin={user.roles.includes('admin')}
+              isClosed={false}
+            />
           </div>
         </div>
       </main>

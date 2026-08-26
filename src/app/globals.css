@@ -956,3 +956,20 @@ label.chk input{margin-top:.2rem}
 }
 .closeout-summary .pos .cap-n{color:var(--sage)}
 .closeout-summary .neg .cap-n{color:var(--crimson)}
+/* Append these to the end of src/app/globals.css */
+
+/* ---------- cancel and delete ---------- */
+.danger-sec{background:var(--paper)}
+.danger-sec .sec-head h3{color:var(--slate)}
+
+.btn-ghost.danger{color:var(--crimson);border-color:#E8CBD1}
+.btn-ghost.danger:hover{border-color:var(--crimson);background:var(--crimson-soft)}
+
+.btn-danger{
+  background:var(--crimson);color:#fff;font-weight:500;
+  border:1px solid var(--crimson);
+}
+.btn-danger:hover:not(:disabled){background:#751625}
+.btn-danger:disabled{opacity:.45;cursor:not-allowed}
+
+.p-cancelled{color:var(--mute);border-color:var(--rule);background:var(--paper)}
