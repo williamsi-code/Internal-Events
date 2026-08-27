@@ -155,7 +155,6 @@ export default function IntakeForm({
       if (eventTypeId === 'other' && !eventTypeOther.trim())
         e.eventTypeOther = 'Describe your event type.';
       if (!eventName.trim()) e.eventName = 'Give the event a name.';
-      if (!eventPurpose.trim()) e.eventPurpose = 'Describe the purpose of the event.';
       if (!eventDate) e.eventDate = 'Choose a date.';
       if (!startTime) e.startTime = 'Enter a start time.';
       if (!endTime) e.endTime = 'Enter an end time.';
@@ -413,11 +412,12 @@ export default function IntakeForm({
             </div>
 
             <div className="field">
-              <label htmlFor="eventPurpose">Event purpose<span className="req">*</span></label>
-              <p className="sub">What is the event for, and who is it for? A sentence or two is plenty.</p>
+                            <label htmlFor="eventPurpose">Event purpose</label>
+                            <p className="sub">
+                Optional, but helpful. What is the event for, and who is it for?
+              </p>
               <textarea id="eventPurpose" value={eventPurpose}
                 onChange={e => setEventPurpose(e.target.value)} />
-              {err('eventPurpose')}
             </div>
 
             <div className="grid two">
