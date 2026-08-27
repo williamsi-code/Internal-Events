@@ -2,8 +2,10 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import Masthead from '@/components/Masthead';
 import { getSessionUser } from '@/lib/auth';
+import { getCatererSummary } from '@/lib/caterers';
 
 export const metadata = { title: 'Back office' };
+export const dynamic = 'force-dynamic';
 
 export default async function ManagePage() {
   const user = await getSessionUser();
@@ -11,6 +13,9 @@ export default async function ManagePage() {
   const isStaff =
     user.roles.includes('events_staff') || user.roles.includes('admin');
   if (!isStaff) redirect('/');
+
+  const caterers = await getCatererSummary();
+  const pending = caterers?.pending ?? 0;
 
   return (
     <>
@@ -40,11 +45,23 @@ export default async function ManagePage() {
                 hidden rather than deleted, so past events keep their location.
               </p>
             </Link>
+            <Link href="/staff/manage/caterers" className="tile">
+              <h3>
+                Approved caterers
+                {pending > 0 && (
+                  <span className="tile-badge">{pending} waiting</span>
+                )}
+              </h3>
+              <p>
+                Who may bring food onto campus. Applications land here, and
+                lapsed insurance removes a caterer from the list automatically.
+              </p>
+            </Link>
             <Link href="/staff/manage/policies" className="tile">
               <h3>Policy pages</h3>
               <p>
-                Internal and external event policies as published on the public
-                site.
+                Internal and external event policies, caterer requirements, and
+                the donated food policy.
               </p>
             </Link>
             <Link href="/staff/manage/people" className="tile">

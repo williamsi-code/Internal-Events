@@ -973,3 +973,23 @@ label.chk input{margin-top:.2rem}
 .btn-danger:disabled{opacity:.45;cursor:not-allowed}
 
 .p-cancelled{color:var(--mute);border-color:var(--rule);background:var(--paper)}
+/* Append these to the end of src/app/globals.css */
+
+/* ---------- caterers ---------- */
+.caterer-detail{
+  margin-top:.9rem;padding-top:.9rem;border-top:1px solid var(--rule);
+}
+.submission-dl{
+  display:grid;grid-template-columns:minmax(120px,28%) 1fr;
+  gap:.3rem .9rem;margin:0;font-size:.87rem;
+}
+@media(max-width:620px){.submission-dl{grid-template-columns:1fr;gap:.05rem .5rem}}
+.submission-dl dt{color:var(--slate)}
+.submission-dl dd{margin:0}
+
+.tile-badge{
+  display:inline-block;margin-left:.5rem;font-size:.68rem;
+  font-weight:500;padding:.1rem .45rem;border-radius:2rem;
+  background:var(--brass-soft);color:var(--brass);
+  border:1px solid #E3D6AE;vertical-align:middle;
+}
