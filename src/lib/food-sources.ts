@@ -81,7 +81,7 @@ export async function getFacilityCharge(requestId: string) {
 }
 
 export const FOOD_SOURCE_LABEL: Record<string, string> = {
-  central_dining: 'Central Dining',
+  central_dining: 'Central Catering',
   outside_caterer: 'Outside caterer',
   donated: 'Donated food',
   no_food: 'No food',

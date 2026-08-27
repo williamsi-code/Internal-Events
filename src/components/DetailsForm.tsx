@@ -245,7 +245,7 @@ export default function DetailsForm({
             <span className="eyebrow">Menu</span>
             <h2>No menu for this event</h2>
             <p className="hint">
-              Central Dining is not providing food, so there is nothing to
+              Central Catering is not providing food, so there is nothing to
               choose here. Arrange the food directly with your caterer, and
               confirm the setup details below.
             </p>

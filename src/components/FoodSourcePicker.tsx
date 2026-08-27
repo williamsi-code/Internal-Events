@@ -13,7 +13,7 @@ export interface FoodSource {
 const OPTIONS: [FoodSource['kind'], string, string][] = [
   [
     'central_dining',
-    'Central Dining',
+    'Central Catering',
     'We cook and serve. This is the usual arrangement.',
   ],
   [
@@ -24,7 +24,7 @@ const OPTIONS: [FoodSource['kind'], string, string][] = [
   [
     'donated',
     'Food is being donated',
-    'Food arriving from outside campus, whether purchased or given.',
+    'Donated food arriving from outside campus.',
   ],
   ['no_food', 'No food at this event', 'Space only.'],
 ];
@@ -216,7 +216,7 @@ export default function FoodSourcePicker({
       {split && (
         <div className="callout c-default" style={{ marginTop: '1rem' }}>
           <strong>Split catering</strong>
-          Central Dining will price its portion from the menu. The events office
+          Central Catering will price its portion from the menu. The events office
           will confirm whether a facility charge applies to the rest.
         </div>
       )}

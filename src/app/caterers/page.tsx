@@ -18,7 +18,7 @@ export default async function CaterersPage() {
         <div className="pagehead">
           <h1>Catering at Central College</h1>
           <p className="lede">
-            Most events on campus are catered by Central Dining. Where an
+            Most events on campus are catered by Central Catering. Where an
             outside caterer is used instead, they must be approved in advance
             and hold current licensing and insurance.
           </p>
@@ -27,7 +27,7 @@ export default async function CaterersPage() {
         <div className="shell" style={{ maxWidth: '54rem' }}>
           <div className="tiles">
             <Link href="/info/catering-menu" className="tile primary">
-              <h3>Central Dining</h3>
+              <h3>Central Catering</h3>
               <p>
                 Our menu, with pricing for internal, affiliated, and external
                 events. This is the usual path for events on campus.

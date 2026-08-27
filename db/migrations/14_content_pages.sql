@@ -56,7 +56,7 @@ accommodated where possible and may carry additional cost.
 
 ## Outside food
 
-Food not prepared by Central Dining may not be served at internal events
+Food not prepared by Central Catering may not be served at internal events
 without written approval. This is a food safety requirement, not a
 commercial one.'),
 

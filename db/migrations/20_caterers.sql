@@ -2,7 +2,7 @@
 -- Migration 20 - Outside caterers and food sources
 --
 -- Food provision is a set, not a single choice: an event can have
--- Central Dining on the reception and an outside caterer on
+-- Central Catering on the reception and an outside caterer on
 -- dessert. Modelling it as one field would force a false choice
 -- and lose the split.
 --
@@ -111,7 +111,7 @@ CREATE TABLE event_food_sources (
 CREATE INDEX ON event_food_sources (request_id);
 CREATE INDEX ON event_food_sources (caterer_id);
 
--- Backfill: every existing request is Central Dining unless it has
+-- Backfill: every existing request is Central Catering unless it has
 -- no food requirements recorded at all.
 INSERT INTO event_food_sources (request_id, kind)
 SELECT r.id,
