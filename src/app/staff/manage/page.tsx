@@ -24,13 +24,21 @@ export default async function ManagePage() {
         <div className="pagehead">
           <h1>Back office</h1>
           <p className="lede">
-            Everything the request workflow reads from. Changes here appear on
-            the public pages and in new requests immediately.
+            Everything the request workflow reads from, and everything it
+            produces. Changes here appear on the public pages and in new
+            requests immediately.
           </p>
         </div>
         <div className="shell">
           <div className="tiles">
-            <Link href="/staff/manage/menu" className="tile primary">
+            <Link href="/staff/manage/reports" className="tile primary">
+              <h3>Reports</h3>
+              <p>
+                The quarterly leadership report, and a filterable view of every
+                event with CSV export.
+              </p>
+            </Link>
+            <Link href="/staff/manage/menu" className="tile">
               <h3>Catering menu</h3>
               <p>
                 Items, descriptions, minimums, allergens, and the four price
@@ -41,8 +49,9 @@ export default async function ManagePage() {
             <Link href="/staff/manage/spaces" className="tile">
               <h3>Event spaces</h3>
               <p>
-                Rooms, capacities, and whether catering is permitted. Spaces are
-                hidden rather than deleted, so past events keep their location.
+                Rooms, capacities, facility rates, and whether catering is
+                permitted. Spaces are hidden rather than deleted, so past events
+                keep their location.
               </p>
             </Link>
             <Link href="/staff/manage/caterers" className="tile">

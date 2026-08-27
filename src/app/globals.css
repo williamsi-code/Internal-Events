@@ -1242,3 +1242,51 @@ label.chk input{margin-top:.2rem}
   .resgrid-corner,.resgrid-label{flex-basis:7.5rem}
   .grid-nav h2{min-width:auto;font-size:1.1rem}
 }
+/* Append these to the end of src/app/globals.css */
+
+/* ============================================================
+   Reports
+   ============================================================ */
+
+.report-controls{
+  display:flex;gap:.9rem;align-items:flex-end;flex-wrap:wrap;
+  margin-bottom:1.5rem;padding:1rem 1.15rem;
+  background:var(--surface);border:1px solid var(--rule);border-radius:3px;
+}
+.report-controls .field{margin-bottom:0}
+.report-controls input,.report-controls select{width:auto;min-width:9rem}
+
+.report .sheet-section h2{
+  font-family:Spectral,Georgia,serif;font-size:1.15rem;
+}
+.report-figures{
+  display:grid;gap:.9rem;margin:.9rem 0 1rem;
+  grid-template-columns:repeat(auto-fit,minmax(120px,1fr));
+  padding:.9rem 1rem;background:var(--paper);
+  border:1px solid var(--rule);border-radius:2px;
+}
+.report-figures > div{display:flex;flex-direction:column-reverse;gap:.15rem}
+.report-figures .cap-n{
+  font-family:Spectral,Georgia,serif;font-size:1.3rem;font-weight:600;
+  line-height:1.1;
+}
+.report-figures .pos .cap-n{color:var(--sage)}
+.report-figures .neg .cap-n{color:var(--crimson)}
+
+/* ---------- event explorer ---------- */
+.explorer-filters{
+  display:grid;gap:.9rem;margin-bottom:1rem;
+  grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
+  padding:1.1rem 1.2rem;background:var(--surface);
+  border:1px solid var(--rule);border-radius:3px;
+}
+.explorer-filters .field{margin-bottom:0}
+
+.table-scroll{overflow-x:auto}
+.table-scroll .admin-table{min-width:44rem}
+.explorer-link{font-weight:500;text-decoration:none;display:block}
+.explorer-link:hover{text-decoration:underline}
+
+@media print{
+  .report-controls,.explorer-filters{display:none}
+}
