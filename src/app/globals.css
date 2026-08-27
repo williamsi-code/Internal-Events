@@ -1018,3 +1018,92 @@ label.chk input{margin-top:.2rem}
 .source-list li:first-child{border-top:0}
 .source-name{display:block;font-weight:500}
 .source-covers{display:block;font-size:.8rem;color:var(--slate);margin-top:.1rem}
+/* Append these to the end of src/app/globals.css */
+
+/* ============================================================
+   Notifications
+   ============================================================ */
+
+.notif-wrap{position:relative;display:inline-block;margin-left:.6rem}
+
+.notif-bell{
+  background:none;border:1px solid var(--rule);border-radius:2rem;
+  padding:.2rem .6rem;cursor:pointer;font:inherit;font-size:.78rem;
+  color:var(--slate);display:inline-flex;align-items:center;gap:.35rem;
+  line-height:1.4;
+}
+.notif-bell:hover{border-color:var(--mute)}
+.notif-bell span[aria-hidden]{font-size:.6rem;color:var(--sage)}
+.notif-bell.has-overdue span[aria-hidden]{color:var(--crimson)}
+.notif-count{
+  font-family:"IBM Plex Mono",monospace;font-weight:500;color:var(--ink);
+}
+.notif-bell.has-overdue{border-color:#E8CBD1;background:var(--crimson-soft)}
+.notif-bell.has-overdue .notif-count{color:var(--crimson)}
+
+.notif-scrim{
+  position:fixed;inset:0;background:none;border:0;z-index:40;cursor:default;
+}
+
+.notif-panel{
+  position:absolute;right:0;top:calc(100% + .5rem);z-index:41;
+  width:min(23rem,calc(100vw - 2rem));
+  background:var(--surface);border:1px solid var(--rule);
+  border-radius:3px;box-shadow:0 6px 24px rgba(22,25,29,.12);
+}
+.notif-head{
+  display:flex;justify-content:space-between;align-items:baseline;
+  padding:.8rem 1rem;border-bottom:1px solid var(--rule);
+}
+.notif-head h3{
+  font-family:Spectral,Georgia,serif;font-size:1rem;margin:0;font-weight:600;
+}
+
+.notif-list{list-style:none;margin:0;padding:0;max-height:26rem;overflow-y:auto}
+.notif-list li{border-bottom:1px solid var(--rule)}
+.notif-list li:last-child{border-bottom:0}
+.notif-list a{
+  display:block;padding:.7rem 1rem;text-decoration:none;color:inherit;
+  border-left:3px solid transparent;
+}
+.notif-list a:hover{background:var(--paper)}
+.notif-list li.action a{border-left-color:var(--brass)}
+.notif-list li.overdue a{border-left-color:var(--crimson)}
+.notif-list li.waiting a{border-left-color:var(--rule)}
+.notif-title{display:block;font-size:.88rem;font-weight:500;line-height:1.3}
+.notif-detail{
+  display:block;font-size:.79rem;color:var(--slate);margin-top:.15rem;
+}
+
+/* ---------- toast ---------- */
+.notif-toast{
+  position:fixed;right:1.25rem;bottom:1.25rem;z-index:60;
+  width:min(24rem,calc(100vw - 2.5rem));
+  background:var(--surface);border:1px solid var(--ink);
+  border-left:4px solid var(--crimson);border-radius:3px;
+  padding:1rem 1.1rem;box-shadow:0 8px 28px rgba(22,25,29,.16);
+}
+@media(prefers-reduced-motion:no-preference){
+  .notif-toast{animation:toast-in .28s ease-out}
+  @keyframes toast-in{
+    from{opacity:0;transform:translateY(.75rem)}
+    to{opacity:1;transform:none}
+  }
+}
+.notif-toast-body strong{
+  display:block;font-size:.94rem;line-height:1.3;margin-bottom:.2rem;
+}
+.notif-toast-body span{display:block;font-size:.82rem;color:var(--slate)}
+.notif-toast-actions{
+  display:flex;gap:.6rem;align-items:center;margin-top:.9rem;
+}
+.notif-toast-actions .btn{padding:.45rem 1rem;font-size:.85rem}
+.notif-dismiss{
+  background:none;border:0;padding:0;font:inherit;font-size:.82rem;
+  color:var(--slate);cursor:pointer;text-decoration:underline;
+}
+.notif-dismiss:hover{color:var(--ink)}
+
+@media(max-width:520px){
+  .notif-toast{left:1rem;right:1rem;width:auto;bottom:1rem}
+}

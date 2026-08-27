@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import { getSessionUser } from '@/lib/auth';
+import { getNotices } from '@/lib/notifications';
+import Notifications from './Notifications';
 
 const SECTIONS = [
   { href: '/info/catering-menu', label: 'Catering menu' },
@@ -14,6 +16,8 @@ export default async function Masthead({ current }: { current?: string }) {
   const user = await getSessionUser();
   const isStaff =
     user?.roles.includes('events_staff') || user?.roles.includes('admin');
+
+  const notices = user ? await getNotices(user.id, !!isStaff) : [];
 
   return (
     <>
@@ -65,6 +69,7 @@ export default async function Masthead({ current }: { current?: string }) {
                     Sign out
                   </button>
                 </form>
+                <Notifications notices={notices} />
               </>
             ) : (
               <Link href="/sign-in">Sign in</Link>
