@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { classificationLabel, type Classification } from '@/lib/classify';
 import type { MenuItemRow, SelectionRow, DetailsState } from '@/lib/requests';
 import type { RequestFoodSource, FacilityChargeState } from '@/lib/food-sources';
-import { FOOD_SOURCE_LABEL } from '@/lib/food-sources';
+import { FOOD_SOURCE_LABEL } from '@/lib/food-labels';
 
 const money = (n: number) =>
   n.toLocaleString('en-US', { style: 'currency', currency: 'USD' });

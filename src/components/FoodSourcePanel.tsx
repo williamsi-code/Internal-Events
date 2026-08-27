@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { RequestFoodSource, FacilityChargeState } from '@/lib/food-sources';
-import { FOOD_SOURCE_LABEL } from '@/lib/food-sources';
+import { FOOD_SOURCE_LABEL } from '@/lib/food-labels';
 
 export default function FoodSourcePanel({
   requestId,
