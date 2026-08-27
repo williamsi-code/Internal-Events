@@ -9,6 +9,11 @@ import type { Classification } from './classify';
  * tentatively, and final review turns it solid. Staff can adjust
  * buffers or release a hold, but they do not create event bookings
  * directly - that would let the schedule and the request disagree.
+ *
+ * Times come back as minutes from midnight as well as formatted
+ * strings, because the day view positions blocks on a timeline and
+ * parsing a formatted string back into a number is a good way to
+ * introduce a timezone bug.
  */
 
 export interface Booking {
@@ -23,10 +28,13 @@ export interface Booking {
   status: 'tentative' | 'confirmed' | 'released';
   is_blackout: boolean;
   day: string;
+  end_day: string;
   starts_at: string;
   ends_at: string;
   event_starts: string | null;
   event_ends: string | null;
+  start_minutes: number;
+  end_minutes: number;
   setup_minutes: number;
   teardown_minutes: number;
   attendance: number | null;
@@ -34,18 +42,23 @@ export interface Booking {
   has_conflict: boolean;
 }
 
-/** Everything occupying a room in the given month, plus a flag for
- *  anything overlapping something else in the same space. */
-export async function listBookings(monthStart: string) {
+export async function listBookings(fromDate: string, toDate: string) {
   return query<Booking>(
     `SELECT b.id, b.request_id, r.reference_code,
             b.space_id, s.name AS space_name, s.building,
             b.title, b.note, b.status, b.is_blackout,
             to_char(b.starts_at AT TIME ZONE 'America/Chicago', 'YYYY-MM-DD') AS day,
+            to_char(b.ends_at AT TIME ZONE 'America/Chicago', 'YYYY-MM-DD') AS end_day,
             to_char(b.starts_at AT TIME ZONE 'America/Chicago', 'FMHH12:MI AM') AS starts_at,
             to_char(b.ends_at AT TIME ZONE 'America/Chicago', 'FMHH12:MI AM') AS ends_at,
             to_char(b.event_starts_at AT TIME ZONE 'America/Chicago', 'FMHH12:MI AM') AS event_starts,
             to_char(b.event_ends_at AT TIME ZONE 'America/Chicago', 'FMHH12:MI AM') AS event_ends,
+            (extract(hour from b.starts_at AT TIME ZONE 'America/Chicago') * 60
+             + extract(minute from b.starts_at AT TIME ZONE 'America/Chicago'))::int
+              AS start_minutes,
+            (extract(hour from b.ends_at AT TIME ZONE 'America/Chicago') * 60
+             + extract(minute from b.ends_at AT TIME ZONE 'America/Chicago'))::int
+              AS end_minutes,
             b.setup_minutes, b.teardown_minutes,
             coalesce(r.final_attendance, r.estimated_attendance) AS attendance,
             cd.classification,
@@ -63,22 +76,23 @@ export async function listBookings(monthStart: string) {
        LEFT JOIN classification_decisions cd
               ON cd.request_id = r.id AND cd.is_current
       WHERE b.status <> 'released'
-        AND b.starts_at >= $1::date - INTERVAL '7 days'
-        AND b.starts_at < $1::date + INTERVAL '45 days'
+        AND (b.starts_at AT TIME ZONE 'America/Chicago')::date <= $2::date
+        AND (b.ends_at AT TIME ZONE 'America/Chicago')::date >= $1::date
       ORDER BY b.starts_at`,
-    [monthStart]
+    [fromDate, toDate]
   );
 }
 
-export interface SpaceOption {
+export interface SpaceRow {
   id: string;
   name: string;
   building: string | null;
+  capacity_seated: number | null;
 }
 
 export async function listSchedulableSpaces() {
-  return query<SpaceOption>(
-    `SELECT id, name, building FROM spaces
+  return query<SpaceRow>(
+    `SELECT id, name, building, capacity_seated FROM spaces
       WHERE is_active ORDER BY sort_order, name`
   );
 }
@@ -118,10 +132,12 @@ export async function getBooking(id: string) {
             b.space_id, s.name AS space_name, s.building,
             b.title, b.note, b.status, b.is_blackout,
             to_char(b.starts_at AT TIME ZONE 'America/Chicago', 'YYYY-MM-DD') AS day,
+            to_char(b.ends_at AT TIME ZONE 'America/Chicago', 'YYYY-MM-DD') AS end_day,
             to_char(b.starts_at AT TIME ZONE 'America/Chicago', 'FMHH12:MI AM') AS starts_at,
             to_char(b.ends_at AT TIME ZONE 'America/Chicago', 'FMHH12:MI AM') AS ends_at,
             to_char(b.event_starts_at AT TIME ZONE 'America/Chicago', 'FMHH12:MI AM') AS event_starts,
             to_char(b.event_ends_at AT TIME ZONE 'America/Chicago', 'FMHH12:MI AM') AS event_ends,
+            0 AS start_minutes, 0 AS end_minutes,
             b.setup_minutes, b.teardown_minutes,
             coalesce(r.final_attendance, r.estimated_attendance) AS attendance,
             cd.classification,

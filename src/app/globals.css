@@ -1125,3 +1125,120 @@ label.chk input{margin-top:.2rem}
   display:flex;justify-content:space-between;gap:1rem;
   padding:.25rem 0;color:var(--slate);
 }
+/* Append these to the end of src/app/globals.css
+   These replace the earlier month-calendar styles; the old .calendar
+   rules can stay, they are simply unused. */
+
+/* ============================================================
+   Resource grid scheduler
+   ============================================================ */
+
+.grid-bar{
+  display:flex;justify-content:space-between;align-items:center;
+  gap:1rem;flex-wrap:wrap;margin-bottom:1rem;
+}
+.grid-nav{display:flex;align-items:center;gap:.5rem}
+.grid-nav h2{
+  font-family:Spectral,Georgia,serif;font-size:1.3rem;font-weight:600;
+  margin:0;min-width:14rem;text-align:center;
+}
+.grid-nav .btn{padding:.4rem .8rem}
+.grid-tools{display:flex;gap:.6rem;align-items:center;flex-wrap:wrap}
+.grid-tools select{width:auto;min-width:10rem}
+.view-switch{display:flex;gap:.3rem}
+
+.resgrid{
+  background:var(--surface);border:1px solid var(--rule);
+  border-radius:3px;overflow:hidden;
+}
+
+/* Left column is fixed; everything to its right scrolls together. */
+.resgrid-head,.resgrid-row{display:flex;align-items:stretch}
+.resgrid-corner,.resgrid-label{
+  flex:0 0 11rem;padding:.5rem .7rem;border-right:1px solid var(--rule);
+  background:var(--paper);position:sticky;left:0;z-index:2;
+}
+.resgrid-corner{
+  font-size:.68rem;text-transform:uppercase;letter-spacing:.09em;
+  color:var(--slate);display:flex;align-items:flex-end;
+}
+.resgrid-head{border-bottom:1px solid var(--ink);background:var(--paper)}
+.resgrid-scroll{flex:1;overflow-x:auto;min-width:0}
+.resgrid-head .resgrid-scroll{overflow-x:hidden}
+
+.resgrid-hours{display:flex}
+.resgrid-hour{
+  flex:none;font-size:.7rem;color:var(--slate);padding:.5rem .4rem;
+  border-left:1px solid var(--rule);
+}
+.resgrid-days{display:grid}
+.resgrid-daycol{
+  padding:.4rem .3rem;text-align:center;border-left:1px solid var(--rule);
+  font-size:.72rem;color:var(--slate);
+}
+.resgrid-daycol .dow{display:block;font-size:.65rem;text-transform:uppercase;letter-spacing:.06em}
+.resgrid-daycol .dnum{display:block;font-weight:500;color:var(--ink)}
+.resgrid-daycol.today .dnum{color:var(--crimson)}
+
+.resgrid-body{max-height:34rem;overflow-y:auto}
+.resgrid-row{border-bottom:1px solid var(--rule);min-height:3rem}
+.resgrid-row:last-child{border-bottom:0}
+.res-name{display:block;font-size:.85rem;font-weight:500;line-height:1.25}
+.res-sub{display:block;font-size:.71rem;color:var(--mute);margin-top:.1rem}
+
+/* ---------- day view ---------- */
+.resgrid-track{position:relative;display:flex;min-height:3rem}
+.resgrid-tick{flex:none;border-left:1px solid var(--rule)}
+.res-block{
+  position:absolute;top:.25rem;bottom:.25rem;
+  border:0;border-left:3px solid transparent;border-radius:2px;
+  cursor:pointer;padding:.2rem .4rem;overflow:hidden;text-align:left;
+  font-size:.72rem;line-height:1.2;
+}
+.res-block.confirmed{background:var(--sage-soft);border-left-color:var(--sage)}
+.res-block.tentative{
+  background:repeating-linear-gradient(
+    45deg,var(--surface),var(--surface) 5px,var(--brass-soft) 5px,var(--brass-soft) 10px);
+  border-left-color:var(--brass);
+}
+.res-block.blackout{background:#EDEEF0;border-left-color:var(--slate);color:var(--slate)}
+.res-block.conflict{background:var(--crimson-soft);border-left-color:var(--crimson)}
+.res-block:hover{filter:brightness(.95)}
+.res-block-title{
+  display:block;font-weight:500;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;
+}
+.res-block-time{display:block;color:var(--slate);font-size:.67rem}
+
+/* ---------- week and month cells ---------- */
+.resgrid-cell{
+  border-left:1px solid var(--rule);padding:.25rem;
+  display:flex;flex-direction:column;gap:.15rem;min-height:3rem;
+}
+.resgrid-cell.today{background:var(--sage-soft)}
+.res-chip{
+  border:0;border-left:3px solid transparent;border-radius:2px;
+  cursor:pointer;text-align:left;padding:.2rem .35rem;font-size:.7rem;
+  line-height:1.2;width:100%;
+}
+.res-chip.confirmed{background:var(--sage-soft);border-left-color:var(--sage)}
+.res-chip.tentative{background:var(--brass-soft);border-left-color:var(--brass)}
+.res-chip.blackout{background:#EDEEF0;border-left-color:var(--slate)}
+.res-chip.conflict{background:var(--crimson-soft);border-left-color:var(--crimson)}
+.res-chip:hover{filter:brightness(.95)}
+.res-chip-time{display:block;color:var(--slate);font-size:.65rem}
+.res-chip-title{
+  display:block;font-weight:500;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;
+}
+
+/* Month view packs 28-31 columns in, so a booking is a bar rather
+   than a label. Hovering gives the detail. */
+.view-month .res-chip{min-height:.85rem;padding:0}
+.view-month .resgrid-cell{min-height:2.2rem;padding:.15rem}
+.view-month .resgrid-label,.view-month .resgrid-corner{flex-basis:9rem}
+
+@media(max-width:760px){
+  .resgrid-corner,.resgrid-label{flex-basis:7.5rem}
+  .grid-nav h2{min-width:auto;font-size:1.1rem}
+}

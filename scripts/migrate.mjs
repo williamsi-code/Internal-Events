@@ -4,7 +4,21 @@ import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 
 const dir = join(dirname(fileURLToPath(import.meta.url)), '..', 'db', 'migrations');
-
+// Read .env.local the way Next.js does, so the migration runner and
+// the dev server work from the same configuration.
+if (!process.env.DATABASE_URL) {
+  try {
+    const envFile = await readFile(join(dir, '..', '.env.local'), 'utf8');
+    for (const line of envFile.split('\n')) {
+      const match = line.match(/^([A-Z_]+)=(.*)$/);
+      if (match && !process.env[match[1]]) {
+        process.env[match[1]] = match[2].trim();
+      }
+    }
+  } catch {
+    // No .env.local; fall through to the error below.
+  }
+}
 if (!process.env.DATABASE_URL) {
   console.error('DATABASE_URL is not set.');
   console.error('Use Railway\'s DATABASE_PUBLIC_URL, not DATABASE_URL —');
