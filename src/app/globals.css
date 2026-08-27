@@ -993,3 +993,28 @@ label.chk input{margin-top:.2rem}
   background:var(--brass-soft);color:var(--brass);
   border:1px solid #E3D6AE;vertical-align:middle;
 }
+/* Append these to the end of src/app/globals.css */
+
+/* ---------- food sources ---------- */
+.food-options{display:flex;flex-direction:column;gap:.5rem;margin-bottom:.5rem}
+.food-option{
+  display:flex;gap:.65rem;align-items:flex-start;cursor:pointer;
+  border:1px solid var(--rule);border-radius:3px;padding:.7rem .85rem;
+  background:var(--surface);
+}
+.food-option:hover{border-color:var(--mute)}
+.food-option:has(input:checked){
+  border-color:var(--crimson);background:var(--crimson-soft);
+}
+.food-option input{accent-color:var(--crimson);margin:.2rem 0 0}
+.food-label{display:block;font-weight:500;font-size:.92rem}
+.food-hint{display:block;font-size:.8rem;color:var(--slate);margin-top:.1rem}
+
+.source-list{list-style:none;margin:0;padding:0;font-size:.87rem}
+.source-list li{
+  display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;
+  padding:.55rem 0;border-top:1px solid var(--rule);
+}
+.source-list li:first-child{border-top:0}
+.source-name{display:block;font-weight:500}
+.source-covers{display:block;font-size:.8rem;color:var(--slate);margin-top:.1rem}

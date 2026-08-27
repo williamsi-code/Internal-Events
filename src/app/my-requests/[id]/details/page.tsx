@@ -8,6 +8,7 @@ import {
   getMenuForRequest,
   getSelections,
 } from '@/lib/requests';
+import { getFoodSources, getFacilityCharge } from '@/lib/food-sources';
 
 export const metadata = { title: 'Event details' };
 export const dynamic = 'force-dynamic';
@@ -46,8 +47,8 @@ export default async function DetailsPage({
               <h2>Not ready yet</h2>
               <p className="hint">
                 {state.classification
-                  ? 'Confirm how your event has been classified first. Menu prices depend on it.'
-                  : 'The events office is still reviewing your request. Once it has been classified you can choose your menu.'}
+                  ? 'Confirm how your event has been classified first. Pricing depends on it.'
+                  : 'The events office is still reviewing your request. Once it has been classified you can confirm your details.'}
               </p>
               <Link
                 href={`/my-requests/${id}`}
@@ -63,9 +64,11 @@ export default async function DetailsPage({
     );
   }
 
-  const [menu, existing] = await Promise.all([
+  const [menu, existing, foodSources, facility] = await Promise.all([
     getMenuForRequest(id),
     getSelections(id),
+    getFoodSources(id),
+    getFacilityCharge(id),
   ]);
 
   return (
@@ -79,9 +82,9 @@ export default async function DetailsPage({
           <div className="pagehead" style={{ padding: '0 0 1.5rem' }}>
             <h1>Event details</h1>
             <p className="lede">
-              Choose your menu and confirm how the room should be set up. Once
-              you confirm, your event moves from tentative to confirmed on the
-              campus schedule.
+              Confirm your menu and how the room should be set up. Once you
+              confirm, the events office does a final check and your event moves
+              from tentative to confirmed on the campus schedule.
             </p>
           </div>
 
@@ -90,6 +93,8 @@ export default async function DetailsPage({
             state={state}
             menu={menu}
             existing={existing}
+            foodSources={foodSources}
+            facility={facility}
           />
         </div>
       </main>

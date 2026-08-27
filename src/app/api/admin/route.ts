@@ -23,6 +23,10 @@ const Space = z.object({
   description: z.string().max(1000).nullable(),
   isActive: z.boolean(),
   sortOrder: z.number().int().min(0).max(999),
+  facilityRateInternal: z.number().min(0).max(1_000_000),
+  facilityRateAffiliated: z.number().min(0).max(1_000_000),
+  facilityRateExternal: z.number().min(0).max(1_000_000),
+  rateBasis: z.string().min(1).max(40),
 });
 
 const MenuItem = z.object({
@@ -80,19 +84,29 @@ export async function POST(req: NextRequest) {
             `UPDATE spaces
                 SET name=$2, building=$3, capacity_seated=$4,
                     capacity_standing=$5, supports_catering=$6,
-                    description=$7, is_active=$8, sort_order=$9
+                    description=$7, is_active=$8, sort_order=$9,
+                    facility_rate_internal=$10,
+                    facility_rate_affiliated=$11,
+                    facility_rate_external=$12,
+                    rate_basis=$13
               WHERE id=$1`,
             [b.id, b.name, b.building, b.capacitySeated, b.capacityStanding,
-             b.supportsCatering, b.description, b.isActive, b.sortOrder]
+             b.supportsCatering, b.description, b.isActive, b.sortOrder,
+             b.facilityRateInternal, b.facilityRateAffiliated,
+             b.facilityRateExternal, b.rateBasis]
           );
         } else {
           await c.query(
             `INSERT INTO spaces
                (name, building, capacity_seated, capacity_standing,
-                supports_catering, description, is_active, sort_order)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+                supports_catering, description, is_active, sort_order,
+                facility_rate_internal, facility_rate_affiliated,
+                facility_rate_external, rate_basis)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
             [b.name, b.building, b.capacitySeated, b.capacityStanding,
-             b.supportsCatering, b.description, b.isActive, b.sortOrder]
+             b.supportsCatering, b.description, b.isActive, b.sortOrder,
+             b.facilityRateInternal, b.facilityRateAffiliated,
+             b.facilityRateExternal, b.rateBasis]
           );
         }
       });

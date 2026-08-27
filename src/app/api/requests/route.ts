@@ -7,6 +7,13 @@ import { getSessionUser } from '@/lib/auth';
 const Party = z.enum(['central', 'shared', 'outside', 'unclear']);
 const YesNoUnsure = z.enum(['yes', 'no', 'unsure']);
 
+const FoodSource = z.object({
+  kind: z.enum(['central_dining', 'outside_caterer', 'donated', 'no_food']),
+  catererId: z.string().nullable(),
+  catererOther: z.string().max(200).nullable(),
+  covers: z.string().max(300).nullable(),
+});
+
 const Body = z.object({
   eventTypeId: z.string().uuid().nullable(),
   eventTypeOther: z.string().max(200).nullable(),
@@ -20,6 +27,8 @@ const Body = z.object({
   estimatedAttendance: z.number().int().positive().max(20000),
   departmentOrg: z.string().min(1).max(200),
   contactPhone: z.string().max(50).nullable(),
+
+  foodSources: z.array(FoodSource).min(1).max(4),
 
   requirements: z.object({
     foodNeeds: z.string().max(4000).optional(),
@@ -55,7 +64,12 @@ const Body = z.object({
 
 export async function POST(req: NextRequest) {
   const user = await getSessionUser();
-  if (!user) return NextResponse.json({ error: 'Sign in to submit a request.' }, { status: 401 });
+  if (!user) {
+    return NextResponse.json(
+      { error: 'Sign in to submit a request.' },
+      { status: 401 }
+    );
+  }
 
   const parsed = Body.safeParse(await req.json());
   if (!parsed.success) {
@@ -104,6 +118,34 @@ export async function POST(req: NextRequest) {
     );
     const r = rows[0];
 
+    // Food sources are validated against the approved list here rather
+    // than trusted: a caterer id that is not currently usable becomes a
+    // named suggestion for staff instead of a booking.
+    for (const f of b.foodSources) {
+      let catererId: string | null = null;
+      let catererOther: string | null = f.catererOther ?? null;
+
+      if (f.kind === 'outside_caterer' && f.catererId && f.catererId !== 'other') {
+        const approved = await c.query(
+          'SELECT id, business_name FROM usable_caterers WHERE id = $1',
+          [f.catererId]
+        );
+        if (approved.rows[0]) {
+          catererId = approved.rows[0].id;
+        } else {
+          catererOther = catererOther ?? 'Caterer selected but not currently approved';
+        }
+      }
+
+      await c.query(
+        `INSERT INTO event_food_sources
+           (request_id, kind, caterer_id, caterer_other, covers)
+         VALUES ($1, $2::food_source_kind, $3, $4, $5)
+         ON CONFLICT DO NOTHING`,
+        [r.id, f.kind, catererId, catererOther, f.covers ?? null]
+      );
+    }
+
     await c.query(
       `INSERT INTO event_requirements (request_id, food_needs, service_expectations,
          room_setup, equipment, technology, special_requests, dietary_restrictions)
@@ -144,7 +186,6 @@ export async function POST(req: NextRequest) {
     return r;
   });
 
-  // Email is a nudge toward the queue, not the queue itself.
   await notifyEventsOffice(request.reference_code, b.eventName).catch(() => {});
 
   return NextResponse.json({

@@ -6,6 +6,7 @@ import { getSessionUser } from '@/lib/auth';
 const Body = z.object({
   requestId: z.string().uuid(),
   confirm: z.boolean(),
+  policyAcknowledged: z.boolean().optional(),
   selections: z
     .array(
       z.object({
@@ -35,7 +36,8 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ error: 'Check your selections.' }, { status: 400 });
   }
-  const { requestId, confirm, selections, requirements } = parsed.data;
+  const { requestId, confirm, selections, requirements, policyAcknowledged } =
+    parsed.data;
 
   const owned = await one<{
     status: string;
@@ -72,78 +74,110 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  await transaction(async (c) => {
-    // Prices are re-fetched here rather than trusted from the browser.
-    // The tier follows the classification as it stands right now, which
-    // is why a reclassification changes what the event costs.
+  // Whether Central is cooking decides whether there is a menu at all.
+  const central = await one<{ has_central: boolean }>(
+    'SELECT has_central_dining($1) AS has_central',
+    [requestId]
+  );
+  const hasCentral = central?.has_central ?? true;
+
+  try {
+    await transaction(async (c) => {
+      // Prices are re-fetched here rather than trusted from the browser.
+      // The tier follows the classification as it stands right now, which
+      // is why a reclassification changes what the event costs.
       const { rows: tierRows } = await c.query(
-      `SELECT CASE
-                WHEN cp.classification = 'internal' AND $2 THEN cp.revenue_path
-                ELSE cp.path
-              END AS path
-         FROM classification_pricing cp
-        WHERE cp.classification = $1::classification`,
-      [owned.classification, owned.revenue_collected ?? false]
-    );
-    const path = tierRows[0]?.path;
-    if (!path) throw new Error('No price tier for this classification');
-
-    await c.query('DELETE FROM request_menu_selections WHERE request_id = $1', [
-      requestId,
-    ]);
-
-    for (const s of selections) {
-      const { rows: priceRows } = await c.query(
-        `SELECT unit_price FROM menu_item_prices
-          WHERE menu_item_id = $1 AND path = $2
-            AND effective_from <= CURRENT_DATE
-            AND (effective_to IS NULL OR effective_to > CURRENT_DATE)
-          ORDER BY effective_from DESC LIMIT 1`,
-        [s.menuItemId, path]
+        `SELECT CASE
+                  WHEN cp.classification = 'internal' AND $2 THEN cp.revenue_path
+                  ELSE cp.path
+                END AS path
+           FROM classification_pricing cp
+          WHERE cp.classification = $1::classification`,
+        [owned.classification, owned.revenue_collected ?? false]
       );
-      if (!priceRows[0]) continue;
+      const path = tierRows[0]?.path;
+      if (hasCentral && !path) {
+        throw new Error('No price tier for this classification');
+      }
 
-      await c.query(
-        `INSERT INTO request_menu_selections
-           (request_id, menu_item_id, quantity, unit_price_quoted, notes)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [requestId, s.menuItemId, s.quantity, priceRows[0].unit_price, s.notes ?? null]
-      );
-    }
-
-    await c.query(
-      `UPDATE event_requirements
-          SET service_expectations = $2, room_setup = $3, equipment = $4,
-              technology = $5, special_requests = $6,
-              dietary_restrictions = $7, updated_at = now()
-        WHERE request_id = $1`,
-      [
+      await c.query('DELETE FROM request_menu_selections WHERE request_id = $1', [
         requestId,
-        requirements.serviceExpectations ?? null,
-        requirements.roomSetup ?? null,
-        requirements.equipment ?? null,
-        requirements.technology ?? null,
-        requirements.specialRequests ?? null,
-        requirements.dietaryRestrictions ?? null,
-      ]
-    );
+      ]);
 
-    if (confirm) {
+      for (const s of hasCentral ? selections : []) {
+        const { rows: priceRows } = await c.query(
+          `SELECT unit_price FROM menu_item_prices
+            WHERE menu_item_id = $1 AND path = $2
+              AND effective_from <= CURRENT_DATE
+              AND (effective_to IS NULL OR effective_to > CURRENT_DATE)
+            ORDER BY effective_from DESC LIMIT 1`,
+          [s.menuItemId, path]
+        );
+        if (!priceRows[0]) continue;
+
+        await c.query(
+          `INSERT INTO request_menu_selections
+             (request_id, menu_item_id, quantity, unit_price_quoted, notes)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [requestId, s.menuItemId, s.quantity, priceRows[0].unit_price, s.notes ?? null]
+        );
+      }
+
       await c.query(
-        `UPDATE event_requests
-            SET details_confirmed_at = now(), details_confirmed_by = $2,
-                status = 'confirmed', updated_at = now()
-          WHERE id = $1`,
-        [requestId, user.id]
+        `UPDATE event_requirements
+            SET service_expectations = $2, room_setup = $3, equipment = $4,
+                technology = $5, special_requests = $6,
+                dietary_restrictions = $7, updated_at = now()
+          WHERE request_id = $1`,
+        [
+          requestId,
+          requirements.serviceExpectations ?? null,
+          requirements.roomSetup ?? null,
+          requirements.equipment ?? null,
+          requirements.technology ?? null,
+          requirements.specialRequests ?? null,
+          requirements.dietaryRestrictions ?? null,
+        ]
       );
-      await c.query(
-        `INSERT INTO request_status_history
-           (request_id, from_status, to_status, changed_by, reason)
-         VALUES ($1, $2, 'confirmed', $3, 'Requester confirmed event details')`,
-        [requestId, owned.status, user.id]
-      );
-    }
-  });
+
+      if (policyAcknowledged) {
+        await c.query(
+          `UPDATE event_food_sources
+              SET policy_acknowledged_at = now(),
+                  policy_acknowledged_by = $2
+            WHERE request_id = $1
+              AND kind IN ('outside_caterer', 'donated')
+              AND policy_acknowledged_at IS NULL`,
+          [requestId, user.id]
+        );
+      }
+
+      if (confirm) {
+        // Details confirmed hands the event back to staff for a final
+        // check that the classification still applies, rather than
+        // confirming it outright.
+        await c.query(
+          `UPDATE event_requests
+              SET details_confirmed_at = now(), details_confirmed_by = $2,
+                  status = 'pending_final_review', updated_at = now()
+            WHERE id = $1`,
+          [requestId, user.id]
+        );
+        await c.query(
+          `INSERT INTO request_status_history
+             (request_id, from_status, to_status, changed_by, reason)
+           VALUES ($1, $2, 'pending_final_review', $3, 'Requester confirmed event details')`,
+          [requestId, owned.status, user.id]
+        );
+      }
+    });
+  } catch (err) {
+    console.error('details save failed:', err);
+    return NextResponse.json(
+      { error: 'Could not save your details. The events office has been notified.' },
+      { status: 500 }
+    );
+  }
 
   return NextResponse.json({ ok: true, confirmed: confirm });
 }

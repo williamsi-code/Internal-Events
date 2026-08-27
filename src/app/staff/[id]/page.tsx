@@ -5,6 +5,7 @@ import DecisionPanel from '@/components/DecisionPanel';
 import ChangeFlags from '@/components/ChangeFlags';
 import CapacityPanel from '@/components/CapacityPanel';
 import RequestActions from '@/components/RequestActions';
+import FoodSourcePanel from '@/components/FoodSourcePanel';
 import { getSessionUser } from '@/lib/auth';
 import { getRequest, getMessages } from '@/lib/requests';
 import { changesSinceClassification } from '@/lib/changes';
@@ -13,6 +14,7 @@ import {
   listSameDayBookings,
   listAlternativeSpaces,
 } from '@/lib/capacity';
+import { getFoodSources, getFacilityCharge } from '@/lib/food-sources';
 
 export const dynamic = 'force-dynamic';
 
@@ -71,6 +73,11 @@ export default async function RequestDetailPage({
         listAlternativeSpaces(id),
       ])
     : [null, [], []];
+
+  const [foodSources, facility] = await Promise.all([
+    getFoodSources(id),
+    getFacilityCharge(id),
+  ]);
 
   const eventDate = new Date(request.event_date + 'T00:00:00');
   const days = Math.round((eventDate.getTime() - Date.now()) / 86_400_000);
@@ -255,6 +262,12 @@ export default async function RequestDetailPage({
                 </div>
               </div>
             </div>
+
+            <FoodSourcePanel
+              requestId={id}
+              sources={foodSources}
+              facility={facility}
+            />
 
             <DecisionPanel request={request} messages={messages} />
 

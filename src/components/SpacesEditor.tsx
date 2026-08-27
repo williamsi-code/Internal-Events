@@ -15,6 +15,10 @@ const blank = (): AdminSpace => ({
   is_active: true,
   sort_order: 0,
   events_booked: 0,
+  facility_rate_internal: '0',
+  facility_rate_affiliated: '0',
+  facility_rate_external: '0',
+  rate_basis: 'per event',
 });
 
 export default function SpacesEditor({ spaces }: { spaces: AdminSpace[] }) {
@@ -46,6 +50,10 @@ export default function SpacesEditor({ spaces }: { spaces: AdminSpace[] }) {
           description: editing.description?.trim() || null,
           isActive: editing.is_active,
           sortOrder: editing.sort_order,
+          facilityRateInternal: Number(editing.facility_rate_internal) || 0,
+          facilityRateAffiliated: Number(editing.facility_rate_affiliated) || 0,
+          facilityRateExternal: Number(editing.facility_rate_external) || 0,
+          rateBasis: editing.rate_basis || 'per event',
         }),
       });
       if (!res.ok) {
@@ -66,12 +74,19 @@ export default function SpacesEditor({ spaces }: { spaces: AdminSpace[] }) {
   const set = (patch: Partial<AdminSpace>) =>
     setEditing((e) => (e ? { ...e, ...patch } : e));
 
+  const money = (v: string) =>
+    Number(v) === 0 ? 'No charge' : `$${Number(v).toFixed(2)}`;
+
   return (
     <>
       <div className="admin-bar">
         <button className="btn btn-primary" onClick={() => setEditing(blank())}>
           Add a space
         </button>
+        <span className="admin-note">
+          Facility rates apply when Central provides no food. Internal is
+          normally zero: a department using a room is not a transaction.
+        </span>
       </div>
 
       {editing && (
@@ -140,6 +155,70 @@ export default function SpacesEditor({ spaces }: { spaces: AdminSpace[] }) {
             />
           </div>
 
+          <h4 className="admin-h4">Facility rates</h4>
+          <p className="sub" style={{ marginTop: '-.4rem' }}>
+            Charged when an outside caterer or donated food replaces Central
+            Dining, so there is no menu to price. Which rate applies follows the
+            event&rsquo;s classification.
+          </p>
+          <div className="price-grid">
+            <div className="field">
+              <label htmlFor="sp-rate-int">Internal</label>
+              <p className="sub">Usually zero.</p>
+              <input
+                id="sp-rate-int"
+                type="number"
+                min={0}
+                step="0.01"
+                value={editing.facility_rate_internal}
+                onChange={(e) =>
+                  set({ facility_rate_internal: e.target.value })
+                }
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="sp-rate-aff">Affiliated</label>
+              <p className="sub">Cost recovery.</p>
+              <input
+                id="sp-rate-aff"
+                type="number"
+                min={0}
+                step="0.01"
+                value={editing.facility_rate_affiliated}
+                onChange={(e) =>
+                  set({ facility_rate_affiliated: e.target.value })
+                }
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="sp-rate-ext">External</label>
+              <p className="sub">Commercial.</p>
+              <input
+                id="sp-rate-ext"
+                type="number"
+                min={0}
+                step="0.01"
+                value={editing.facility_rate_external}
+                onChange={(e) =>
+                  set({ facility_rate_external: e.target.value })
+                }
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="sp-basis">Rate basis</label>
+              <p className="sub">How the rate is applied.</p>
+              <select
+                id="sp-basis"
+                value={editing.rate_basis}
+                onChange={(e) => set({ rate_basis: e.target.value })}
+              >
+                <option value="per event">Per event</option>
+                <option value="per hour">Per hour</option>
+                <option value="per day">Per day</option>
+              </select>
+            </div>
+          </div>
+
           <div className="grid two">
             <div className="field">
               <label htmlFor="sp-sort">Sort order</label>
@@ -188,7 +267,8 @@ export default function SpacesEditor({ spaces }: { spaces: AdminSpace[] }) {
             <th>Space</th>
             <th className="num">Seated</th>
             <th className="num">Standing</th>
-            <th>Catering</th>
+            <th className="num">Affiliated</th>
+            <th className="num">External</th>
             <th className="num">Booked</th>
             <th></th>
           </tr>
@@ -199,13 +279,17 @@ export default function SpacesEditor({ spaces }: { spaces: AdminSpace[] }) {
               <td>
                 <span className="admin-name">{s.name}</span>
                 {s.building && <span className="admin-sub">{s.building}</span>}
+                {!s.supports_catering && (
+                  <span className="pill p-review">No catering</span>
+                )}
                 {!s.is_active && (
                   <span className="pill p-review">Not bookable</span>
                 )}
               </td>
               <td className="num">{s.capacity_seated ?? '\u2014'}</td>
               <td className="num">{s.capacity_standing ?? '\u2014'}</td>
-              <td>{s.supports_catering ? 'Yes' : 'No'}</td>
+              <td className="num">{money(s.facility_rate_affiliated)}</td>
+              <td className="num">{money(s.facility_rate_external)}</td>
               <td className="num">{s.events_booked}</td>
               <td className="num">
                 <button className="edit-link" onClick={() => setEditing(s)}>

@@ -21,12 +21,20 @@ export interface AdminSpace {
   is_active: boolean;
   sort_order: number;
   events_booked: number;
+  facility_rate_internal: string;
+  facility_rate_affiliated: string;
+  facility_rate_external: string;
+  rate_basis: string;
 }
 
 export async function listAdminSpaces() {
   return query<AdminSpace>(
     `SELECT s.id, s.name, s.building, s.capacity_seated, s.capacity_standing,
             s.supports_catering, s.description, s.is_active, s.sort_order,
+            s.facility_rate_internal::text,
+            s.facility_rate_affiliated::text,
+            s.facility_rate_external::text,
+            s.rate_basis,
             (SELECT count(*) FROM event_requests r
               WHERE r.space_id = s.id
                 AND r.status NOT IN ('cancelled','denied')) AS events_booked

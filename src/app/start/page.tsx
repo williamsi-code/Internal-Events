@@ -6,18 +6,16 @@ import IntakeForm, {
 } from '@/components/IntakeForm';
 import { getSessionUser } from '@/lib/auth';
 import { query } from '@/lib/db';
+import { listApprovedCaterers } from '@/lib/caterers';
 
 export const metadata = { title: 'Start creating your event' };
-
-// Reference data changes rarely but should not be baked in at build time,
-// since staff edit event types and spaces directly in the database.
 export const dynamic = 'force-dynamic';
 
 export default async function StartPage() {
   const user = await getSessionUser();
   if (!user) redirect('/sign-in');
 
-  const [eventTypes, spaces] = await Promise.all([
+  const [eventTypes, spaces, caterers] = await Promise.all([
     query<EventTypeOption>(
       `SELECT et.id, et.name, c.name AS category,
               et.default_classification, et.always_review, et.guidance
@@ -31,6 +29,12 @@ export default async function StartPage() {
          FROM spaces
         WHERE is_active
         ORDER BY sort_order, name`
+    ),
+    // Only caterers with current paperwork are offered. A lapsed
+    // certificate quietly removes them rather than presenting a
+    // choice that would be refused later.
+    listApprovedCaterers().then((list) =>
+      list.filter((c) => !c.insurance_lapsed && !c.license_lapsed)
     ),
   ]);
 
@@ -51,6 +55,7 @@ export default async function StartPage() {
           <IntakeForm
             eventTypes={eventTypes}
             spaces={spaces}
+            caterers={caterers}
             defaultDepartment={user.department_org ?? ''}
           />
         </div>
