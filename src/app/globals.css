@@ -1107,3 +1107,21 @@ label.chk input{margin-top:.2rem}
 @media(max-width:520px){
   .notif-toast{left:1rem;right:1rem;width:auto;bottom:1rem}
 }
+/* Append these to the end of src/app/globals.css */
+
+/* ---------- menu version history ---------- */
+.version-history{margin-top:1.2rem}
+.version{
+  border:1px solid var(--rule);border-radius:2px;
+  padding:.8rem .95rem;margin-bottom:.6rem;background:var(--paper);
+}
+.version-head{
+  display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap;
+  align-items:baseline;padding-bottom:.5rem;border-bottom:1px solid var(--rule);
+  font-size:.87rem;
+}
+.version-items{list-style:none;margin:.6rem 0 0;padding:0;font-size:.83rem}
+.version-items li{
+  display:flex;justify-content:space-between;gap:1rem;
+  padding:.25rem 0;color:var(--slate);
+}

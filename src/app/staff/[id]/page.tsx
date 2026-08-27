@@ -6,6 +6,7 @@ import ChangeFlags from '@/components/ChangeFlags';
 import CapacityPanel from '@/components/CapacityPanel';
 import RequestActions from '@/components/RequestActions';
 import FoodSourcePanel from '@/components/FoodSourcePanel';
+import ReopenDetails from '@/components/ReopenDetails';
 import { getSessionUser } from '@/lib/auth';
 import { getRequest, getMessages } from '@/lib/requests';
 import { changesSinceClassification } from '@/lib/changes';
@@ -15,6 +16,7 @@ import {
   listAlternativeSpaces,
 } from '@/lib/capacity';
 import { getFoodSources, getFacilityCharge } from '@/lib/food-sources';
+import { getDetailsLockState, getMenuHistory } from '@/lib/reopen';
 
 export const dynamic = 'force-dynamic';
 
@@ -74,9 +76,11 @@ export default async function RequestDetailPage({
       ])
     : [null, [], []];
 
-  const [foodSources, facility] = await Promise.all([
+  const [foodSources, facility, lock, menuHistory] = await Promise.all([
     getFoodSources(id),
     getFacilityCharge(id),
+    getDetailsLockState(id),
+    getMenuHistory(id),
   ]);
 
   const eventDate = new Date(request.event_date + 'T00:00:00');
@@ -269,6 +273,12 @@ export default async function RequestDetailPage({
               facility={facility}
             />
 
+            <ReopenDetails
+              requestId={id}
+              lock={lock}
+              history={menuHistory}
+            />
+
             <DecisionPanel request={request} messages={messages} />
 
             {showCapacity && capacityContext && (
@@ -284,7 +294,7 @@ export default async function RequestDetailPage({
               referenceCode={request.reference_code}
               status={request.status}
               isAdmin={user.roles.includes('admin')}
-              isClosed={false}
+              isClosed={!!lock?.closed_at}
             />
           </div>
         </div>
