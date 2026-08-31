@@ -86,7 +86,7 @@ export default async function Home() {
           <div className="gateway-grid">
             <Link href="/start" className="gateway internal">
               <span className="gateway-tag">Central departments</span>
-              <h3>Book a College event</h3>
+              <h3>Book a Central College event</h3>
               <p>
                 Departments, student organizations and College programming.
                 We&rsquo;ll confirm how your event is classified, then handle
@@ -97,7 +97,7 @@ export default async function Home() {
 
             <Link href="/order" className="gateway external">
               <span className="gateway-tag">Everyone else</span>
-              <h3>Order catering</h3>
+              <h3>Order Catering for external groups</h3>
               <p>
                 Weddings, receptions, business meetings and community events,
                 on campus or delivered. Tell us what you need and we&rsquo;ll
