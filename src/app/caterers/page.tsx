@@ -13,7 +13,7 @@ export default async function CaterersPage() {
 
   return (
     <>
-      <Masthead />
+      <Masthead variant="public" current="/caterers" />
       <main id="main">
         <div className="pagehead">
           <h1>Catering at Central College</h1>
@@ -29,7 +29,7 @@ export default async function CaterersPage() {
             <Link href="/info/catering-menu" className="tile primary">
               <h3>Central Catering</h3>
               <p>
-                Our menu, with pricing for internal, affiliated, and external
+                Our menu, with pricing for internal, affiliated and external
                 events. This is the usual path for events on campus.
               </p>
             </Link>
@@ -52,7 +52,7 @@ export default async function CaterersPage() {
             </p>
             <p className="info-p">
               Central kitchen facilities are not available to outside caterers
-              unless separately agreed. Food safety, temperature control, and
+              unless separately agreed. Food safety, temperature control and
               allergen labelling remain the caterer&rsquo;s responsibility,
               because Central does not inspect or supervise food prepared off
               campus.
@@ -108,14 +108,30 @@ export default async function CaterersPage() {
           </section>
 
           <div className="info-cta">
-            <p>Ready to request an event?</p>
-            <Link
-              href="/start"
-              className="btn btn-primary"
-              style={{ textDecoration: 'none' }}
+            <p>Ready to get started?</p>
+            <div
+              style={{
+                display: 'flex',
+                gap: '.6rem',
+                justifyContent: 'center',
+                flexWrap: 'wrap',
+              }}
             >
-              Start creating your event
-            </Link>
+              <Link
+                href="/start"
+                className="btn btn-primary"
+                style={{ textDecoration: 'none' }}
+              >
+                Central College event
+              </Link>
+              <Link
+                href="/order"
+                className="btn btn-ghost"
+                style={{ textDecoration: 'none' }}
+              >
+                Order catering
+              </Link>
+            </div>
           </div>
         </div>
       </main>

@@ -2,7 +2,6 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import Masthead from '@/components/Masthead';
 import {
-  listPublicSpaces,
   listPublicMenu,
   listPublicEventTypes,
   getContentPage,
@@ -13,19 +12,22 @@ export const dynamic = 'force-dynamic';
 
 const SLUGS = [
   'catering-menu',
-  'event-spaces',
   'internal-policies',
   'external-policies',
   'classification',
+  'outside-caterer-policy',
+  'donated-food-policy',
 ] as const;
 
 type Slug = (typeof SLUGS)[number];
 
 const money = (v: string | null) =>
-  v === null ? '\u2014' : Number(v).toLocaleString('en-US', {
-    style: 'currency',
-    currency: 'USD',
-  });
+  v === null
+    ? '\u2014'
+    : Number(v).toLocaleString('en-US', {
+        style: 'currency',
+        currency: 'USD',
+      });
 
 /** A deliberately small markdown subset: headings, bullets, paragraphs.
  *  Enough for policy text, with no dependency and no arbitrary HTML. */
@@ -67,55 +69,6 @@ export default async function InfoPage({
   const { slug } = await params;
   if (!SLUGS.includes(slug as Slug)) notFound();
 
-  /* ---------- event spaces ---------- */
-  if (slug === 'event-spaces') {
-    const spaces = await listPublicSpaces();
-    const buildings = [
-      ...new Set(spaces.map((s) => s.building ?? 'Other')),
-    ];
-
-    return (
-      <Shell
-        title="Event spaces"
-        lede="Rooms and outdoor areas available for events, with seated and standing capacities. Capacity depends on how the room is set up — the events office can advise on what a particular arrangement allows."
-      >
-        {buildings.map((building) => (
-          <section key={building} className="info-section">
-            <h2 className="info-h2">{building}</h2>
-            <div className="space-grid">
-              {spaces
-                .filter((s) => (s.building ?? 'Other') === building)
-                .map((s) => (
-                  <div className="space-card" key={s.id}>
-                    <h3>{s.name}</h3>
-                    {s.description && <p className="space-desc">{s.description}</p>}
-                    <dl className="space-caps">
-                      {s.capacity_seated && (
-                        <>
-                          <dt>Seated</dt>
-                          <dd>{s.capacity_seated}</dd>
-                        </>
-                      )}
-                      {s.capacity_standing && (
-                        <>
-                          <dt>Standing</dt>
-                          <dd>{s.capacity_standing}</dd>
-                        </>
-                      )}
-                      <dt>Catering</dt>
-                      <dd>
-                        {s.supports_catering ? 'Available' : 'Not permitted'}
-                      </dd>
-                    </dl>
-                  </div>
-                ))}
-            </div>
-          </section>
-        ))}
-      </Shell>
-    );
-  }
-
   /* ---------- catering menu ---------- */
   if (slug === 'catering-menu') {
     const items = await listPublicMenu();
@@ -123,13 +76,14 @@ export default async function InfoPage({
 
     return (
       <Shell
+        slug={slug}
         title="Catering menu"
-        lede="What we can produce, and what it costs. Which rate applies to your event depends on how it is classified — internal events are charged food and disposables at cost, affiliated events at a partnership rate, and external events at commercial rates."
+        lede="What we can produce, and what it costs. Which rate applies to your event depends on how it is classified — internal events pay 30 percent of the published rate, affiliated events 60 percent, and external events the full rate."
       >
         <div className="callout c-default" style={{ marginBottom: '1.5rem' }}>
           <strong>Prices are per person unless noted</strong>
-          Minimums apply to some items. The events office can often work around
-          a minimum, so ask rather than assuming.
+          Minimums apply to some items. We can often work around a minimum, so
+          ask rather than assuming.
         </div>
 
         {categories.map((category) => {
@@ -186,6 +140,7 @@ export default async function InfoPage({
 
     return (
       <Shell
+        slug={slug}
         title="Classification of events"
         lede="Every event is classified as Internal, Affiliated, or External before pricing. The classification follows who owns the event, who benefits, and who pays — not who is asking."
       >
@@ -193,10 +148,10 @@ export default async function InfoPage({
           <div className="class-def internal">
             <h3>Internal</h3>
             <p>
-              Central is the primary beneficiary. College programming, department
-              business, and recognized student organization events.
+              Central is the primary beneficiary. College programming,
+              department business, and recognized student organization events.
             </p>
-            <span className="class-rate">Food and disposables at cost</span>
+            <span className="class-rate">30% of the published rate</span>
           </div>
           <div className="class-def affiliated">
             <h3>Affiliated / sponsored</h3>
@@ -204,7 +159,7 @@ export default async function InfoPage({
               Central has a legitimate relationship, but an outside party also
               benefits substantially.
             </p>
-            <span className="class-rate">Cost-recovery rate</span>
+            <span className="class-rate">60% of the published rate</span>
           </div>
           <div className="class-def external">
             <h3>External</h3>
@@ -212,7 +167,7 @@ export default async function InfoPage({
               An outside organization or private party is the primary
               beneficiary.
             </p>
-            <span className="class-rate">Commercial rate</span>
+            <span className="class-rate">The published rate</span>
           </div>
         </div>
 
@@ -248,18 +203,16 @@ export default async function InfoPage({
                         )}
                       </td>
                       <td className="class-verdict">
-                        {t.always_review ? (
-                          <span className="pill p-review">Reviewed individually</span>
-                        ) : t.default_classification ? (
-                          <span
-                            className={`pill p-${t.default_classification}`}
-                          >
+                        {t.always_review || !t.default_classification ? (
+                          <span className="pill p-review">
+                            Reviewed individually
+                          </span>
+                        ) : (
+                          <span className={`pill p-${t.default_classification}`}>
                             {classificationLabel(
                               t.default_classification as Classification
                             )}
                           </span>
-                        ) : (
-                          <span className="pill p-review">Reviewed individually</span>
                         )}
                       </td>
                     </tr>
@@ -277,7 +230,7 @@ export default async function InfoPage({
   if (!page) notFound();
 
   return (
-    <Shell title={page.title} lede={page.intro ?? undefined}>
+    <Shell slug={slug} title={page.title} lede={page.intro ?? undefined}>
       <div className="info-body">{renderBody(page.body)}</div>
       <p className="info-updated">Last updated {page.updated_at}</p>
     </Shell>
@@ -285,17 +238,19 @@ export default async function InfoPage({
 }
 
 function Shell({
+  slug,
   title,
   lede,
   children,
 }: {
+  slug: string;
   title: string;
   lede?: string;
   children: React.ReactNode;
 }) {
   return (
     <>
-      <Masthead />
+      <Masthead variant="public" current={`/info/${slug}`} />
       <main id="main">
         <div className="pagehead">
           <h1>{title}</h1>
@@ -304,10 +259,30 @@ function Shell({
         <div className="shell info-shell">
           {children}
           <div className="info-cta">
-            <p>Ready to request an event?</p>
-            <Link href="/start" className="btn btn-primary" style={{ textDecoration: 'none' }}>
-              Start creating your event
-            </Link>
+            <p>Ready to get started?</p>
+            <div
+              style={{
+                display: 'flex',
+                gap: '.6rem',
+                justifyContent: 'center',
+                flexWrap: 'wrap',
+              }}
+            >
+              <Link
+                href="/start"
+                className="btn btn-primary"
+                style={{ textDecoration: 'none' }}
+              >
+                Central College event
+              </Link>
+              <Link
+                href="/order"
+                className="btn btn-ghost"
+                style={{ textDecoration: 'none' }}
+              >
+                Order catering
+              </Link>
+            </div>
           </div>
         </div>
       </main>

@@ -19,14 +19,11 @@ const CATEGORY_NOTE: Record<string, string> = {
 
 export default async function SpacesPage() {
   const spaces = await listPublicSpaces();
-
-  const categories = [
-    ...new Set(spaces.map((s) => s.category ?? 'Other')),
-  ];
+  const categories = [...new Set(spaces.map((s) => s.category ?? 'Other'))];
 
   return (
     <>
-      <Masthead current="/info/event-spaces" />
+      <Masthead variant="public" current="/info/event-spaces" />
       <main id="main">
         <div className="pagehead">
           <h1>Event spaces</h1>
@@ -73,9 +70,7 @@ export default async function SpacesPage() {
 
                   return (
                     <div className="building-block" key={building}>
-                      {showBuilding && (
-                        <h3 className="info-h3">{building}</h3>
-                      )}
+                      {showBuilding && <h3 className="info-h3">{building}</h3>}
                       <table className="room-table">
                         <thead>
                           <tr>
@@ -97,9 +92,7 @@ export default async function SpacesPage() {
                                 {r.supports_catering ? (
                                   'Available'
                                 ) : (
-                                  <span className="muted-cell">
-                                    Not usually
-                                  </span>
+                                  <span className="muted-cell">Not usually</span>
                                 )}
                               </td>
                             </tr>
@@ -115,13 +108,29 @@ export default async function SpacesPage() {
 
           <div className="info-cta">
             <p>Found somewhere that might work?</p>
-            <Link
-              href="/start"
-              className="btn btn-primary"
-              style={{ textDecoration: 'none' }}
+            <div
+              style={{
+                display: 'flex',
+                gap: '.6rem',
+                justifyContent: 'center',
+                flexWrap: 'wrap',
+              }}
             >
-              Start creating your event
-            </Link>
+              <Link
+                href="/start"
+                className="btn btn-primary"
+                style={{ textDecoration: 'none' }}
+              >
+                Central College event
+              </Link>
+              <Link
+                href="/order"
+                className="btn btn-ghost"
+                style={{ textDecoration: 'none' }}
+              >
+                Order catering
+              </Link>
+            </div>
           </div>
         </div>
       </main>

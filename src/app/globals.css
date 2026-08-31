@@ -1603,3 +1603,12 @@ label.chk input{margin-top:.2rem}
   .room-table thead th:nth-child(3),
   .room-table tbody td:nth-child(3){display:none}
 }
+/* Append these to the end of src/app/globals.css */
+
+/* ---------- back office grouping ---------- */
+.bo-heading{
+  font-size:.72rem;text-transform:uppercase;letter-spacing:.11em;
+  color:var(--slate);font-weight:500;margin:2rem 0 .8rem;
+  padding-bottom:.4rem;border-bottom:1px solid var(--rule);
+}
+.bo-heading:first-of-type{margin-top:0}

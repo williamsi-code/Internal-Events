@@ -3,16 +3,33 @@ import { getSessionUser } from '@/lib/auth';
 import { getNotices } from '@/lib/notifications';
 import Notifications from './Notifications';
 
+/**
+ * Two headers, one component.
+ *
+ * Public pages browse: menu, spaces, policies, classification. Signed-in
+ * working pages do not - someone filling in an intake form does not need
+ * a link to the policy page beside it, and offering one invites them to
+ * wander off mid-task.
+ *
+ * variant="public" is the browsing header. The default is the working one.
+ */
+
 const SECTIONS = [
   { href: '/info/catering-menu', label: 'Catering menu' },
   { href: '/info/event-spaces', label: 'Event spaces' },
-  { href: '/info/internal-policies', label: 'Internal event policies' },
+  { href: '/info/internal-policies', label: 'Catering policies' },
   { href: '/info/external-policies', label: 'External event policies' },
   { href: '/info/classification', label: 'Classification of events' },
-  { href: '/start', label: 'Start creating your event' },
+  { href: '/caterers', label: 'Outside caterers' },
 ];
 
-export default async function Masthead({ current }: { current?: string }) {
+export default async function Masthead({
+  current,
+  variant = 'app',
+}: {
+  current?: string;
+  variant?: 'public' | 'app';
+}) {
   const user = await getSessionUser();
   const isStaff =
     user?.roles.includes('events_staff') || user?.roles.includes('admin');
@@ -31,6 +48,7 @@ export default async function Masthead({ current }: { current?: string }) {
             Central <span>College</span>
           </Link>
           <div className="unit">Events &amp; Conferences</div>
+
           <div className="masthead-right">
             {user ? (
               <>
@@ -39,8 +57,6 @@ export default async function Masthead({ current }: { current?: string }) {
                     <Link href="/staff">Queue</Link>
                     {' \u00b7 '}
                     <Link href="/staff/schedule">Schedule</Link>
-                    {' \u00b7 '}
-                    <Link href="/staff/closeout">Close out</Link>
                     {' \u00b7 '}
                     <Link href="/staff/manage">Back office</Link>
                     {' \u00b7 '}
@@ -78,20 +94,22 @@ export default async function Masthead({ current }: { current?: string }) {
         </div>
       </header>
 
-      <nav className="sitenav" aria-label="Sections">
-        <ul>
-          {SECTIONS.map((s) => (
-            <li key={s.href}>
-              <Link
-                href={s.href}
-                aria-current={current === s.href ? 'page' : undefined}
-              >
-                {s.label}
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </nav>
+      {variant === 'public' && (
+        <nav className="sitenav" aria-label="Sections">
+          <ul>
+            {SECTIONS.map((s) => (
+              <li key={s.href}>
+                <Link
+                  href={s.href}
+                  aria-current={current === s.href ? 'page' : undefined}
+                >
+                  {s.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      )}
     </>
   );
 }
