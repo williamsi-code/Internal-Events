@@ -1551,3 +1551,20 @@ label.chk input{margin-top:.2rem}
   background:var(--paper);border:1px solid var(--rule);border-radius:2px;
 }
 .payment-list.plain li{padding:.6rem 0}
+/* Append these to the end of src/app/globals.css */
+
+/* ---------- external ordering ---------- */
+.order-head{background:var(--ink);color:#fff}
+.order-head-inner{
+  max-width:76rem;margin:0 auto;padding:.9rem 1.5rem;
+  display:flex;align-items:baseline;gap:.9rem;flex-wrap:wrap;
+}
+.order-head .wordmark{text-decoration:none}
+.order-head-unit{
+  font-size:.78rem;text-transform:uppercase;letter-spacing:.09em;
+  color:rgba(255,255,255,.7);
+}
+.order-head-right{
+  margin-left:auto;font-size:.85rem;color:rgba(255,255,255,.8);
+}
+.order-head-right a{color:#fff}
