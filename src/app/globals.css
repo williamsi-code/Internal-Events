@@ -1612,3 +1612,8 @@ label.chk input{margin-top:.2rem}
   padding-bottom:.4rem;border-bottom:1px solid var(--rule);
 }
 .bo-heading:first-of-type{margin-top:0}
+/* Append these to the end of src/app/globals.css */
+
+/* ---------- enquiry threads and attention ---------- */
+.qcard.needs-you{border-left:3px solid var(--crimson)}
+.p-info{color:var(--crimson);border-color:#E8CBD1;background:var(--crimson-soft)}

@@ -1,18 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { one } from '@/lib/db';
+import { one, transaction } from '@/lib/db';
+import { getSessionUser } from '@/lib/auth';
 
 /**
- * General enquiries.
+ * Enquiries.
  *
- * Open, and deliberately short. Someone who does not yet know what
- * they want should not be asked to classify their event; the whole
- * point of this route is that it costs almost nothing to use.
+ * Requires an account, because an enquiry is the start of a
+ * conversation and there is nowhere to show someone the answer
+ * otherwise. Anonymous enquiries end up back in email, which is the
+ * thing this replaces.
  */
 
 const Body = z.object({
-  name: z.string().min(1).max(120),
-  email: z.string().email().max(200),
   phone: z.string().max(50).nullable(),
   organization: z.string().max(200).nullable(),
   eventType: z.string().max(120).nullable(),
@@ -23,51 +23,70 @@ const Body = z.object({
 });
 
 export async function POST(req: NextRequest) {
+  const user = await getSessionUser();
+  if (!user) {
+    return NextResponse.json(
+      { error: 'Sign in so we can reply where you can see it.' },
+      { status: 401 }
+    );
+  }
+
   const parsed = Body.safeParse(await req.json());
   if (!parsed.success) {
     return NextResponse.json(
-      { error: 'Please give us your name, an email, and a message.' },
+      { error: 'Tell us what you would like to know.' },
       { status: 400 }
     );
   }
   const b = parsed.data;
 
   try {
-    await one(
-      `INSERT INTO enquiries
-         (name, email, phone, organization, event_type,
-          approx_date, approx_guests, message, source)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-       RETURNING id`,
-      [
-        b.name, b.email, b.phone, b.organization, b.eventType,
-        b.approxDate, b.approxGuests, b.message, b.source,
-      ]
-    );
+    const enquiry = await transaction(async (c) => {
+      const { rows } = await c.query(
+        `INSERT INTO enquiries
+           (user_id, name, email, phone, organization, event_type,
+            approx_date, approx_guests, message, source)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+         RETURNING id, reference_code`,
+        [
+          user.id, user.full_name, user.email, b.phone, b.organization,
+          b.eventType, b.approxDate, b.approxGuests, b.message, b.source,
+        ]
+      );
+
+      await c.query(
+        `INSERT INTO enquiry_messages
+           (enquiry_id, author_id, body, is_staff)
+         VALUES ($1, $2, $3, false)`,
+        [rows[0].id, user.id, b.message]
+      );
+
+      return rows[0];
+    });
+
+    if (process.env.RESEND_API_KEY) {
+      await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: 'Central Catering <noreply@central.edu>',
+          to: process.env.EVENTS_INBOX,
+          reply_to: user.email,
+          subject: `Enquiry ${enquiry.reference_code} from ${user.full_name}`,
+          text: `${b.message}\n\n${process.env.AUTH_URL ?? ''}/staff/enquiries\n`,
+        }),
+      }).catch(() => {});
+    }
+
+    return NextResponse.json({ referenceCode: enquiry.reference_code });
   } catch (err) {
     console.error('enquiry failed:', err);
     return NextResponse.json(
-      { error: 'Could not send that. Try emailing us directly.' },
+      { error: 'Could not send that. Try calling us on 641.628.5788.' },
       { status: 500 }
     );
   }
-
-  if (process.env.RESEND_API_KEY) {
-    await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: 'Central Catering <noreply@central.edu>',
-        to: process.env.EVENTS_INBOX,
-        reply_to: b.email,
-        subject: `Enquiry from ${b.name}`,
-        text: `${b.message}\n\n---\n${b.name}\n${b.email}\n${b.phone ?? ''}\n${b.organization ?? ''}`,
-      }),
-    }).catch(() => {});
-  }
-
-  return NextResponse.json({ ok: true });
 }
