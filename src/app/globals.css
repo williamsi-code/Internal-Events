@@ -1568,3 +1568,38 @@ label.chk input{margin-top:.2rem}
   margin-left:auto;font-size:.85rem;color:rgba(255,255,255,.8);
 }
 .order-head-right a{color:#fff}
+/* Append these to the end of src/app/globals.css */
+
+/* ---------- room list ---------- */
+.space-jump{
+  display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:2rem;
+  padding-bottom:1rem;border-bottom:1px solid var(--rule);
+}
+.space-jump a{
+  font-size:.82rem;padding:.35rem .8rem;border:1px solid var(--rule);
+  border-radius:2rem;text-decoration:none;color:var(--slate);
+}
+.space-jump a:hover{border-color:var(--crimson);color:var(--crimson)}
+
+.building-block{margin-bottom:1.75rem}
+.building-block .info-h3{
+  margin-bottom:.4rem;padding-bottom:.3rem;
+  border-bottom:1px solid var(--rule);
+}
+
+.room-table{width:100%;border-collapse:collapse;font-size:.89rem}
+.room-table th,.room-table td{
+  text-align:left;padding:.4rem .5rem;border-bottom:1px solid var(--rule);
+}
+.room-table thead th{
+  font-size:.68rem;text-transform:uppercase;letter-spacing:.09em;
+  color:var(--slate);font-weight:500;
+}
+.room-table .num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.room-table tbody tr:hover{background:var(--paper)}
+.muted-cell{color:var(--mute)}
+
+@media(max-width:520px){
+  .room-table thead th:nth-child(3),
+  .room-table tbody td:nth-child(3){display:none}
+}
