@@ -1527,3 +1527,27 @@ label.chk input{margin-top:.2rem}
 .foot-nav{display:flex;flex-direction:column;gap:.45rem}
 .foot-nav a{color:rgba(255,255,255,.8);text-decoration:none;font-size:.9rem}
 .foot-nav a:hover{color:#fff;text-decoration:underline}
+/* Append these to the end of src/app/globals.css */
+
+/* ---------- payments ---------- */
+.payment-list{list-style:none;margin:0 0 1.1rem;padding:0}
+.payment-list li{
+  display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap;
+  padding:.7rem 0;border-top:1px solid var(--rule);
+}
+.payment-list li:first-child{border-top:0}
+.payment-main{min-width:0;flex:1}
+.payment-purpose{display:block;font-weight:500;font-size:.92rem}
+.payment-meta{display:block;font-size:.79rem;color:var(--slate);margin-top:.1rem}
+.payment-right{
+  display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;flex:none;
+}
+.payment-amount{
+  font-family:"IBM Plex Mono",monospace;font-size:.95rem;font-weight:500;
+}
+
+.payment-record{
+  flex-basis:100%;margin-top:.8rem;padding:1rem 1.1rem;
+  background:var(--paper);border:1px solid var(--rule);border-radius:2px;
+}
+.payment-list.plain li{padding:.6rem 0}
