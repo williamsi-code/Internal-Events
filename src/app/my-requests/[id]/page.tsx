@@ -3,8 +3,10 @@ import Link from 'next/link';
 import Masthead from '@/components/Masthead';
 import RequesterActions from '@/components/RequesterActions';
 import HeadcountForm from '@/components/HeadcountForm';
+import RequesterPayments from '@/components/RequesterPayments';
 import { getSessionUser } from '@/lib/auth';
 import { getMyRequest, getVisibleMessages } from '@/lib/requests';
+import { getPayments, getPaymentConfig } from '@/lib/payments';
 
 export const dynamic = 'force-dynamic';
 
@@ -39,7 +41,12 @@ export default async function MyRequestPage({
   const request = await getMyRequest(id, user.id);
   if (!request) notFound();
 
-  const messages = await getVisibleMessages(id);
+  const [messages, payments, payConfig] = await Promise.all([
+    getVisibleMessages(id),
+    getPayments(id),
+    getPaymentConfig(),
+  ]);
+
   const eventDate = new Date(request.event_date + 'T00:00:00');
 
   // The count is only worth asking for once the event is actually
@@ -104,6 +111,8 @@ export default async function MyRequestPage({
             </div>
 
             {showHeadcount && <HeadcountForm request={request} />}
+
+            <RequesterPayments payments={payments} config={payConfig} />
 
             <RequesterActions request={request} messages={messages} />
           </div>

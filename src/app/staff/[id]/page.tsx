@@ -7,6 +7,7 @@ import CapacityPanel from '@/components/CapacityPanel';
 import RequestActions from '@/components/RequestActions';
 import FoodSourcePanel from '@/components/FoodSourcePanel';
 import ReopenDetails from '@/components/ReopenDetails';
+import PaymentPanel from '@/components/PaymentPanel';
 import { getSessionUser } from '@/lib/auth';
 import { getRequest, getMessages } from '@/lib/requests';
 import { changesSinceClassification } from '@/lib/changes';
@@ -17,6 +18,7 @@ import {
 } from '@/lib/capacity';
 import { getFoodSources, getFacilityCharge } from '@/lib/food-sources';
 import { getDetailsLockState, getMenuHistory } from '@/lib/reopen';
+import { getPayments, getPaymentConfig } from '@/lib/payments';
 
 export const dynamic = 'force-dynamic';
 
@@ -76,12 +78,15 @@ export default async function RequestDetailPage({
       ])
     : [null, [], []];
 
-  const [foodSources, facility, lock, menuHistory] = await Promise.all([
-    getFoodSources(id),
-    getFacilityCharge(id),
-    getDetailsLockState(id),
-    getMenuHistory(id),
-  ]);
+  const [foodSources, facility, lock, menuHistory, payments, payConfig] =
+    await Promise.all([
+      getFoodSources(id),
+      getFacilityCharge(id),
+      getDetailsLockState(id),
+      getMenuHistory(id),
+      getPayments(id),
+      getPaymentConfig(),
+    ]);
 
   const eventDate = new Date(request.event_date + 'T00:00:00');
   const days = Math.round((eventDate.getTime() - Date.now()) / 86_400_000);
@@ -273,10 +278,12 @@ export default async function RequestDetailPage({
               facility={facility}
             />
 
-            <ReopenDetails
+            <ReopenDetails requestId={id} lock={lock} history={menuHistory} />
+
+            <PaymentPanel
               requestId={id}
-              lock={lock}
-              history={menuHistory}
+              payments={payments}
+              config={payConfig}
             />
 
             <DecisionPanel request={request} messages={messages} />
