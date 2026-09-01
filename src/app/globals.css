@@ -1684,3 +1684,63 @@ label.chk input{margin-top:.2rem}
   font-family:"IBM Plex Mono",monospace;font-size:.78rem;
   background:var(--paper);
 }
+/* Append these to the end of src/app/globals.css */
+
+/* ============================================================
+   Front page editor
+   ============================================================ */
+
+.chosen-image{
+  display:flex;gap:1rem;align-items:flex-start;
+  padding:.8rem;background:var(--paper);
+  border:1px solid var(--rule);border-radius:3px;
+}
+.chosen-image img{
+  width:7rem;height:5rem;object-fit:cover;border-radius:2px;flex:none;
+}
+.chosen-image strong{display:block;font-size:.9rem;margin-bottom:.3rem}
+.chosen-image .actions{margin-top:0;gap:.8rem}
+
+.block-list{display:flex;flex-direction:column;gap:.5rem;margin-top:1.25rem}
+.block-row{
+  display:flex;gap:1rem;align-items:center;
+  padding:.7rem .85rem;background:var(--surface);
+  border:1px solid var(--rule);border-radius:3px;
+}
+.block-row.inactive{opacity:.55}
+.block-thumb{
+  width:5rem;height:3.5rem;object-fit:cover;border-radius:2px;flex:none;
+  background:var(--paper);
+}
+.block-thumb.placeholder{
+  background:repeating-linear-gradient(
+    135deg,var(--paper),var(--paper) 8px,var(--rule) 8px,var(--rule) 16px);
+}
+.block-info{flex:1;min-width:0}
+.block-title{display:block;font-weight:500;font-size:.92rem}
+.block-sub{display:block;font-size:.8rem;color:var(--slate)}
+.block-meta{display:block;font-size:.74rem;color:var(--mute);margin-top:.15rem}
+
+/* ---------- image picker ---------- */
+.picker-scrim{
+  position:fixed;inset:0;z-index:70;background:rgba(22,25,29,.5);
+  display:flex;align-items:center;justify-content:center;padding:1.5rem;
+}
+.picker{
+  background:var(--surface);border-radius:4px;padding:1.25rem 1.4rem;
+  max-width:52rem;width:100%;max-height:82vh;overflow-y:auto;
+}
+.picker-grid{
+  display:grid;gap:.8rem;
+  grid-template-columns:repeat(auto-fill,minmax(140px,1fr));
+}
+.picker-item{
+  border:1px solid var(--rule);border-radius:3px;overflow:hidden;
+  background:none;padding:0;cursor:pointer;text-align:left;
+}
+.picker-item:hover{border-color:var(--crimson)}
+.picker-item img{width:100%;aspect-ratio:4/3;object-fit:cover;display:block}
+.picker-item span{
+  display:block;padding:.4rem .5rem;font-size:.78rem;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}

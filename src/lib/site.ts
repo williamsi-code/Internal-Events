@@ -6,6 +6,10 @@ import { query, one } from './db';
  * Everything on the front page is editable from the back office,
  * because a page that needs a developer to update is a page that
  * stops being updated.
+ *
+ * Images resolve through the media library where one is attached, so
+ * replacing a photograph updates everywhere it appears rather than
+ * only where someone remembered to change the URL.
  */
 
 export interface SiteSettings {
@@ -13,6 +17,7 @@ export interface SiteSettings {
   hero_title: string;
   hero_subtitle: string | null;
   hero_image_url: string | null;
+  hero_media_id: string | null;
   intro_heading: string | null;
   intro_body: string | null;
   contact_phone: string | null;
@@ -22,10 +27,14 @@ export interface SiteSettings {
 
 export async function getSiteSettings() {
   return one<SiteSettings>(
-    `SELECT hero_eyebrow, hero_title, hero_subtitle, hero_image_url,
-            intro_heading, intro_body, contact_phone, contact_email,
-            office_hours
-       FROM site_settings WHERE id`
+    `SELECT s.hero_eyebrow, s.hero_title, s.hero_subtitle,
+            coalesce(m.secure_url, s.hero_image_url) AS hero_image_url,
+            s.hero_media_id,
+            s.intro_heading, s.intro_body,
+            s.contact_phone, s.contact_email, s.office_hours
+       FROM site_settings s
+       LEFT JOIN media m ON m.id = s.hero_media_id
+      WHERE s.id`
   );
 }
 
@@ -37,6 +46,7 @@ export interface SiteBlock {
   body: string | null;
   image_url: string | null;
   image_alt: string | null;
+  media_id: string | null;
   link_url: string | null;
   link_label: string | null;
   menu_item_id: string | null;
@@ -48,20 +58,26 @@ export interface SiteBlock {
   publish_to: string | null;
 }
 
-/** Published blocks inside their publish window, if they have one.
- *  A spotlight's price is read live from the menu rather than copied,
- *  so it cannot drift out of date on the front page. */
+const BLOCK_COLUMNS = `
+  b.id, b.kind, b.title, b.subtitle, b.body,
+  coalesce(m.secure_url, b.image_url) AS image_url,
+  coalesce(m.alt_text, b.image_alt) AS image_alt,
+  b.media_id, b.link_url, b.link_label, b.menu_item_id,
+  b.sort_order, b.is_published,
+  to_char(b.publish_from, 'YYYY-MM-DD') AS publish_from,
+  to_char(b.publish_to, 'YYYY-MM-DD') AS publish_to
+`;
+
+/** Published blocks inside their publish window. A spotlight's price
+ *  is read live from the menu rather than copied, so it cannot drift
+ *  out of date on the front page. */
 export async function getSiteBlocks(kind?: string) {
   return query<SiteBlock>(
-    `SELECT b.id, b.kind, b.title, b.subtitle, b.body,
-            b.image_url, b.image_alt, b.link_url, b.link_label,
-            b.menu_item_id,
+    `SELECT ${BLOCK_COLUMNS},
             p.unit_price::text AS menu_price,
-            mi.unit AS menu_unit,
-            b.sort_order, b.is_published,
-            to_char(b.publish_from, 'YYYY-MM-DD') AS publish_from,
-            to_char(b.publish_to, 'YYYY-MM-DD') AS publish_to
+            mi.unit AS menu_unit
        FROM site_blocks b
+       LEFT JOIN media m ON m.id = b.media_id
        LEFT JOIN menu_items mi ON mi.id = b.menu_item_id
        LEFT JOIN LATERAL (
          SELECT unit_price FROM menu_item_prices
@@ -83,14 +99,28 @@ export async function getSiteBlocks(kind?: string) {
 /** Everything, published or not, for the back office. */
 export async function getAllSiteBlocks() {
   return query<SiteBlock>(
-    `SELECT b.id, b.kind, b.title, b.subtitle, b.body,
-            b.image_url, b.image_alt, b.link_url, b.link_label,
-            b.menu_item_id, null::text AS menu_price, null::text AS menu_unit,
-            b.sort_order, b.is_published,
-            to_char(b.publish_from, 'YYYY-MM-DD') AS publish_from,
-            to_char(b.publish_to, 'YYYY-MM-DD') AS publish_to
+    `SELECT ${BLOCK_COLUMNS},
+            null::text AS menu_price, null::text AS menu_unit
        FROM site_blocks b
+       LEFT JOIN media m ON m.id = b.media_id
       ORDER BY b.kind, b.sort_order, b.created_at DESC`
+  );
+}
+
+export interface MenuItemOption {
+  id: string;
+  name: string;
+  category: string;
+}
+
+/** For the spotlight picker. */
+export async function listMenuItemOptions() {
+  return query<MenuItemOption>(
+    `SELECT mi.id, mi.name, c.name AS category
+       FROM menu_items mi
+       JOIN menu_categories c ON c.id = mi.category_id
+      WHERE mi.is_active AND c.is_active
+      ORDER BY c.sort_order, mi.sort_order`
   );
 }
 
@@ -98,29 +128,6 @@ export interface Enquiry {
   id: string;
   name: string;
   email: string;
-  phone: string | null;
-  organization: string | null;
-  event_type: string | null;
-  approx_date: string | null;
-  approx_guests: number | null;
   message: string;
-  handled_at: string | null;
-  handled_by_name: string | null;
   created_at: string;
-}
-
-export async function listEnquiries() {
-  return query<Enquiry>(
-    `SELECT e.id, e.name, e.email, e.phone, e.organization,
-            e.event_type,
-            to_char(e.approx_date, 'Mon FMDD, YYYY') AS approx_date,
-            e.approx_guests, e.message,
-            to_char(e.handled_at, 'Mon FMDD, YYYY') AS handled_at,
-            u.full_name AS handled_by_name,
-            to_char(e.created_at, 'Mon FMDD, YYYY') AS created_at
-       FROM enquiries e
-       LEFT JOIN users u ON u.id = e.handled_by
-      ORDER BY e.handled_at NULLS FIRST, e.created_at DESC
-      LIMIT 200`
-  );
 }

@@ -119,6 +119,13 @@ export default async function ManagePage() {
                 requirements and the donated food policy, as published.
               </p>
             </Link>
+            <Link href="/staff/manage/front-page" className="tile">
+              <h3>Front page</h3>
+              <p>
+                Hero, news, menu spotlights, staff profiles and the gallery.
+                What visitors see before they sign in.
+                </p>
+                </Link>
             <Link href="/staff/manage/media" className="tile">
               <h3>Images</h3>
               <p>
