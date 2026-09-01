@@ -112,6 +112,19 @@ export default async function ManagePage() {
                 Catering policies, external event policies, outside caterer
                 requirements and the donated food policy, as published.
               </p>
+            </Link>            <Link href="/staff/manage/policies" className="tile">
+              <h3>Policy pages</h3>
+              <p>
+                Catering policies, external event policies, outside caterer
+                requirements and the donated food policy, as published.
+              </p>
+            </Link>
+            <Link href="/staff/manage/media" className="tile">
+              <h3>Images</h3>
+              <p>
+                Photographs for the front page. Upload from your computer once,
+                then use the same image anywhere it is needed.
+              </p>
             </Link>
           </div>
 
