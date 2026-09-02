@@ -23,6 +23,13 @@ export interface SiteSettings {
   contact_phone: string | null;
   contact_email: string | null;
   office_hours: string | null;
+  address: string | null;
+  services_heading: string;
+  services_list: string | null;
+  amenities_heading: string;
+  amenities_list: string | null;
+  secondary_cta_label: string | null;
+  secondary_cta_url: string | null;
 }
 
 export async function getSiteSettings() {
@@ -31,16 +38,27 @@ export async function getSiteSettings() {
             coalesce(m.secure_url, s.hero_image_url) AS hero_image_url,
             s.hero_media_id,
             s.intro_heading, s.intro_body,
-            s.contact_phone, s.contact_email, s.office_hours
+            s.contact_phone, s.contact_email, s.office_hours, s.address,
+            s.services_heading, s.services_list,
+            s.amenities_heading, s.amenities_list,
+            s.secondary_cta_label, s.secondary_cta_url
        FROM site_settings s
        LEFT JOIN media m ON m.id = s.hero_media_id
       WHERE s.id`
   );
 }
 
+export type BlockKind =
+  | 'news'
+  | 'menu_spotlight'
+  | 'staff_spotlight'
+  | 'gallery'
+  | 'occasion'
+  | 'testimonial';
+
 export interface SiteBlock {
   id: string;
-  kind: 'news' | 'menu_spotlight' | 'staff_spotlight' | 'gallery';
+  kind: BlockKind;
   title: string;
   subtitle: string | null;
   body: string | null;
@@ -90,7 +108,7 @@ export async function getSiteBlocks(kind?: string) {
       WHERE b.is_published
         AND (b.publish_from IS NULL OR b.publish_from <= CURRENT_DATE)
         AND (b.publish_to IS NULL OR b.publish_to >= CURRENT_DATE)
-        AND ($1::text IS NULL OR b.kind = $1::content_block_kind)
+        AND ($1::text IS NULL OR b.kind = $1)
       ORDER BY b.sort_order, b.created_at DESC`,
     [kind ?? null]
   );
@@ -113,7 +131,6 @@ export interface MenuItemOption {
   category: string;
 }
 
-/** For the spotlight picker. */
 export async function listMenuItemOptions() {
   return query<MenuItemOption>(
     `SELECT mi.id, mi.name, c.name AS category
@@ -124,10 +141,12 @@ export async function listMenuItemOptions() {
   );
 }
 
-export interface Enquiry {
-  id: string;
-  name: string;
-  email: string;
-  message: string;
-  created_at: string;
+/** A newline-separated list stored as one field, because these are
+ *  short lists that change together and a table would be overkill. */
+export function splitList(text: string | null) {
+  if (!text) return [];
+  return text
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean);
 }

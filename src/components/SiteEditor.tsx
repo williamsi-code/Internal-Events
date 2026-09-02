@@ -3,26 +3,40 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import type { SiteSettings, SiteBlock, MenuItemOption } from '@/lib/site';
+import type { SiteSettings, SiteBlock, MenuItemOption, BlockKind } from '@/lib/site';
 import type { MediaItem } from '@/lib/media';
 
-const KIND_LABEL: Record<string, string> = {
-  news: 'News',
-  menu_spotlight: 'Menu spotlight',
-  staff_spotlight: 'Staff spotlight',
+const KIND_LABEL: Record<BlockKind, string> = {
+  occasion: 'Occasions',
+  testimonial: 'Testimonials',
   gallery: 'Gallery',
+  menu_spotlight: 'Menu spotlights',
+  news: 'News',
+  staff_spotlight: 'Staff',
 };
 
-const KIND_HINT: Record<string, string> = {
-  news: 'Appears newest first under "Latest from the kitchen". A publish window lets you write something now and have it appear later.',
+const KIND_HINT: Record<BlockKind, string> = {
+  occasion:
+    'The three cards below the hero. Weddings, celebrations, meetings. A photograph each makes the difference.',
+  testimonial:
+    'Only the first published one appears, in the crimson band. Put the quotation in the text field and the attribution in the subtitle.',
+  gallery: 'A strip of past events. Best with four or more square photographs.',
   menu_spotlight:
-    'Link it to a menu item and the price comes from the live menu, so it cannot go out of date.',
-  staff_spotlight:
-    'A photograph, a name, a role, and a couple of sentences. Round portraits work best.',
-  gallery: 'A full-width band of photographs. Best with four or more.',
+    'Link one to a menu item and the price comes from the live menu, so it cannot go out of date.',
+  news: 'Appears under "Latest from the kitchen". A publish window lets you write now and appear later.',
+  staff_spotlight: 'Round portraits. A name, a role, and a couple of sentences.',
 };
 
-const blank = (kind: SiteBlock['kind']): SiteBlock => ({
+const ORDER: BlockKind[] = [
+  'occasion',
+  'testimonial',
+  'gallery',
+  'menu_spotlight',
+  'news',
+  'staff_spotlight',
+];
+
+const blank = (kind: BlockKind): SiteBlock => ({
   id: '',
   kind,
   title: '',
@@ -54,7 +68,7 @@ export default function SiteEditor({
   menuItems: MenuItemOption[];
 }) {
   const router = useRouter();
-  const [tab, setTab] = useState<'settings' | SiteBlock['kind']>('settings');
+  const [tab, setTab] = useState<'settings' | BlockKind>('settings');
   const [editing, setEditing] = useState<SiteBlock | null>(null);
   const [picking, setPicking] = useState(false);
   const [error, setError] = useState('');
@@ -71,6 +85,13 @@ export default function SiteEditor({
     contactPhone: settings?.contact_phone ?? '',
     contactEmail: settings?.contact_email ?? '',
     officeHours: settings?.office_hours ?? '',
+    address: settings?.address ?? '',
+    servicesHeading: settings?.services_heading ?? 'What we do',
+    servicesList: settings?.services_list ?? '',
+    amenitiesHeading: settings?.amenities_heading ?? 'What is included',
+    amenitiesList: settings?.amenities_list ?? '',
+    secondaryCtaLabel: settings?.secondary_cta_label ?? '',
+    secondaryCtaUrl: settings?.secondary_cta_url ?? '',
   });
 
   const heroImage = media.find((m) => m.id === s.heroMediaId);
@@ -104,34 +125,35 @@ export default function SiteEditor({
   const setB = (patch: Partial<SiteBlock>) =>
     setEditing((e) => (e ? { ...e, ...patch } : e));
 
-  const tabs: ('settings' | SiteBlock['kind'])[] = [
-    'settings',
-    'news',
-    'menu_spotlight',
-    'staff_spotlight',
-    'gallery',
-  ];
+  const isQuote = tab === 'testimonial';
 
   return (
     <>
       <div className="filters" role="group" aria-label="Section">
-        {tabs.map((t) => (
+        <button
+          className="chip"
+          aria-pressed={tab === 'settings'}
+          onClick={() => {
+            setTab('settings');
+            setEditing(null);
+            setSaved(false);
+          }}
+        >
+          Hero and details
+        </button>
+        {ORDER.map((k) => (
           <button
-            key={t}
+            key={k}
             className="chip"
-            aria-pressed={tab === t}
+            aria-pressed={tab === k}
             onClick={() => {
-              setTab(t);
+              setTab(k);
               setEditing(null);
               setSaved(false);
             }}
           >
-            {t === 'settings' ? 'Hero and contact' : KIND_LABEL[t]}
-            {t !== 'settings' && (
-              <span className="n">
-                {blocks.filter((b) => b.kind === t).length}
-              </span>
-            )}
+            {KIND_LABEL[k]}
+            <span className="n">{blocks.filter((b) => b.kind === k).length}</span>
           </button>
         ))}
       </div>
@@ -141,16 +163,16 @@ export default function SiteEditor({
         <div className="callout c-default">Saved. The front page is updated.</div>
       )}
 
-      {/* ---------- hero and contact ---------- */}
+      {/* ---------- hero and details ---------- */}
       {tab === 'settings' && (
         <div className="admin-editor">
           <h3>The top of the page</h3>
 
           <div className="field">
-            <label>Hero image</label>
+            <label>Hero photograph</label>
             <p className="sub">
-              Sits behind the title, darkened so text stays readable. A wide
-              landscape photograph works best.
+              Sits beside the headline. A wide landscape shot of a set room or a
+              served table works best.
             </p>
             {heroImage ? (
               <div className="chosen-image">
@@ -158,10 +180,7 @@ export default function SiteEditor({
                 <div>
                   <strong>{heroImage.title}</strong>
                   <div className="actions">
-                    <button
-                      className="edit-link"
-                      onClick={() => setPicking(true)}
-                    >
+                    <button className="edit-link" onClick={() => setPicking(true)}>
                       Change
                     </button>
                     <button
@@ -175,35 +194,31 @@ export default function SiteEditor({
               </div>
             ) : (
               <button className="btn btn-ghost" onClick={() => setPicking(true)}>
-                Choose an image
+                Choose a photograph
               </button>
             )}
           </div>
 
-          <div className="grid two">
-            <div className="field">
-              <label htmlFor="se-eyebrow">Small line above the title</label>
-              <input
-                id="se-eyebrow"
-                type="text"
-                value={s.heroEyebrow}
-                onChange={(e) => setS({ ...s, heroEyebrow: e.target.value })}
-              />
-            </div>
-            <div className="field">
-              <label htmlFor="se-title">Title</label>
-              <input
-                id="se-title"
-                type="text"
-                value={s.heroTitle}
-                onChange={(e) => setS({ ...s, heroTitle: e.target.value })}
-              />
-            </div>
-          </div>
-
           <div className="field">
-            <label htmlFor="se-sub">Subtitle</label>
-            <p className="sub">One or two lines. Keep it short.</p>
+            <label htmlFor="se-eyebrow">Small line above the headline</label>
+            <input
+              id="se-eyebrow"
+              type="text"
+              value={s.heroEyebrow}
+              onChange={(e) => setS({ ...s, heroEyebrow: e.target.value })}
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="se-title">Headline</label>
+            <input
+              id="se-title"
+              type="text"
+              value={s.heroTitle}
+              onChange={(e) => setS({ ...s, heroTitle: e.target.value })}
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="se-sub">Opening lines</label>
             <textarea
               id="se-sub"
               value={s.heroSubtitle}
@@ -211,29 +226,79 @@ export default function SiteEditor({
             />
           </div>
 
-          <h4 className="admin-h4">Above the three gateways</h4>
-          <div className="field">
-            <label htmlFor="se-ih">Heading</label>
-            <input
-              id="se-ih"
-              type="text"
-              value={s.introHeading}
-              onChange={(e) => setS({ ...s, introHeading: e.target.value })}
-            />
+          <div className="grid two">
+            <div className="field">
+              <label htmlFor="se-cta">Second button</label>
+              <p className="sub">Beside "Start your event".</p>
+              <input
+                id="se-cta"
+                type="text"
+                value={s.secondaryCtaLabel}
+                onChange={(e) =>
+                  setS({ ...s, secondaryCtaLabel: e.target.value })
+                }
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="se-ctaurl">Where it goes</label>
+              <input
+                id="se-ctaurl"
+                type="text"
+                value={s.secondaryCtaUrl}
+                onChange={(e) => setS({ ...s, secondaryCtaUrl: e.target.value })}
+              />
+            </div>
           </div>
-          <div className="field">
-            <label htmlFor="se-ib">Introduction</label>
-            <textarea
-              id="se-ib"
-              value={s.introBody}
-              onChange={(e) => setS({ ...s, introBody: e.target.value })}
-            />
+
+          <h4 className="admin-h4">What people get</h4>
+          <p className="sub" style={{ marginTop: '-.4rem' }}>
+            Two plain lists, one item per line. This answers the question every
+            enquiry opens with, so it is worth being generous and specific.
+          </p>
+          <div className="grid two">
+            <div className="field">
+              <label htmlFor="se-sh">Left heading</label>
+              <input
+                id="se-sh"
+                type="text"
+                value={s.servicesHeading}
+                onChange={(e) => setS({ ...s, servicesHeading: e.target.value })}
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="se-ah">Right heading</label>
+              <input
+                id="se-ah"
+                type="text"
+                value={s.amenitiesHeading}
+                onChange={(e) =>
+                  setS({ ...s, amenitiesHeading: e.target.value })
+                }
+              />
+            </div>
+          </div>
+          <div className="grid two">
+            <div className="field">
+              <label htmlFor="se-sl">Left list</label>
+              <textarea
+                id="se-sl"
+                rows={7}
+                value={s.servicesList}
+                onChange={(e) => setS({ ...s, servicesList: e.target.value })}
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="se-al">Right list</label>
+              <textarea
+                id="se-al"
+                rows={7}
+                value={s.amenitiesList}
+                onChange={(e) => setS({ ...s, amenitiesList: e.target.value })}
+              />
+            </div>
           </div>
 
           <h4 className="admin-h4">Contact</h4>
-          <p className="sub" style={{ marginTop: '-.4rem' }}>
-            Appears in the bar at the top and in the footer.
-          </p>
           <div className="grid two">
             <div className="field">
               <label htmlFor="se-phone">Phone</label>
@@ -253,15 +318,24 @@ export default function SiteEditor({
                 onChange={(e) => setS({ ...s, contactEmail: e.target.value })}
               />
             </div>
-          </div>
-          <div className="field">
-            <label htmlFor="se-hours">Office hours</label>
-            <input
-              id="se-hours"
-              type="text"
-              value={s.officeHours}
-              onChange={(e) => setS({ ...s, officeHours: e.target.value })}
-            />
+            <div className="field">
+              <label htmlFor="se-addr">Address</label>
+              <input
+                id="se-addr"
+                type="text"
+                value={s.address}
+                onChange={(e) => setS({ ...s, address: e.target.value })}
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="se-hours">Office hours</label>
+              <input
+                id="se-hours"
+                type="text"
+                value={s.officeHours}
+                onChange={(e) => setS({ ...s, officeHours: e.target.value })}
+              />
+            </div>
           </div>
 
           <div className="actions">
@@ -280,6 +354,13 @@ export default function SiteEditor({
                   contactPhone: s.contactPhone || null,
                   contactEmail: s.contactEmail || null,
                   officeHours: s.officeHours || null,
+                  address: s.address || null,
+                  servicesHeading: s.servicesHeading,
+                  servicesList: s.servicesList || null,
+                  amenitiesHeading: s.amenitiesHeading,
+                  amenitiesList: s.amenitiesList || null,
+                  secondaryCtaLabel: s.secondaryCtaLabel || null,
+                  secondaryCtaUrl: s.secondaryCtaUrl || null,
                 })
               }
             >
@@ -303,62 +384,64 @@ export default function SiteEditor({
                 setSaved(false);
               }}
             >
-              Add {KIND_LABEL[tab].toLowerCase()}
+              Add
             </button>
             <span className="admin-note">{KIND_HINT[tab]}</span>
           </div>
 
           {editing && (
             <div className="admin-editor">
-              <h3>{editing.id ? 'Edit' : 'New'} {KIND_LABEL[tab].toLowerCase()}</h3>
+              <h3>{editing.id ? 'Edit' : 'New'}</h3>
 
-              <div className="field">
-                <label>Image</label>
-                {editing.media_id ? (
-                  <div className="chosen-image">
-                    <img
-                      src={
-                        media.find((m) => m.id === editing.media_id)
-                          ?.secure_url ?? ''
-                      }
-                      alt=""
-                    />
-                    <div>
-                      <strong>
-                        {media.find((m) => m.id === editing.media_id)?.title}
-                      </strong>
-                      <div className="actions">
-                        <button
-                          className="edit-link"
-                          onClick={() => setPicking(true)}
-                        >
-                          Change
-                        </button>
-                        <button
-                          className="edit-link"
-                          onClick={() => setB({ media_id: null })}
-                        >
-                          Remove
-                        </button>
+              {!isQuote && (
+                <div className="field">
+                  <label>Photograph</label>
+                  {editing.media_id ? (
+                    <div className="chosen-image">
+                      <img
+                        src={
+                          media.find((m) => m.id === editing.media_id)
+                            ?.secure_url ?? ''
+                        }
+                        alt=""
+                      />
+                      <div>
+                        <strong>
+                          {media.find((m) => m.id === editing.media_id)?.title}
+                        </strong>
+                        <div className="actions">
+                          <button
+                            className="edit-link"
+                            onClick={() => setPicking(true)}
+                          >
+                            Change
+                          </button>
+                          <button
+                            className="edit-link"
+                            onClick={() => setB({ media_id: null })}
+                          >
+                            Remove
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ) : (
-                  <button
-                    className="btn btn-ghost"
-                    onClick={() => setPicking(true)}
-                  >
-                    Choose an image
-                  </button>
-                )}
-              </div>
+                  ) : (
+                    <button
+                      className="btn btn-ghost"
+                      onClick={() => setPicking(true)}
+                    >
+                      Choose a photograph
+                    </button>
+                  )}
+                </div>
+              )}
 
               {tab === 'menu_spotlight' && (
                 <div className="field">
                   <label htmlFor="bl-menu">Menu item</label>
                   <p className="sub">
-                    The price shown on the front page comes from here, so it
-                    stays correct when the menu changes.
+                    The price on the front page comes from here, so it stays
+                    correct when the menu changes.
                   </p>
                   <select
                     id="bl-menu"
@@ -370,11 +453,6 @@ export default function SiteEditor({
                           editing.title ||
                           menuItems.find((m) => m.id === e.target.value)?.name ||
                           '',
-                        subtitle:
-                          editing.subtitle ||
-                          menuItems.find((m) => m.id === e.target.value)
-                            ?.category ||
-                          null,
                       })
                     }
                   >
@@ -391,8 +469,15 @@ export default function SiteEditor({
               <div className="grid two">
                 <div className="field">
                   <label htmlFor="bl-title">
-                    {tab === 'staff_spotlight' ? 'Name' : 'Title'}
+                    {isQuote
+                      ? 'Internal label'
+                      : tab === 'staff_spotlight'
+                        ? 'Name'
+                        : 'Title'}
                   </label>
+                  {isQuote && (
+                    <p className="sub">Not shown. Just so you can find it.</p>
+                  )}
                   <input
                     id="bl-title"
                     type="text"
@@ -402,11 +487,13 @@ export default function SiteEditor({
                 </div>
                 <div className="field">
                   <label htmlFor="bl-sub">
-                    {tab === 'staff_spotlight'
-                      ? 'Role'
-                      : tab === 'news'
-                        ? 'Tag above the headline'
-                        : 'Subtitle'}
+                    {isQuote
+                      ? 'Who said it'
+                      : tab === 'staff_spotlight'
+                        ? 'Role'
+                        : tab === 'occasion'
+                          ? 'Small line above the title'
+                          : 'Subtitle'}
                   </label>
                   <input
                     id="bl-sub"
@@ -419,7 +506,9 @@ export default function SiteEditor({
 
               {tab !== 'gallery' && (
                 <div className="field">
-                  <label htmlFor="bl-body">Text</label>
+                  <label htmlFor="bl-body">
+                    {isQuote ? 'The quotation' : 'Text'}
+                  </label>
                   <textarea
                     id="bl-body"
                     value={editing.body ?? ''}
@@ -428,11 +517,10 @@ export default function SiteEditor({
                 </div>
               )}
 
-              {tab === 'news' && (
+              {(tab === 'news' || tab === 'occasion') && (
                 <div className="grid two">
                   <div className="field">
                     <label htmlFor="bl-url">Link</label>
-                    <p className="sub">Optional. Where "read more" goes.</p>
                     <input
                       id="bl-url"
                       type="text"
@@ -447,7 +535,6 @@ export default function SiteEditor({
                     <input
                       id="bl-label"
                       type="text"
-                      placeholder="Read more"
                       value={editing.link_label ?? ''}
                       onChange={(e) =>
                         setB({ link_label: e.target.value || null })
@@ -457,32 +544,7 @@ export default function SiteEditor({
                 </div>
               )}
 
-              <h4 className="admin-h4">When it appears</h4>
               <div className="grid two">
-                <div className="field">
-                  <label htmlFor="bl-from">Show from</label>
-                  <p className="sub">Leave blank to show immediately.</p>
-                  <input
-                    id="bl-from"
-                    type="date"
-                    value={editing.publish_from ?? ''}
-                    onChange={(e) =>
-                      setB({ publish_from: e.target.value || null })
-                    }
-                  />
-                </div>
-                <div className="field">
-                  <label htmlFor="bl-to">Show until</label>
-                  <p className="sub">Leave blank to show indefinitely.</p>
-                  <input
-                    id="bl-to"
-                    type="date"
-                    value={editing.publish_to ?? ''}
-                    onChange={(e) =>
-                      setB({ publish_to: e.target.value || null })
-                    }
-                  />
-                </div>
                 <div className="field">
                   <label htmlFor="bl-sort">Order</label>
                   <input
@@ -506,6 +568,33 @@ export default function SiteEditor({
                   </label>
                 </div>
               </div>
+
+              {tab === 'news' && (
+                <div className="grid two">
+                  <div className="field">
+                    <label htmlFor="bl-from">Show from</label>
+                    <input
+                      id="bl-from"
+                      type="date"
+                      value={editing.publish_from ?? ''}
+                      onChange={(e) =>
+                        setB({ publish_from: e.target.value || null })
+                      }
+                    />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="bl-to">Show until</label>
+                    <input
+                      id="bl-to"
+                      type="date"
+                      value={editing.publish_to ?? ''}
+                      onChange={(e) =>
+                        setB({ publish_to: e.target.value || null })
+                      }
+                    />
+                  </div>
+                </div>
+              )}
 
               <div className="actions">
                 <button
@@ -563,9 +652,7 @@ export default function SiteEditor({
                   )}
                   <div className="block-info">
                     <span className="block-title">{b.title}</span>
-                    {b.subtitle && (
-                      <span className="block-sub">{b.subtitle}</span>
-                    )}
+                    {b.subtitle && <span className="block-sub">{b.subtitle}</span>}
                     <span className="block-meta">
                       {!b.is_published && 'Not published'}
                       {b.publish_from && ` From ${b.publish_from}`}
@@ -595,7 +682,7 @@ export default function SiteEditor({
         <div className="picker-scrim" onClick={() => setPicking(false)}>
           <div className="picker" onClick={(e) => e.stopPropagation()}>
             <div className="booking-head">
-              <h3>Choose an image</h3>
+              <h3>Choose a photograph</h3>
               <button className="btn btn-ghost" onClick={() => setPicking(false)}>
                 Close
               </button>

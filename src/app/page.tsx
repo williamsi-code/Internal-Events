@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { getSiteSettings, getSiteBlocks } from '@/lib/site';
+import { getSiteSettings, getSiteBlocks, splitList } from '@/lib/site';
 import { getSessionUser } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -13,22 +13,36 @@ const money = (v: string | null) =>
       });
 
 export default async function Home() {
-  const [settings, news, menuSpots, staffSpots, gallery, user] =
-    await Promise.all([
-      getSiteSettings(),
-      getSiteBlocks('news'),
-      getSiteBlocks('menu_spotlight'),
-      getSiteBlocks('staff_spotlight'),
-      getSiteBlocks('gallery'),
-      getSessionUser(),
-    ]);
+  const [
+    settings,
+    occasions,
+    testimonials,
+    gallery,
+    menuSpots,
+    news,
+    staff,
+    user,
+  ] = await Promise.all([
+    getSiteSettings(),
+    getSiteBlocks('occasion'),
+    getSiteBlocks('testimonial'),
+    getSiteBlocks('gallery'),
+    getSiteBlocks('menu_spotlight'),
+    getSiteBlocks('news'),
+    getSiteBlocks('staff_spotlight'),
+    getSessionUser(),
+  ]);
 
   const isStaff =
     user?.roles.includes('events_staff') || user?.roles.includes('admin');
 
+  const services = splitList(settings?.services_list ?? null);
+  const amenities = splitList(settings?.amenities_list ?? null);
+  const quote = testimonials[0];
+
   return (
     <div className="landing">
-      {/* ---------- slim utility bar ---------- */}
+      {/* ---------- slim bar ---------- */}
       <div className="util">
         <div className="util-inner">
           <span className="util-contact">
@@ -43,9 +57,12 @@ export default async function Home() {
             )}
           </span>
           <span className="util-links">
+            <Link href="/info/catering-menu">Menu</Link>
+            <Link href="/info/event-spaces">Spaces</Link>
+            <Link href="/start">Central departments</Link>
             {user ? (
               <>
-                {isStaff && <Link href="/staff">Staff queue</Link>}
+                {isStaff && <Link href="/staff">Staff</Link>}
                 <Link href="/my-requests">My requests</Link>
               </>
             ) : (
@@ -56,68 +73,102 @@ export default async function Home() {
       </div>
 
       {/* ---------- hero ---------- */}
-      <header
-        className="hero"
-        style={
-          settings?.hero_image_url
-            ? { backgroundImage: `url(${settings.hero_image_url})` }
-            : undefined
-        }
-      >
-        <div className="hero-inner">
+      <header className="hero-split">
+        <div className="hero-words">
           <span className="hero-eyebrow">{settings?.hero_eyebrow}</span>
           <h1>{settings?.hero_title}</h1>
-          {settings?.hero_subtitle && (
-            <p className="hero-sub">{settings.hero_subtitle}</p>
-          )}
-        </div>
-      </header>
-
-      {/* ---------- three gateways ---------- */}
-      <section className="gateways">
-        <div className="gateways-inner">
-          {settings?.intro_heading && (
-            <div className="section-head">
-              <h2>{settings.intro_heading}</h2>
-              {settings.intro_body && <p>{settings.intro_body}</p>}
-            </div>
-          )}
-
-          <div className="gateway-grid">
-            <Link href="/start" className="gateway internal">
-              <span className="gateway-tag">Central departments</span>
-              <h3>Book a Central College event</h3>
-              <p>
-                Departments, student organizations and College programming.
-                We&rsquo;ll confirm how your event is classified, then handle
-                menu, setup and billing to your account.
-              </p>
-              <span className="gateway-go">Start a request &rarr;</span>
+          {settings?.hero_subtitle && <p>{settings.hero_subtitle}</p>}
+          <div className="hero-actions">
+            <Link href="/order" className="btn-solid">
+              Start your event
             </Link>
-
-            <Link href="/order" className="gateway external">
-              <span className="gateway-tag">Everyone else</span>
-              <h3>Order Catering for external groups</h3>
-              <p>
-                Weddings, receptions, business meetings and community events,
-                on campus or delivered. Tell us what you need and we&rsquo;ll
-                come back with a quote and a date hold.
-              </p>
-              <span className="gateway-go">Start an order &rarr;</span>
-            </Link>
-
-            <Link href="/enquiry" className="gateway enquiry">
-              <span className="gateway-tag">Not sure yet</span>
-              <h3>Ask us something</h3>
-              <p>
-                Working out what&rsquo;s possible, what a room holds, or what it
-                might cost? Send us a note and someone will get back to you.
-              </p>
-              <span className="gateway-go">Send an enquiry &rarr;</span>
-            </Link>
+            {settings?.secondary_cta_url && (
+              <Link href={settings.secondary_cta_url} className="btn-outline">
+                {settings.secondary_cta_label ?? 'See our spaces'}
+              </Link>
+            )}
           </div>
         </div>
-      </section>
+        <div
+          className={`hero-photo${settings?.hero_image_url ? '' : ' placeholder'}`}
+          style={
+            settings?.hero_image_url
+              ? { backgroundImage: `url(${settings.hero_image_url})` }
+              : undefined
+          }
+          role="img"
+          aria-label="Central College Catering"
+        />
+      </header>
+
+      {/* ---------- occasions ---------- */}
+      {occasions.length > 0 && (
+        <section className="occasions">
+          {occasions.map((o) => (
+            <article className="occasion" key={o.id}>
+              <div
+                className={`occasion-photo${o.image_url ? '' : ' placeholder'}`}
+                style={
+                  o.image_url
+                    ? { backgroundImage: `url(${o.image_url})` }
+                    : undefined
+                }
+                role="img"
+                aria-label={o.image_alt ?? o.title}
+              />
+              <div className="occasion-body">
+                {o.subtitle && (
+                  <span className="occasion-tag">{o.subtitle}</span>
+                )}
+                <h2>{o.title}</h2>
+                {o.body && <p>{o.body}</p>}
+                {o.link_url && (
+                  <Link href={o.link_url} className="occasion-link">
+                    {o.link_label ?? 'Find out more'} &rarr;
+                  </Link>
+                )}
+              </div>
+            </article>
+          ))}
+        </section>
+      )}
+
+      {/* ---------- what you get ---------- */}
+      {(services.length > 0 || amenities.length > 0) && (
+        <section className="included">
+          <div className="included-inner">
+            {services.length > 0 && (
+              <div>
+                <h3>{settings?.services_heading}</h3>
+                <ul>
+                  {services.map((s) => (
+                    <li key={s}>{s}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {amenities.length > 0 && (
+              <div>
+                <h3>{settings?.amenities_heading}</h3>
+                <ul>
+                  {amenities.map((a) => (
+                    <li key={a}>{a}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <div className="included-aside">
+              <p>
+                Every event is different. Tell us what you have in mind and we
+                will come back with what is possible and what it costs.
+              </p>
+              <Link href="/enquiry" className="btn-outline">
+                Ask us a question
+              </Link>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ---------- menu spotlights ---------- */}
       {menuSpots.length > 0 && (
@@ -133,16 +184,16 @@ export default async function Home() {
             <div className="spotlight-grid">
               {menuSpots.map((s) => (
                 <article className="spotlight" key={s.id}>
-                  {s.image_url ? (
-                    <div
-                      className="spotlight-img"
-                      style={{ backgroundImage: `url(${s.image_url})` }}
-                      role="img"
-                      aria-label={s.image_alt ?? s.title}
-                    />
-                  ) : (
-                    <div className="spotlight-img placeholder" aria-hidden="true" />
-                  )}
+                  <div
+                    className={`spotlight-img${s.image_url ? '' : ' placeholder'}`}
+                    style={
+                      s.image_url
+                        ? { backgroundImage: `url(${s.image_url})` }
+                        : undefined
+                    }
+                    role="img"
+                    aria-label={s.image_alt ?? s.title}
+                  />
                   <div className="spotlight-body">
                     {s.subtitle && (
                       <span className="spotlight-cat">{s.subtitle}</span>
@@ -160,11 +211,43 @@ export default async function Home() {
               ))}
             </div>
             <div className="band-cta">
-              <Link href="/info/catering-menu" className="btn btn-light">
+              <Link href="/info/catering-menu" className="btn-light">
                 See the full menu
               </Link>
             </div>
           </div>
+        </section>
+      )}
+
+      {/* ---------- gallery ---------- */}
+      {gallery.length > 0 && (
+        <section className="gallery-band">
+          <div className="band-inner">
+            <span className="band-label">Past events</span>
+            <div className="gallery-strip">
+              {gallery.map((g) => (
+                <div
+                  className={`gallery-tile${g.image_url ? '' : ' placeholder'}`}
+                  key={g.id}
+                  style={
+                    g.image_url
+                      ? { backgroundImage: `url(${g.image_url})` }
+                      : undefined
+                  }
+                  role="img"
+                  aria-label={g.image_alt ?? g.title}
+                />
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ---------- testimonial ---------- */}
+      {quote && (
+        <section className="quote-band">
+          <blockquote>{quote.body}</blockquote>
+          <cite>{quote.subtitle ?? quote.title}</cite>
         </section>
       )}
 
@@ -203,26 +286,26 @@ export default async function Home() {
         </section>
       )}
 
-      {/* ---------- staff spotlight ---------- */}
-      {staffSpots.length > 0 && (
+      {/* ---------- staff ---------- */}
+      {staff.length > 0 && (
         <section className="staff-band">
           <div className="band-inner">
             <div className="section-head">
               <h2>The people cooking</h2>
             </div>
             <div className="staff-grid">
-              {staffSpots.map((s) => (
+              {staff.map((s) => (
                 <article className="staff-card" key={s.id}>
-                  {s.image_url ? (
-                    <div
-                      className="staff-img"
-                      style={{ backgroundImage: `url(${s.image_url})` }}
-                      role="img"
-                      aria-label={s.image_alt ?? s.title}
-                    />
-                  ) : (
-                    <div className="staff-img placeholder" aria-hidden="true" />
-                  )}
+                  <div
+                    className={`staff-img${s.image_url ? '' : ' placeholder'}`}
+                    style={
+                      s.image_url
+                        ? { backgroundImage: `url(${s.image_url})` }
+                        : undefined
+                    }
+                    role="img"
+                    aria-label={s.image_alt ?? s.title}
+                  />
                   <h3>{s.title}</h3>
                   {s.subtitle && <span className="staff-role">{s.subtitle}</span>}
                   {s.body && <p>{s.body}</p>}
@@ -233,53 +316,23 @@ export default async function Home() {
         </section>
       )}
 
-      {/* ---------- gallery ---------- */}
-      {gallery.length > 0 && (
-        <section className="gallery">
-          {gallery.map((g) => (
-            <div
-              className="gallery-tile"
-              key={g.id}
-              style={
-                g.image_url
-                  ? { backgroundImage: `url(${g.image_url})` }
-                  : undefined
-              }
-              role="img"
-              aria-label={g.image_alt ?? g.title}
-            >
-              <span>{g.title}</span>
-            </div>
-          ))}
-        </section>
-      )}
-
-      {/* ---------- spaces teaser ---------- */}
-      <section className="spaces-teaser">
-        <div className="teaser-inner">
-          <div>
-            <h2>Somewhere to hold it</h2>
-            <p>
-              Dining rooms, a ballroom, an atrium and outdoor space, with
-              capacities from a dozen to several hundred. Catering is available
-              in most of them.
-            </p>
-            <Link href="/info/event-spaces" className="btn btn-primary">
-              Browse event spaces
+      {/* ---------- closing ---------- */}
+      <section className="closing">
+        <div className="closing-inner">
+          <h2>Ready when you are</h2>
+          <p>
+            Nothing is booked until we have talked it through and you have
+            confirmed. Start wherever suits.
+          </p>
+          <div className="closing-actions">
+            <Link href="/order" className="btn-solid">
+              Order catering
             </Link>
-          </div>
-          <div className="teaser-links">
-            <Link href="/info/classification">
-              <strong>How events are classified</strong>
-              <span>Internal, affiliated and external, and what each means</span>
+            <Link href="/enquiry" className="btn-outline">
+              Ask a question
             </Link>
-            <Link href="/info/internal-policies">
-              <strong>Catering policies</strong>
-              <span>Deposits, guest counts, cancellation and delivery</span>
-            </Link>
-            <Link href="/caterers">
-              <strong>Outside caterers</strong>
-              <span>Bringing food onto campus, and applying to cater</span>
+            <Link href="/start" className="closing-internal">
+              A Central department? Start here &rarr;
             </Link>
           </div>
         </div>
@@ -295,6 +348,7 @@ export default async function Home() {
             <p className="foot-unit">Events &amp; Conferences</p>
           </div>
           <div className="foot-contact">
+            {settings?.address && <p>{settings.address}</p>}
             {settings?.contact_phone && <p>{settings.contact_phone}</p>}
             {settings?.contact_email && (
               <p>
@@ -308,11 +362,12 @@ export default async function Home() {
             )}
           </div>
           <nav className="foot-nav" aria-label="Footer">
-            <Link href="/start">Book a College event</Link>
             <Link href="/order">Order catering</Link>
+            <Link href="/start">Central College event</Link>
             <Link href="/enquiry">Ask a question</Link>
             <Link href="/info/catering-menu">Menu</Link>
             <Link href="/info/event-spaces">Spaces</Link>
+            <Link href="/caterers">Outside caterers</Link>
           </nav>
         </div>
       </footer>
