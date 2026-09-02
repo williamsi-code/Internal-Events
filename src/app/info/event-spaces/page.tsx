@@ -2,6 +2,7 @@ import Link from 'next/link';
 import Masthead from '@/components/Masthead';
 import { listPublicSpaces, listAllSpaces } from '@/lib/info-spaces';
 import { getSessionUser } from '@/lib/auth';
+import { query } from '@/lib/db';
 
 export const metadata = { title: 'Event spaces - Central College' };
 export const dynamic = 'force-dynamic';
@@ -29,10 +30,6 @@ const money = (v: string) =>
 export default async function SpacesPage() {
   const user = await getSessionUser();
 
-  // A signed-in Central requester is choosing from the whole campus.
-  // Everyone else sees the three buildings we host external events in.
-    // Staff always see everything. A signed-in Central address is
-  // treated as internal, since that is who books the wider campus.
   const isCentral =
     !!user &&
     (user.email.toLowerCase().endsWith('@central.edu') ||
@@ -40,6 +37,16 @@ export default async function SpacesPage() {
       user.roles.includes('admin'));
 
   const spaces = isCentral ? await listAllSpaces() : await listPublicSpaces();
+
+  // Which rooms have a page worth opening. A room with no description
+  // and no photograph should not be a link to a blank page.
+  const detailed = await query<{ id: string; slug: string }>(
+    `SELECT id, slug FROM spaces
+      WHERE is_active AND slug IS NOT NULL
+        AND (hero_media_id IS NOT NULL OR long_description IS NOT NULL)`
+  );
+  const slugs = new Map(detailed.map((d) => [d.id, d.slug]));
+
   const categories = [...new Set(spaces.map((s) => s.category ?? 'Other'))];
 
   return (
@@ -51,7 +58,7 @@ export default async function SpacesPage() {
           <p className="lede">
             {isCentral
               ? 'Every bookable space on campus. Capacities depend on how a room is set up, so treat them as a guide and ask if you are close to the limit.'
-              : 'Where we host events. Capacities depend on how a room is set up, so treat them as a guide and ask if you are close to the limit.'}
+              : 'Where we host events. Click a room to see photographs, setup options and what is in it.'}
           </p>
         </div>
 
@@ -117,37 +124,53 @@ export default async function SpacesPage() {
                           </tr>
                         </thead>
                         <tbody>
-                          {rooms.map((r) => (
-                            <tr key={r.id}>
-                              <td>
-                                {r.name}
-                                {isCentral && !r.externally_bookable && (
-                                  <span className="internal-only">
-                                    Internal only
-                                  </span>
-                                )}
-                              </td>
-                              <td className="num">
-                                {r.capacity_seated
-                                  ? r.capacity_seated.toLocaleString()
-                                  : '\u2014'}
-                              </td>
-                              <td>
-                                {r.supports_catering ? (
-                                  'Available'
-                                ) : (
-                                  <span className="muted-cell">Not usually</span>
-                                )}
-                              </td>
-                              {anyRate && !isCentral && (
-                                <td className="num">
-                                  {money(r.facility_rate_external) ?? (
-                                    <span className="muted-cell">On request</span>
+                          {rooms.map((r) => {
+                            const slug = slugs.get(r.id);
+                            return (
+                              <tr key={r.id}>
+                                <td>
+                                  {slug ? (
+                                    <Link
+                                      href={`/info/event-spaces/${slug}`}
+                                      className="room-link"
+                                    >
+                                      {r.name}
+                                    </Link>
+                                  ) : (
+                                    r.name
+                                  )}
+                                  {isCentral && !r.externally_bookable && (
+                                    <span className="internal-only">
+                                      Internal only
+                                    </span>
                                   )}
                                 </td>
-                              )}
-                            </tr>
-                          ))}
+                                <td className="num">
+                                  {r.capacity_seated
+                                    ? r.capacity_seated.toLocaleString()
+                                    : '\u2014'}
+                                </td>
+                                <td>
+                                  {r.supports_catering ? (
+                                    'Available'
+                                  ) : (
+                                    <span className="muted-cell">
+                                      Not usually
+                                    </span>
+                                  )}
+                                </td>
+                                {anyRate && !isCentral && (
+                                  <td className="num">
+                                    {money(r.facility_rate_external) ?? (
+                                      <span className="muted-cell">
+                                        On request
+                                      </span>
+                                    )}
+                                  </td>
+                                )}
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>

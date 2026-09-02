@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { AdminSpace } from '@/lib/admin';
 
@@ -43,7 +44,12 @@ export default function SpacesEditor({ spaces }: { spaces: AdminSpace[] }) {
   );
 
   const shown = spaces.filter((s) => {
-    if (search && !`${s.name} ${s.building ?? ''}`.toLowerCase().includes(search.toLowerCase()))
+    if (
+      search &&
+      !`${s.name} ${s.building ?? ''}`
+        .toLowerCase()
+        .includes(search.toLowerCase())
+    )
       return false;
     if (filter === 'external') return s.is_active && s.externally_bookable;
     if (filter === 'internal') return s.is_active && !s.externally_bookable;
@@ -229,8 +235,11 @@ export default function SpacesEditor({ spaces }: { spaces: AdminSpace[] }) {
           </div>
 
           <div className="field">
-            <label htmlFor="sp-desc">Description</label>
-            <p className="sub">Shown on the public event spaces page.</p>
+            <label htmlFor="sp-desc">Short description</label>
+            <p className="sub">
+              A line for the spaces list. The fuller page content is edited
+              separately.
+            </p>
             <textarea
               id="sp-desc"
               value={editing.description ?? ''}
@@ -270,8 +279,8 @@ export default function SpacesEditor({ spaces }: { spaces: AdminSpace[] }) {
           <h4 className="admin-h4">Facility rates</h4>
           <p className="sub" style={{ marginTop: '-.4rem' }}>
             Charged when an outside caterer or donated food replaces Central
-            Catering, so there is no menu to price. Affiliated and internal are
-            60% and 30% of the external rate.
+            Catering, so there is no menu to price. Changing the external rate
+            recalculates the other two at 60% and 30%.
           </p>
           <div className="price-grid">
             <div className="field">
@@ -344,6 +353,14 @@ export default function SpacesEditor({ spaces }: { spaces: AdminSpace[] }) {
             <button className="btn btn-ghost" onClick={() => setEditing(null)}>
               Cancel
             </button>
+            {editing.id && editing.externally_bookable && (
+              <Link
+                href={`/staff/manage/spaces/${editing.id}`}
+                className="edit-link"
+              >
+                Edit the public page
+              </Link>
+            )}
           </div>
         </div>
       )}
@@ -383,6 +400,17 @@ export default function SpacesEditor({ spaces }: { spaces: AdminSpace[] }) {
                 <button className="edit-link" onClick={() => setEditing(s)}>
                   Edit
                 </button>
+                {s.externally_bookable && (
+                  <>
+                    {' '}
+                    <Link
+                      href={`/staff/manage/spaces/${s.id}`}
+                      className="edit-link"
+                    >
+                      Page
+                    </Link>
+                  </>
+                )}
               </td>
             </tr>
           ))}
