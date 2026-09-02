@@ -6,6 +6,7 @@ import {
   listPublicEventTypes,
   getContentPage,
 } from '@/lib/info';
+import { getSessionUser } from '@/lib/auth';
 import { classificationLabel, type Classification } from '@/lib/classify';
 
 export const dynamic = 'force-dynamic';
@@ -69,6 +70,17 @@ export default async function InfoPage({
   const { slug } = await params;
   if (!SLUGS.includes(slug as Slug)) notFound();
 
+  const user = await getSessionUser();
+
+  // Only someone who might actually pay an internal or affiliated rate
+  // sees those columns. An outside customer seeing three prices, two of
+  // which they cannot have, invites a conversation about why not.
+  const seesAllTiers =
+    !!user &&
+    (user.email.toLowerCase().endsWith('@central.edu') ||
+      user.roles.includes('events_staff') ||
+      user.roles.includes('admin'));
+
   /* ---------- catering menu ---------- */
   if (slug === 'catering-menu') {
     const items = await listPublicMenu();
@@ -78,12 +90,17 @@ export default async function InfoPage({
       <Shell
         slug={slug}
         title="Catering menu"
-        lede="What we can produce, and what it costs. Which rate applies to your event depends on how it is classified — internal events pay 30 percent of the published rate, affiliated events 60 percent, and external events the full rate."
+        lede={
+          seesAllTiers
+            ? 'What we can produce, and what it costs. Which rate applies depends on how your event is classified \u2014 internal events pay 30 percent of the published rate, affiliated events 60 percent, and external events the full rate.'
+            : 'What we can produce, and what it costs. Prices are per person unless noted.'
+        }
       >
         <div className="callout c-default" style={{ marginBottom: '1.5rem' }}>
-          <strong>Prices are per person unless noted</strong>
-          Minimums apply to some items. We can often work around a minimum, so
-          ask rather than assuming.
+          <strong>Minimums apply to some items</strong>
+          We can often work around a minimum, so ask rather than assuming. Our
+          kitchen is not allergen free, but we can accommodate most dietary
+          requirements with five business days&rsquo; notice.
         </div>
 
         {categories.map((category) => {
@@ -98,9 +115,15 @@ export default async function InfoPage({
                 <thead>
                   <tr>
                     <th>Item</th>
-                    <th className="num">Internal</th>
-                    <th className="num">Affiliated</th>
-                    <th className="num">External</th>
+                    {seesAllTiers ? (
+                      <>
+                        <th className="num">Internal</th>
+                        <th className="num">Affiliated</th>
+                        <th className="num">External</th>
+                      </>
+                    ) : (
+                      <th className="num">Price</th>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
@@ -119,9 +142,15 @@ export default async function InfoPage({
                           {i.allergen_notes ? ` \u00b7 ${i.allergen_notes}` : ''}
                         </span>
                       </td>
-                      <td className="num">{money(i.internal_price)}</td>
-                      <td className="num">{money(i.affiliated_price)}</td>
-                      <td className="num">{money(i.external_price)}</td>
+                      {seesAllTiers ? (
+                        <>
+                          <td className="num">{money(i.internal_price)}</td>
+                          <td className="num">{money(i.affiliated_price)}</td>
+                          <td className="num">{money(i.external_price)}</td>
+                        </>
+                      ) : (
+                        <td className="num">{money(i.external_price)}</td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -129,6 +158,15 @@ export default async function InfoPage({
             </section>
           );
         })}
+
+        {seesAllTiers && (
+          <div className="callout c-warn" style={{ marginTop: '1.5rem' }}>
+            <strong>You are seeing all three rates</strong>
+            Outside customers see only the external column. Which rate applies
+            to a given event follows its classification, which the events office
+            confirms.
+          </div>
+        )}
       </Shell>
     );
   }
@@ -142,7 +180,7 @@ export default async function InfoPage({
       <Shell
         slug={slug}
         title="Classification of events"
-        lede="Every event is classified as Internal, Affiliated, or External before pricing. The classification follows who owns the event, who benefits, and who pays — not who is asking."
+        lede="Every event is classified as Internal, Affiliated, or External before pricing. The classification follows who owns the event, who benefits, and who pays \u2014 not who is asking."
       >
         <div className="class-defs">
           <div className="class-def internal">
@@ -269,18 +307,18 @@ function Shell({
               }}
             >
               <Link
-                href="/start"
+                href="/order"
                 className="btn btn-primary"
                 style={{ textDecoration: 'none' }}
               >
-                Central College event
+                Order catering
               </Link>
               <Link
-                href="/order"
+                href="/enquiry"
                 className="btn btn-ghost"
                 style={{ textDecoration: 'none' }}
               >
-                Order catering
+                Ask a question
               </Link>
             </div>
           </div>
