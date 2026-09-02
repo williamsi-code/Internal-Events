@@ -17,9 +17,11 @@ const Space = z.object({
   id: z.string().uuid().nullable(),
   name: z.string().min(1).max(120),
   building: z.string().max(120).nullable(),
+  category: z.string().max(60).nullable(),
   capacitySeated: z.number().int().min(0).max(10_000).nullable(),
   capacityStanding: z.number().int().min(0).max(10_000).nullable(),
   supportsCatering: z.boolean(),
+  externallyBookable: z.boolean(),
   description: z.string().max(1000).nullable(),
   isActive: z.boolean(),
   sortOrder: z.number().int().min(0).max(999),
@@ -82,31 +84,38 @@ export async function POST(req: NextRequest) {
         if (b.id) {
           await c.query(
             `UPDATE spaces
-                SET name=$2, building=$3, capacity_seated=$4,
-                    capacity_standing=$5, supports_catering=$6,
-                    description=$7, is_active=$8, sort_order=$9,
-                    facility_rate_internal=$10,
-                    facility_rate_affiliated=$11,
-                    facility_rate_external=$12,
-                    rate_basis=$13
+                SET name=$2, building=$3, category=$4, capacity_seated=$5,
+                    capacity_standing=$6, supports_catering=$7,
+                    externally_bookable=$8, description=$9,
+                    is_active=$10, sort_order=$11,
+                    facility_rate_internal=$12,
+                    facility_rate_affiliated=$13,
+                    facility_rate_external=$14,
+                    rate_basis=$15
               WHERE id=$1`,
-            [b.id, b.name, b.building, b.capacitySeated, b.capacityStanding,
-             b.supportsCatering, b.description, b.isActive, b.sortOrder,
-             b.facilityRateInternal, b.facilityRateAffiliated,
-             b.facilityRateExternal, b.rateBasis]
+            [
+              b.id, b.name, b.building, b.category, b.capacitySeated,
+              b.capacityStanding, b.supportsCatering, b.externallyBookable,
+              b.description, b.isActive, b.sortOrder,
+              b.facilityRateInternal, b.facilityRateAffiliated,
+              b.facilityRateExternal, b.rateBasis,
+            ]
           );
         } else {
           await c.query(
             `INSERT INTO spaces
-               (name, building, capacity_seated, capacity_standing,
-                supports_catering, description, is_active, sort_order,
-                facility_rate_internal, facility_rate_affiliated,
-                facility_rate_external, rate_basis)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
-            [b.name, b.building, b.capacitySeated, b.capacityStanding,
-             b.supportsCatering, b.description, b.isActive, b.sortOrder,
-             b.facilityRateInternal, b.facilityRateAffiliated,
-             b.facilityRateExternal, b.rateBasis]
+               (name, building, category, capacity_seated, capacity_standing,
+                supports_catering, externally_bookable, description,
+                is_active, sort_order, facility_rate_internal,
+                facility_rate_affiliated, facility_rate_external, rate_basis)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+            [
+              b.name, b.building, b.category, b.capacitySeated,
+              b.capacityStanding, b.supportsCatering, b.externallyBookable,
+              b.description, b.isActive, b.sortOrder,
+              b.facilityRateInternal, b.facilityRateAffiliated,
+              b.facilityRateExternal, b.rateBasis,
+            ]
           );
         }
       });

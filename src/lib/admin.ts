@@ -14,9 +14,12 @@ export interface AdminSpace {
   id: string;
   name: string;
   building: string | null;
+  campus: string;
+  category: string | null;
   capacity_seated: number | null;
   capacity_standing: number | null;
   supports_catering: boolean;
+  externally_bookable: boolean;
   description: string | null;
   is_active: boolean;
   sort_order: number;
@@ -29,8 +32,10 @@ export interface AdminSpace {
 
 export async function listAdminSpaces() {
   return query<AdminSpace>(
-    `SELECT s.id, s.name, s.building, s.capacity_seated, s.capacity_standing,
-            s.supports_catering, s.description, s.is_active, s.sort_order,
+    `SELECT s.id, s.name, s.building, s.campus, s.category,
+            s.capacity_seated, s.capacity_standing,
+            s.supports_catering, s.externally_bookable,
+            s.description, s.is_active, s.sort_order,
             s.facility_rate_internal::text,
             s.facility_rate_affiliated::text,
             s.facility_rate_external::text,
@@ -39,7 +44,8 @@ export async function listAdminSpaces() {
               WHERE r.space_id = s.id
                 AND r.status NOT IN ('cancelled','denied')) AS events_booked
        FROM spaces s
-      ORDER BY s.is_active DESC, s.sort_order, s.name`
+      ORDER BY s.is_active DESC, s.externally_bookable DESC,
+               s.building, s.sort_order, s.name`
   );
 }
 

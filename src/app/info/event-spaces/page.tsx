@@ -1,24 +1,45 @@
 import Link from 'next/link';
 import Masthead from '@/components/Masthead';
-import { listPublicSpaces } from '@/lib/info-spaces';
+import { listPublicSpaces, listAllSpaces } from '@/lib/info-spaces';
+import { getSessionUser } from '@/lib/auth';
 
 export const metadata = { title: 'Event spaces - Central College' };
 export const dynamic = 'force-dynamic';
 
 const CATEGORY_NOTE: Record<string, string> = {
   'Meeting Venues':
-    'Purpose-built for events. Catering is available throughout, and most of these can be arranged to suit.',
+    'Purpose-built for events, with catering available throughout and rooms that can be arranged to suit.',
   'Outside Spaces':
     'Lawns, patios and open areas. Weather dependent, so an indoor alternative is worth holding alongside.',
   Academic:
-    'Classrooms, lecture halls and studios. Bookable outside teaching hours, and catering is possible in most.',
+    'Classrooms, lecture halls and studios, bookable outside teaching hours.',
   Athletics: 'Spaces within the Kuyper Athletics Complex.',
-  Housing:
-    'Residence hall common areas. Catering is not usually arranged in these.',
+  Housing: 'Residence hall common areas.',
 };
 
+const money = (v: string) =>
+  Number(v) === 0
+    ? null
+    : Number(v).toLocaleString('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        maximumFractionDigits: 0,
+      });
+
 export default async function SpacesPage() {
-  const spaces = await listPublicSpaces();
+  const user = await getSessionUser();
+
+  // A signed-in Central requester is choosing from the whole campus.
+  // Everyone else sees the three buildings we host external events in.
+    // Staff always see everything. A signed-in Central address is
+  // treated as internal, since that is who books the wider campus.
+  const isCentral =
+    !!user &&
+    (user.email.toLowerCase().endsWith('@central.edu') ||
+      user.roles.includes('events_staff') ||
+      user.roles.includes('admin'));
+
+  const spaces = isCentral ? await listAllSpaces() : await listPublicSpaces();
   const categories = [...new Set(spaces.map((s) => s.category ?? 'Other'))];
 
   return (
@@ -28,20 +49,30 @@ export default async function SpacesPage() {
         <div className="pagehead">
           <h1>Event spaces</h1>
           <p className="lede">
-            Rooms and outdoor areas across campus, from a six-person meeting to
-            a thousand on the Peace Mall. Capacities depend on how a room is set
-            up, so treat them as a guide and ask if you are close to the limit.
+            {isCentral
+              ? 'Every bookable space on campus. Capacities depend on how a room is set up, so treat them as a guide and ask if you are close to the limit.'
+              : 'Where we host events. Capacities depend on how a room is set up, so treat them as a guide and ask if you are close to the limit.'}
           </p>
         </div>
 
         <div className="shell info-shell">
-          <nav className="space-jump" aria-label="Jump to category">
-            {categories.map((c) => (
-              <a href={`#${c.replace(/\s+/g, '-').toLowerCase()}`} key={c}>
-                {c}
-              </a>
-            ))}
-          </nav>
+          {isCentral && (
+            <div className="callout c-default" style={{ marginBottom: '1.5rem' }}>
+              <strong>You are seeing the full campus list</strong>
+              Outside customers see only Maytag Student Center, Graham
+              Conference Center and the Chapel.
+            </div>
+          )}
+
+          {categories.length > 1 && (
+            <nav className="space-jump" aria-label="Jump to category">
+              {categories.map((c) => (
+                <a href={`#${c.replace(/\s+/g, '-').toLowerCase()}`} key={c}>
+                  {c}
+                </a>
+              ))}
+            </nav>
+          )}
 
           {categories.map((category) => {
             const inCategory = spaces.filter(
@@ -67,6 +98,9 @@ export default async function SpacesPage() {
                     (s) => (s.building ?? 'Other') === building
                   );
                   const showBuilding = building !== category;
+                  const anyRate = rooms.some(
+                    (r) => Number(r.facility_rate_external) > 0
+                  );
 
                   return (
                     <div className="building-block" key={building}>
@@ -77,12 +111,22 @@ export default async function SpacesPage() {
                             <th>Room</th>
                             <th className="num">Capacity</th>
                             <th>Catering</th>
+                            {anyRate && !isCentral && (
+                              <th className="num">From</th>
+                            )}
                           </tr>
                         </thead>
                         <tbody>
                           {rooms.map((r) => (
                             <tr key={r.id}>
-                              <td>{r.name}</td>
+                              <td>
+                                {r.name}
+                                {isCentral && !r.externally_bookable && (
+                                  <span className="internal-only">
+                                    Internal only
+                                  </span>
+                                )}
+                              </td>
                               <td className="num">
                                 {r.capacity_seated
                                   ? r.capacity_seated.toLocaleString()
@@ -95,6 +139,13 @@ export default async function SpacesPage() {
                                   <span className="muted-cell">Not usually</span>
                                 )}
                               </td>
+                              {anyRate && !isCentral && (
+                                <td className="num">
+                                  {money(r.facility_rate_external) ?? (
+                                    <span className="muted-cell">On request</span>
+                                  )}
+                                </td>
+                              )}
                             </tr>
                           ))}
                         </tbody>
@@ -117,18 +168,18 @@ export default async function SpacesPage() {
               }}
             >
               <Link
-                href="/start"
+                href="/order"
                 className="btn btn-primary"
                 style={{ textDecoration: 'none' }}
               >
-                Central College event
+                Order catering
               </Link>
               <Link
-                href="/order"
+                href="/enquiry"
                 className="btn btn-ghost"
                 style={{ textDecoration: 'none' }}
               >
-                Order catering
+                Ask a question
               </Link>
             </div>
           </div>

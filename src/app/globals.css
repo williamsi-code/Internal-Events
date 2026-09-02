@@ -1746,3 +1746,11 @@ label.chk input{margin-top:.2rem}
   display:block;padding:.4rem .5rem;font-size:.78rem;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
 }
+/* Append these to the end of src/app/globals.css */
+
+/* ---------- space visibility ---------- */
+.internal-only{
+  display:inline-block;margin-left:.5rem;font-size:.68rem;
+  text-transform:uppercase;letter-spacing:.08em;color:var(--mute);
+  border:1px solid var(--rule);border-radius:2rem;padding:.05rem .45rem;
+}

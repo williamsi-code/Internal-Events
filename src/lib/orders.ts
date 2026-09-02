@@ -6,7 +6,7 @@ import { query } from './db';
  * The public menu is priced at external rates because that is the
  * published rate and the correct default for an outside customer.
  * It is also the highest tier, so a later reclassification can only
- * lower the price - which is the right direction for a surprise.
+ * lower the price - the right direction for a surprise.
  */
 
 export interface PublicMenuItem {
@@ -41,12 +41,14 @@ export interface OrderSpace {
   rate_basis: string;
 }
 
+/** Only the spaces we host outside events in. Offering the whole
+ *  campus would produce requests the events office has to decline. */
 export async function getOrderSpaces() {
   return query<OrderSpace>(
     `SELECT id, name, building, capacity_seated, capacity_standing,
             supports_catering, facility_rate_external::text, rate_basis
        FROM spaces
-      WHERE is_active
-      ORDER BY sort_order, name`
+      WHERE is_active AND externally_bookable
+      ORDER BY building, sort_order, name`
   );
 }
