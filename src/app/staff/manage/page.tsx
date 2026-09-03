@@ -53,6 +53,13 @@ export default async function ManagePage() {
                 acknowledgement and turn solid after final review.
               </p>
             </Link>
+            <Link href="/staff/enquiries" className="tile">
+              <h3>Enquiries</h3>
+              <p>
+                People asking questions before they book. Replying here keeps
+                the conversation where they can see it.
+              </p>
+            </Link>
             <Link href="/staff/closeout" className="tile">
               <h3>
                 Close out
@@ -65,6 +72,13 @@ export default async function ManagePage() {
                 quarterly report is built from these numbers.
               </p>
             </Link>
+            <Link href="/staff/manage/import" className="tile">
+              <h3>Import bookings</h3>
+              <p>
+                Bring room bookings in from a spreadsheet so the schedule shows
+                what is really happening in each room.
+              </p>
+            </Link>
           </div>
 
           <h2 className="bo-heading">Reporting</h2>
@@ -74,6 +88,31 @@ export default async function ManagePage() {
               <p>
                 The quarterly leadership report, and a filterable view of every
                 event with CSV export.
+              </p>
+            </Link>
+          </div>
+
+          <h2 className="bo-heading">The public site</h2>
+          <div className="tiles">
+            <Link href="/staff/manage/front-page" className="tile">
+              <h3>Front page</h3>
+              <p>
+                Hero, occasions, news, menu spotlights, staff profiles and the
+                gallery. What visitors see before they sign in.
+              </p>
+            </Link>
+            <Link href="/staff/manage/media" className="tile">
+              <h3>Images</h3>
+              <p>
+                Photographs for the front page and the space pages. Upload from
+                your computer once, then use the same image anywhere.
+              </p>
+            </Link>
+            <Link href="/staff/manage/policies" className="tile">
+              <h3>Policy pages</h3>
+              <p>
+                Catering policies, external event policies, outside caterer
+                requirements and the donated food policy, as published.
               </p>
             </Link>
           </div>
@@ -90,8 +129,8 @@ export default async function ManagePage() {
             <Link href="/staff/manage/spaces" className="tile">
               <h3>Event spaces</h3>
               <p>
-                Rooms, capacities and facility rates. Spaces are hidden rather
-                than deleted, so past events keep their location.
+                Rooms, capacities, facility rates, and which are visible to
+                outside customers. Each public room has its own page to fill in.
               </p>
             </Link>
             <Link href="/staff/manage/caterers" className="tile">
@@ -104,33 +143,6 @@ export default async function ManagePage() {
               <p>
                 Who may bring food onto campus. Lapsed insurance removes a
                 caterer from the list automatically.
-              </p>
-            </Link>
-            <Link href="/staff/manage/policies" className="tile">
-              <h3>Policy pages</h3>
-              <p>
-                Catering policies, external event policies, outside caterer
-                requirements and the donated food policy, as published.
-              </p>
-            </Link>            <Link href="/staff/manage/policies" className="tile">
-              <h3>Policy pages</h3>
-              <p>
-                Catering policies, external event policies, outside caterer
-                requirements and the donated food policy, as published.
-              </p>
-            </Link>
-            <Link href="/staff/manage/front-page" className="tile">
-              <h3>Front page</h3>
-              <p>
-                Hero, news, menu spotlights, staff profiles and the gallery.
-                What visitors see before they sign in.
-                </p>
-                </Link>
-            <Link href="/staff/manage/media" className="tile">
-              <h3>Images</h3>
-              <p>
-                Photographs for the front page. Upload from your computer once,
-                then use the same image anywhere it is needed.
               </p>
             </Link>
           </div>

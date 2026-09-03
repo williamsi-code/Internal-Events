@@ -1918,3 +1918,11 @@ label.chk input{margin-top:.2rem}
 .room-table tbody tr.linked{cursor:pointer}
 .room-link{text-decoration:none;color:inherit;font-weight:500}
 .room-link:hover{color:var(--crimson);text-decoration:underline}
+/* Append these to the end of src/app/globals.css */
+
+/* ---------- spreadsheet import ---------- */
+.map-grid{
+  display:grid;gap:1rem;margin-bottom:1rem;
+  grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+}
+.map-grid .field{margin-bottom:0}
