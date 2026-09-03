@@ -8,6 +8,7 @@ import RequestActions from '@/components/RequestActions';
 import FoodSourcePanel from '@/components/FoodSourcePanel';
 import ReopenDetails from '@/components/ReopenDetails';
 import PaymentPanel from '@/components/PaymentPanel';
+import RequestLayouts from '@/components/RequestLayouts';
 import { getSessionUser } from '@/lib/auth';
 import { getRequest, getMessages } from '@/lib/requests';
 import { changesSinceClassification } from '@/lib/changes';
@@ -277,6 +278,8 @@ export default async function RequestDetailPage({
               sources={foodSources}
               facility={facility}
             />
+
+                        <RequestLayouts requestId={id} isStaff={false} />
 
             <ReopenDetails requestId={id} lock={lock} history={menuHistory} />
 

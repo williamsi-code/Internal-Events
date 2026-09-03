@@ -4,6 +4,7 @@ import Masthead from '@/components/Masthead';
 import RequesterActions from '@/components/RequesterActions';
 import HeadcountForm from '@/components/HeadcountForm';
 import RequesterPayments from '@/components/RequesterPayments';
+import RequestLayouts from '@/components/RequestLayouts';
 import { getSessionUser } from '@/lib/auth';
 import { getMyRequest, getVisibleMessages } from '@/lib/requests';
 import { getPayments, getPaymentConfig } from '@/lib/payments';
@@ -49,9 +50,7 @@ export default async function MyRequestPage({
 
   const eventDate = new Date(request.event_date + 'T00:00:00');
 
-  // The count is only worth asking for once the event is actually
-  // going ahead - before that the number would be guesswork on a
-  // request that may not happen.
+  // The count is only worth asking for once the event is going ahead.
   const showHeadcount =
     ['confirmed', 'pending_final_review'].includes(request.status) &&
     eventDate.getTime() >= Date.now() - 86_400_000;
@@ -109,6 +108,8 @@ export default async function MyRequestPage({
                 </dl>
               </div>
             </div>
+
+                        <RequestLayouts requestId={id} isStaff={false} />
 
             {showHeadcount && <HeadcountForm request={request} />}
 

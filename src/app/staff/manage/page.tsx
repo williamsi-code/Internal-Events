@@ -60,6 +60,13 @@ export default async function ManagePage() {
                 the conversation where they can see it.
               </p>
             </Link>
+            <Link href="/staff/manage/layouts" className="tile">
+              <h3>Room layouts</h3>
+              <p>
+                To-scale floor plans with tables, staging and service. Draw one
+                for an event, then send it to the customer.
+              </p>
+            </Link>
             <Link href="/staff/closeout" className="tile">
               <h3>
                 Close out
@@ -129,8 +136,8 @@ export default async function ManagePage() {
             <Link href="/staff/manage/spaces" className="tile">
               <h3>Event spaces</h3>
               <p>
-                Rooms, capacities, facility rates, and which are visible to
-                outside customers. Each public room has its own page to fill in.
+                Rooms, capacities, dimensions and facility rates. Each public
+                room has its own page to fill in.
               </p>
             </Link>
             <Link href="/staff/manage/caterers" className="tile">

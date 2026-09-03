@@ -1926,3 +1926,123 @@ label.chk input{margin-top:.2rem}
   grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
 }
 .map-grid .field{margin-bottom:0}
+/* Append these to the end of src/app/globals.css */
+
+/* ============================================================
+   Room layouts
+   ============================================================ */
+
+.layout-editor{
+  display:grid;grid-template-columns:15rem 1fr 16rem;gap:1.25rem;
+  align-items:start;outline:none;
+}
+@media(max-width:1100px){
+  .layout-editor{grid-template-columns:1fr}
+}
+
+/* ---------- palette ---------- */
+.layout-palette{
+  background:var(--surface);border:1px solid var(--rule);
+  border-radius:3px;padding:1rem;max-height:40rem;overflow-y:auto;
+}
+.layout-palette h3{
+  font-size:.72rem;text-transform:uppercase;letter-spacing:.12em;
+  color:var(--slate);margin:0 0 .8rem;font-weight:500;
+}
+.palette-group{margin-bottom:1rem}
+.palette-group h4{
+  font-size:.75rem;font-weight:600;margin:0 0 .4rem;color:var(--ink);
+}
+.palette-item{
+  display:flex;gap:.6rem;align-items:center;width:100%;
+  background:none;border:1px solid transparent;border-radius:2px;
+  padding:.35rem .4rem;cursor:pointer;text-align:left;
+}
+.palette-item:hover{border-color:var(--rule);background:var(--paper)}
+.palette-swatch{
+  width:1.1rem;height:1.1rem;flex:none;border:1px solid var(--ink);
+}
+.palette-swatch.round{border-radius:50%}
+.palette-label{display:block;font-size:.82rem;line-height:1.25}
+.palette-meta{display:block;font-size:.7rem;color:var(--mute)}
+
+/* ---------- stage ---------- */
+.layout-stage{min-width:0}
+.layout-toolbar{
+  display:flex;justify-content:space-between;align-items:center;
+  gap:1rem;flex-wrap:wrap;margin-bottom:.75rem;
+}
+.layout-counts{display:flex;gap:1.2rem;font-size:.85rem;color:var(--slate)}
+.layout-counts strong{
+  font-family:Spectral,Georgia,serif;font-size:1.15rem;color:var(--ink);
+}
+.layout-counts .over{color:var(--crimson);font-weight:500}
+.layout-actions{display:flex;gap:.7rem;align-items:center}
+.unsaved{font-size:.8rem;color:var(--brass)}
+.savedmark{font-size:.8rem;color:var(--sage)}
+
+.layout-canvas-wrap{
+  background:var(--paper);border:1px solid var(--rule);
+  border-radius:3px;padding:.75rem;touch-action:none;
+}
+.layout-svg{width:100%;height:auto;max-height:36rem;display:block}
+.layout-help{font-size:.78rem;color:var(--mute);margin:.6rem 0 0}
+
+/* ---------- items ---------- */
+.layout-item.interactive{cursor:move}
+.layout-item.interactive:hover{filter:brightness(1.08)}
+.layout-seat{fill:var(--mute);opacity:.55}
+.layout-label{
+  font-size:1.1px;fill:#fff;font-weight:600;
+  paint-order:stroke;stroke:rgba(0,0,0,.35);stroke-width:.25px;
+}
+.layout-dim{font-size:1.6px;fill:var(--slate)}
+
+/* ---------- properties ---------- */
+.layout-props{
+  background:var(--surface);border:1px solid var(--rule);
+  border-radius:3px;padding:1rem;
+}
+.prop-panel{border-top:1px solid var(--rule);padding-top:1rem;margin-top:1rem}
+.prop-panel h4{
+  font-family:Spectral,Georgia,serif;font-size:1rem;
+  margin:0 0 .2rem;font-weight:600;
+}
+.layout-props input[type=range]{width:100%;accent-color:var(--crimson)}
+
+/* ---------- lists ---------- */
+.layout-list{display:flex;flex-direction:column;gap:.5rem}
+.layout-row{
+  display:flex;justify-content:space-between;gap:1rem;align-items:center;
+  padding:.85rem 1rem;background:var(--surface);
+  border:1px solid var(--rule);border-radius:3px;
+  text-decoration:none;color:inherit;
+}
+.layout-row:hover{border-color:var(--crimson)}
+.layout-name{display:block;font-weight:500;font-size:.95rem}
+.layout-meta{display:block;font-size:.79rem;color:var(--slate);margin-top:.1rem}
+.layout-stats{
+  display:flex;gap:1rem;align-items:center;font-size:.8rem;color:var(--slate);
+}
+.layout-stats strong{
+  font-family:Spectral,Georgia,serif;font-size:1.05rem;color:var(--ink);
+}
+
+/* ---------- shared view ---------- */
+.shared-layout{margin:0 0 1.5rem}
+.shared-layout figcaption{
+  display:flex;justify-content:space-between;gap:1rem;
+  align-items:flex-start;margin-bottom:.6rem;
+}
+.shared-layout figcaption strong{display:block;font-size:.95rem}
+.shared-layout figcaption .sub{display:block;margin-top:.1rem}
+.shared-layout-canvas{
+  background:var(--surface);border:1px solid var(--rule);
+  border-radius:3px;padding:.75rem;
+}
+
+@media print{
+  .layout-palette,.layout-props,.layout-toolbar,.layout-help{display:none}
+  .layout-editor{grid-template-columns:1fr}
+  .shared-layout{break-inside:avoid}
+}
