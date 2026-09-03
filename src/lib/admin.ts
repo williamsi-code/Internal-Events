@@ -28,6 +28,11 @@ export interface AdminSpace {
   facility_rate_affiliated: string;
   facility_rate_external: string;
   rate_basis: string;
+  width_feet: string | null;
+  length_feet: string | null;
+  ceiling_feet: string | null;
+  layout_notes: string | null;
+  layout_count: number;
 }
 
 export async function listAdminSpaces() {
@@ -40,6 +45,10 @@ export async function listAdminSpaces() {
             s.facility_rate_affiliated::text,
             s.facility_rate_external::text,
             s.rate_basis,
+            s.width_feet::text, s.length_feet::text, s.ceiling_feet::text,
+            s.layout_notes,
+            (SELECT count(*) FROM layouts l WHERE l.space_id = s.id)
+              AS layout_count,
             (SELECT count(*) FROM event_requests r
               WHERE r.space_id = s.id
                 AND r.status NOT IN ('cancelled','denied')) AS events_booked
