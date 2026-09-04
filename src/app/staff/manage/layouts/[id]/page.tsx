@@ -47,8 +47,15 @@ export default async function LayoutEditorPage({
       <Masthead />
       <main id="main">
         <div className="shell" style={{ paddingTop: '1.5rem', maxWidth: '84rem' }}>
-          <Link href="/staff/manage/layouts" className="backlink-inline">
-            &larr; All layouts
+          <Link
+            href={
+              layout.request_id
+                ? `/staff/${layout.request_id}`
+                : '/staff/manage/layouts'
+            }
+            className="backlink-inline"
+          >
+            &larr; {layout.request_id ? 'Back to the event' : 'All layouts'}
           </Link>
 
           <div className="pagehead" style={{ padding: '0 0 1rem' }}>
@@ -84,6 +91,8 @@ export default async function LayoutEditorPage({
             <ShareLayout
               layoutId={layout.id}
               requestId={layout.request_id}
+              layoutName={layout.name}
+              seats={layout.seats}
               sharedAt={layout.shared_at}
               sharedByName={layout.shared_by_name}
             />

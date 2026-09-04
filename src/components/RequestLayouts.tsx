@@ -1,18 +1,21 @@
 import Link from 'next/link';
 import { LayoutCanvas } from './LayoutCanvas';
+import AttachLayout from './AttachLayout';
 import {
   getRequestLayouts,
   getSharedLayouts,
   getLayoutItems,
+  getSpaceForRequest,
+  listLayouts,
   listPieces,
 } from '@/lib/layouts';
 
 /**
  * Layouts on an event.
  *
- * Staff see every layout including drafts; a requester sees only what
- * has been shared. Same component, different query, so the two views
- * cannot drift apart.
+ * Staff see every layout including drafts, plus the control to draw a
+ * new one. A requester sees only what has been sent. Same rendering
+ * either way, so what staff approve is exactly what the customer gets.
  */
 
 export default async function RequestLayouts({
@@ -26,6 +29,16 @@ export default async function RequestLayouts({
     ? await getRequestLayouts(requestId)
     : await getSharedLayouts(requestId);
 
+  // Staff need the room and its templates whether or not a layout
+  // exists yet, so the "draw one" control can be offered. The room
+  // comes from the request rather than a prop, so the caller does not
+  // have to know which field holds it.
+  const space = isStaff ? await getSpaceForRequest(requestId) : null;
+  const templates =
+    isStaff && space
+      ? (await listLayouts(space.id)).filter((l) => l.is_template)
+      : [];
+
   if (layouts.length === 0) {
     if (!isStaff) return null;
     return (
@@ -34,12 +47,14 @@ export default async function RequestLayouts({
           <h3>Room layout</h3>
         </div>
         <p className="sec-note">
-          No layout drawn yet.{' '}
-          <Link href="/staff/manage/layouts" className="edit-link">
-            Start one
-          </Link>
-          .
+          Nothing drawn for this event yet.
         </p>
+        <AttachLayout
+          requestId={requestId}
+          spaceName={space?.name ?? null}
+          templates={templates}
+          hasDimensions={!!space?.width_feet}
+        />
       </div>
     );
   }
@@ -78,7 +93,7 @@ export default async function RequestLayouts({
                   layout.shared_at ? 'p-classified' : 'p-review'
                 }`}
               >
-                {layout.shared_at ? 'Shared' : 'Draft'}
+                {layout.shared_at ? `Sent ${layout.shared_at}` : 'Not sent'}
               </span>
             )}
           </figcaption>
@@ -101,9 +116,7 @@ export default async function RequestLayouts({
             />
           </div>
 
-          {layout.description && (
-            <p className="info-p">{layout.description}</p>
-          )}
+          {layout.description && <p className="info-p">{layout.description}</p>}
 
           {isStaff && (
             <div className="actions">
@@ -111,14 +124,21 @@ export default async function RequestLayouts({
                 href={`/staff/manage/layouts/${layout.id}`}
                 className="edit-link"
               >
-                Edit this layout
+                {layout.shared_at ? 'Edit or take it back' : 'Edit and send'}
               </Link>
             </div>
           )}
         </figure>
       ))}
 
-      {!isStaff && (
+      {isStaff ? (
+        <AttachLayout
+          requestId={requestId}
+          spaceName={space?.name ?? null}
+          templates={templates}
+          hasDimensions={!!space?.width_feet}
+        />
+      ) : (
         <p className="sub">
           Drawn to scale. If something is not right, send us a message and we
           will redraw it.

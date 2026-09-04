@@ -2107,3 +2107,11 @@ label.chk input{margin-top:.2rem}
 .resgrid-daycol:hover .dnum{color:var(--crimson)}
 
 .scope-note{margin-left:auto;color:var(--mute)}
+/* Append these to the end of src/app/globals.css */
+
+/* ---------- attaching a layout to an event ---------- */
+.attach-layout{
+  border:1px solid var(--rule);border-radius:3px;
+  padding:1.1rem 1.2rem;margin-top:1rem;background:var(--paper);
+}
+.attach-layout .field{margin-bottom:.8rem}

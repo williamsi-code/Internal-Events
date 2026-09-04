@@ -61,6 +61,20 @@ export async function getLayoutSpace(id: string) {
   );
 }
 
+/** The room an event is booked in, looked up from the request so
+ *  callers do not have to know which field holds it. */
+export async function getSpaceForRequest(requestId: string) {
+  return one<LayoutSpace>(
+    `SELECT s.id, s.name, s.building,
+            s.width_feet::text, s.length_feet::text, s.ceiling_feet::text,
+            s.capacity_seated, s.layout_notes
+       FROM event_requests r
+       JOIN spaces s ON s.id = r.space_id
+      WHERE r.id = $1`,
+    [requestId]
+  );
+}
+
 export interface LayoutItem {
   id: string;
   piece_code: string;
@@ -111,8 +125,9 @@ const LAYOUT_JOINS = `
 
 export async function getLayout(id: string) {
   return one<Layout>(
-    `SELECT ${LAYOUT_COLUMNS} FROM layouts l ${LAYOUT_JOINS} WHERE l.id = $1`
-  , [id]);
+    `SELECT ${LAYOUT_COLUMNS} FROM layouts l ${LAYOUT_JOINS} WHERE l.id = $1`,
+    [id]
+  );
 }
 
 export async function getLayoutItems(layoutId: string) {
