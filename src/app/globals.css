@@ -2115,3 +2115,23 @@ label.chk input{margin-top:.2rem}
   padding:1.1rem 1.2rem;margin-top:1rem;background:var(--paper);
 }
 .attach-layout .field{margin-bottom:.8rem}
+/* Append these to the end of src/app/globals.css */
+
+/* ---------- report headline ---------- */
+.headline-figures{
+  display:grid;gap:1rem;margin:1rem 0;
+  grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+  padding:1.1rem 1.2rem;background:var(--paper);
+  border:1px solid var(--ink);border-radius:2px;
+}
+.headline-figures > div{display:flex;flex-direction:column-reverse;gap:.2rem}
+.headline-figures .wide{grid-column:span 2}
+@media(max-width:600px){.headline-figures .wide{grid-column:span 1}}
+.headline-figures .cap-n{
+  font-family:Spectral,Georgia,serif;font-size:1.7rem;font-weight:600;
+  line-height:1.05;
+}
+.headline-figures .wide .cap-n{color:var(--crimson)}
+.headline-figures .pos .cap-n{color:var(--sage)}
+.headline-figures .neg .cap-n{color:var(--crimson)}
+.headline-figures .cap-l{font-size:.76rem;color:var(--slate);line-height:1.3}

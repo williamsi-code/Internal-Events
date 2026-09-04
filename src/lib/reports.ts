@@ -29,6 +29,8 @@ export interface FinancialRow {
   other_cost: string;
   true_cost: string;
   charged: string;
+  external_value: string;
+  discount: string;
   gap: string;
   labor_hours: string;
   closed_events: number;
@@ -189,13 +191,15 @@ export interface EventRow {
   classification: Classification | null;
   attendance: number;
   charged: string;
+  external_value: string;
+  discount: string;
   true_cost: string;
   food_sources: string;
   closed: boolean;
 }
 
 export async function searchEvents(f: EventFilters) {
-  const where: string[] = ['r.status <> \'draft\''];
+  const where: string[] = ["r.status <> 'draft'"];
   const params: unknown[] = [];
   const p = (v: unknown) => {
     params.push(v);
@@ -230,8 +234,9 @@ export async function searchEvents(f: EventFilters) {
             cd.classification,
             coalesce(r.actual_attendance, r.final_attendance,
                      r.estimated_attendance) AS attendance,
-            (coalesce(sp.estimated_charge, 0)
-             + coalesce(r.facility_charge_applied, 0))::text AS charged,
+            quoted_total(r.id)::text AS charged,
+            external_value(r.id)::text AS external_value,
+            (external_value(r.id) - quoted_total(r.id))::text AS discount,
             coalesce((SELECT sum(amount) FROM event_costs c
                        WHERE c.request_id = r.id AND c.is_actual), 0)::text
               AS true_cost,
@@ -243,8 +248,6 @@ export async function searchEvents(f: EventFilters) {
        LEFT JOIN spaces s ON s.id = r.space_id
        LEFT JOIN classification_decisions cd
               ON cd.request_id = r.id AND cd.is_current
-       LEFT JOIN service_paths sp
-              ON sp.request_id = r.id AND sp.is_current
       WHERE ${where.join(' AND ')}
       ORDER BY r.event_date DESC
       LIMIT 500`,

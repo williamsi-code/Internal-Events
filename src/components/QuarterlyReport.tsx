@@ -29,13 +29,6 @@ const CLASS_LABEL: Record<string, string> = {
   unclassified: 'Unclassified',
 };
 
-/** The same subtraction means three different things. */
-const GAP_LABEL: Record<string, string> = {
-  internal: 'Institutional support',
-  affiliated: 'Partnership support',
-  external: 'Contribution',
-};
-
 export default function QuarterlyReport({
   from,
   to,
@@ -66,14 +59,19 @@ export default function QuarterlyReport({
   const totalEvents = activity.reduce((s, a) => s + Number(a.events), 0);
   const totalGuests = activity.reduce((s, a) => s + Number(a.attendance), 0);
 
-  const row = (cls: string) =>
-    financials.find((x) => x.classification === cls);
-
-  const internal = row('internal');
-  const affiliated = row('affiliated');
-  const external = row('external');
-
+  const row = (cls: string) => financials.find((x) => x.classification === cls);
   const capture = Number(completeness?.cost_capture_pct ?? 0);
+
+  // The headline: what the College gave away by not charging outside
+  // rates to its own people and partners.
+  const totalDiscount = financials
+    .filter((r) => r.classification !== 'external')
+    .reduce((s, r) => s + Number(r.discount), 0);
+
+  const external = row('external');
+  const externalMargin = external
+    ? Number(external.charged) - Number(external.true_cost)
+    : 0;
 
   function apply() {
     router.push(`/staff/manage/reports/quarterly?from=${f}&to=${t}`);
@@ -161,11 +159,43 @@ export default function QuarterlyReport({
           </div>
         </header>
 
+        {/* ---------- headline ---------- */}
+        <section className="sheet-section">
+          <h2>The short version</h2>
+          <div className="headline-figures">
+            <div>
+              <span className="cap-l">Events delivered</span>
+              <span className="cap-n">{totalEvents}</span>
+            </div>
+            <div>
+              <span className="cap-l">Guests served</span>
+              <span className="cap-n">{totalGuests.toLocaleString()}</span>
+            </div>
+            <div className="wide">
+              <span className="cap-l">
+                Value provided to the College below external rates
+              </span>
+              <span className="cap-n">{money(totalDiscount)}</span>
+            </div>
+            <div className={externalMargin >= 0 ? 'pos' : 'neg'}>
+              <span className="cap-l">External contribution</span>
+              <span className="cap-n">{money(externalMargin)}</span>
+            </div>
+          </div>
+          <p className="sheet-empty">
+            The middle figure is what internal and affiliated events would have
+            cost at published external rates, less what was actually charged. It
+            is the clearest single measure of what Events and Conferences
+            returns to the College, and it does not depend on close-out.
+          </p>
+        </section>
+
         {capture < 80 && (
           <div className="sheet-alert">
-            Cost capture is {capture}% for this period. True cost is understated
-            and contribution is flattered. Figures below should be read as a
-            floor rather than an account.
+            Cost capture is {capture}% for this period, so the cost and margin
+            figures below rest on partial data and should be read as a floor.
+            The charged and external-rate comparisons are unaffected, because
+            they come from prices rather than actuals.
           </div>
         )}
 
@@ -178,7 +208,7 @@ export default function QuarterlyReport({
                 <th>Classification</th>
                 <th className="num">Events</th>
                 <th className="num">Attendance</th>
-                <th className="num">Share of events</th>
+                <th className="num">Share</th>
               </tr>
             </thead>
             <tbody>
@@ -209,11 +239,66 @@ export default function QuarterlyReport({
           </table>
         </section>
 
+        {/* ---------- what each tier was charged against external ---------- */}
+        <section className="sheet-section">
+          <h2>Charged against external rates</h2>
+          <p className="sheet-empty">
+            What each group paid, what the same orders would have cost an
+            outside customer, and the difference.
+          </p>
+          <table className="sheet-table">
+            <thead>
+              <tr>
+                <th>Classification</th>
+                <th className="num">Events</th>
+                <th className="num">Charged</th>
+                <th className="num">At external rates</th>
+                <th className="num">Difference</th>
+              </tr>
+            </thead>
+            <tbody>
+              {financials.map((r) => (
+                <tr key={r.classification}>
+                  <td>{CLASS_LABEL[r.classification] ?? r.classification}</td>
+                  <td className="num">{r.events}</td>
+                  <td className="num">{money(r.charged)}</td>
+                  <td className="num">{money(r.external_value)}</td>
+                  <td className="num strong">
+                    {Number(r.discount) === 0 ? '\u2014' : money(r.discount)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td className="strong">Total</td>
+                <td className="num strong">{totalEvents}</td>
+                <td className="num strong">
+                  {money(
+                    financials.reduce((s, r) => s + Number(r.charged), 0)
+                  )}
+                </td>
+                <td className="num strong">
+                  {money(
+                    financials.reduce((s, r) => s + Number(r.external_value), 0)
+                  )}
+                </td>
+                <td className="num strong">{money(totalDiscount)}</td>
+              </tr>
+            </tfoot>
+          </table>
+          <p className="sheet-empty">
+            External events show no difference by definition: they are charged
+            the published rate.
+          </p>
+        </section>
+
         {/* ---------- C, D, E ---------- */}
         {(['internal', 'affiliated', 'external'] as const).map((cls) => {
           const r = row(cls);
           if (!r) return null;
           const gap = Number(r.gap);
+          const discount = Number(r.discount);
           return (
             <section className="sheet-section" key={cls}>
               <h2>
@@ -229,18 +314,38 @@ export default function QuarterlyReport({
                   <span className="cap-n">{r.events}</span>
                 </div>
                 <div>
-                  <span className="cap-l">True cost</span>
-                  <span className="cap-n">{money(r.true_cost)}</span>
-                </div>
-                <div>
                   <span className="cap-l">Charged</span>
                   <span className="cap-n">{money(r.charged)}</span>
                 </div>
-                <div className={cls === 'external' ? (gap >= 0 ? 'pos' : 'neg') : ''}>
-                  <span className="cap-l">{GAP_LABEL[cls]}</span>
-                  <span className="cap-n">{money(Math.abs(gap))}</span>
-                </div>
+                {cls === 'external' ? (
+                  <>
+                    <div>
+                      <span className="cap-l">True cost</span>
+                      <span className="cap-n">{money(r.true_cost)}</span>
+                    </div>
+                    <div className={gap >= 0 ? 'pos' : 'neg'}>
+                      <span className="cap-l">Contribution</span>
+                      <span className="cap-n">{money(gap)}</span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <span className="cap-l">At external rates</span>
+                      <span className="cap-n">{money(r.external_value)}</span>
+                    </div>
+                    <div>
+                      <span className="cap-l">
+                        {cls === 'internal'
+                          ? 'Institutional support'
+                          : 'Partnership support'}
+                      </span>
+                      <span className="cap-n">{money(discount)}</span>
+                    </div>
+                  </>
+                )}
               </div>
+
               <table className="sheet-table">
                 <tbody>
                   <tr>
@@ -263,6 +368,23 @@ export default function QuarterlyReport({
                       {r.closed_events} of {r.events}
                     </td>
                   </tr>
+                  {cls !== 'external' && Number(r.external_value) > 0 && (
+                    <tr>
+                      <td>Effective discount</td>
+                      <td className="num">
+                        {Math.round(
+                          (discount / Number(r.external_value)) * 100
+                        )}
+                        %
+                      </td>
+                      <td>Average per event</td>
+                      <td className="num">
+                        {Number(r.events) > 0
+                          ? money(discount / Number(r.events))
+                          : '\u2014'}
+                      </td>
+                    </tr>
+                  )}
                   {cls === 'external' && (
                     <tr>
                       <td>Contribution margin</td>
@@ -311,9 +433,8 @@ export default function QuarterlyReport({
             </div>
           </div>
           <p className="sheet-empty">
-            Events modified are those that went ahead in altered form &mdash;
-            different date, room, or service level. They show strain before it
-            becomes lost revenue.
+            Events modified are those that went ahead in altered form. They show
+            strain before it becomes lost revenue.
           </p>
         </section>
 
@@ -337,9 +458,7 @@ export default function QuarterlyReport({
                       {s.space_name}
                     </td>
                     <td className="num">{s.events}</td>
-                    <td className="num">
-                      {Number(s.guests).toLocaleString()}
-                    </td>
+                    <td className="num">{Number(s.guests).toLocaleString()}</td>
                   </tr>
                 ))}
               </tbody>
@@ -382,9 +501,7 @@ export default function QuarterlyReport({
                     {lost.reduce((s, l) => s + Number(l.occurrences), 0)}
                   </td>
                   <td className="num strong">
-                    {money(
-                      lost.reduce((s, l) => s + Number(l.revenue_lost), 0)
-                    )}
+                    {money(lost.reduce((s, l) => s + Number(l.revenue_lost), 0))}
                   </td>
                   <td className="num"></td>
                 </tr>
@@ -422,8 +539,7 @@ export default function QuarterlyReport({
             <p className="sheet-empty">
               {exceptions?.undocumented} approved exception
               {exceptions?.undocumented === 1 ? '' : 's'} still without
-              post-event actuals, so the subsidy figure above rests partly on
-              estimates.
+              post-event actuals.
             </p>
           )}
         </section>
@@ -448,9 +564,9 @@ export default function QuarterlyReport({
             </tbody>
           </table>
           <p className="sheet-empty">
-            Cost capture is the share of events with actual costs recorded.
-            Below eighty percent, true cost is understated and every margin
-            above looks better than it is.
+            Cost capture affects the cost and contribution figures only. What
+            was charged and what it would have cost externally are computed from
+            prices, so they are complete regardless.
           </p>
         </section>
 
