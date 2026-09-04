@@ -1,30 +1,41 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import { MEDIA_FOLDERS } from '@/lib/media-folders';
 
 /**
- * Uploading an image.
+ * Uploading images.
  *
  * The file goes from the browser straight to Cloudinary using a
- * signature this server produced. Our server never handles the file,
- * which keeps large images away from Vercel's request size limit and
- * keeps the API secret out of the browser.
+ * signature this server produced, so the API secret stays server-side
+ * and a large image never passes through Vercel.
+ *
+ * Several files at once, because nobody uploads one photograph from
+ * an event.
  */
+
+interface Pending {
+  file: File;
+  preview: string;
+  title: string;
+  altText: string;
+  status: 'waiting' | 'uploading' | 'done' | 'failed';
+  error?: string;
+}
 
 export default function ImageUpload({
   configured,
+  defaultFolder = 'other',
   onUploaded,
 }: {
   configured: boolean;
+  defaultFolder?: string;
   onUploaded: () => void;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
-  const [title, setTitle] = useState('');
-  const [altText, setAltText] = useState('');
+  const [folder, setFolder] = useState(defaultFolder);
   const [tags, setTags] = useState('');
-  const [preview, setPreview] = useState<string | null>(null);
-  const [file, setFile] = useState<File | null>(null);
-  const [progress, setProgress] = useState(0);
+  const [items, setItems] = useState<Pending[]>([]);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -34,214 +45,251 @@ export default function ImageUpload({
         <strong>Cloudinary is not connected</strong>
         Add <code>CLOUDINARY_CLOUD_NAME</code>, <code>CLOUDINARY_API_KEY</code>{' '}
         and <code>CLOUDINARY_API_SECRET</code> to your environment variables,
-        then redeploy. Until then, images can only be added by URL.
+        then redeploy.
       </div>
     );
   }
 
-  function pick(f: File | null) {
+  function addFiles(files: FileList | null) {
+    if (!files) return;
     setError('');
-    if (!f) return;
-    if (!f.type.startsWith('image/')) {
-      setError('That is not an image.');
-      return;
+    const next: Pending[] = [];
+
+    for (const file of Array.from(files)) {
+      if (!file.type.startsWith('image/')) {
+        setError(`${file.name} is not an image, so it was skipped.`);
+        continue;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        setError(`${file.name} is over 10MB, so it was skipped.`);
+        continue;
+      }
+      next.push({
+        file,
+        preview: URL.createObjectURL(file),
+        title: file.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' '),
+        altText: '',
+        status: 'waiting',
+      });
     }
-    if (f.size > 10 * 1024 * 1024) {
-      setError('That image is over 10MB. Try a smaller one.');
-      return;
-    }
-    setFile(f);
-    setPreview(URL.createObjectURL(f));
-    if (!title) setTitle(f.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' '));
+
+    setItems((prev) => [...prev, ...next]);
   }
 
-  async function upload() {
-    if (!file) {
-      setError('Choose an image first.');
-      return;
-    }
-    if (!title.trim()) {
-      setError('Give it a title so you can find it again.');
+  const update = (i: number, patch: Partial<Pending>) =>
+    setItems((prev) => prev.map((it, n) => (n === i ? { ...it, ...patch } : it)));
+
+  async function uploadAll() {
+    const missing = items.findIndex((i) => !i.title.trim());
+    if (missing >= 0) {
+      setError('Every image needs a title so you can find it again.');
       return;
     }
 
     setBusy(true);
     setError('');
-    setProgress(5);
 
-    try {
-      const sigRes = await fetch('/api/staff/upload-signature', {
-        method: 'POST',
-      });
-      const sig = await sigRes.json();
-      if (!sigRes.ok) {
-        setError(sig.error ?? 'Could not prepare the upload.');
-        setBusy(false);
-        return;
-      }
-
-      setProgress(15);
-
-      const form = new FormData();
-      form.append('file', file);
-      form.append('api_key', sig.apiKey);
-      form.append('timestamp', String(sig.timestamp));
-      form.append('signature', sig.signature);
-      form.append('folder', sig.folder);
-
-      const upRes = await fetch(sig.uploadUrl, {
-        method: 'POST',
-        body: form,
-      });
-      const up = await upRes.json();
-
-      if (!upRes.ok) {
-        setError(up?.error?.message ?? 'Cloudinary rejected the upload.');
-        setBusy(false);
-        return;
-      }
-
-      setProgress(75);
-
-      const recRes = await fetch('/api/staff/media', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'record',
-          publicId: up.public_id,
-          secureUrl: up.secure_url,
-          format: up.format ?? null,
-          width: up.width ?? null,
-          height: up.height ?? null,
-          bytes: up.bytes ?? null,
-          title,
-          altText: altText || null,
-          tags: tags
-            ? tags.split(',').map((t) => t.trim()).filter(Boolean)
-            : null,
-        }),
-      });
-
-      if (!recRes.ok) {
-        const d = await recRes.json();
-        setError(d.error ?? 'Uploaded, but could not save it to the library.');
-        setBusy(false);
-        return;
-      }
-
-      setProgress(100);
-      setFile(null);
-      setPreview(null);
-      setTitle('');
-      setAltText('');
-      setTags('');
-      if (fileRef.current) fileRef.current.value = '';
-      onUploaded();
+    // One signature covers the batch: it is scoped to the folder and
+    // valid for the session, not to a single file.
+    const sigRes = await fetch('/api/staff/upload-signature', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ folder }),
+    });
+    const sig = await sigRes.json();
+    if (!sigRes.ok) {
+      setError(sig.error ?? 'Could not prepare the upload.');
       setBusy(false);
-      setProgress(0);
-    } catch {
-      setError('Upload failed. Check your connection and try again.');
-      setBusy(false);
-      setProgress(0);
+      return;
     }
+
+    const tagList = tags
+      ? tags.split(',').map((t) => t.trim()).filter(Boolean)
+      : null;
+
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].status === 'done') continue;
+      update(i, { status: 'uploading' });
+
+      try {
+        const form = new FormData();
+        form.append('file', items[i].file);
+        form.append('api_key', sig.apiKey);
+        form.append('timestamp', String(sig.timestamp));
+        form.append('signature', sig.signature);
+        form.append('folder', sig.folder);
+
+        const upRes = await fetch(sig.uploadUrl, { method: 'POST', body: form });
+        const up = await upRes.json();
+
+        if (!upRes.ok) {
+          update(i, {
+            status: 'failed',
+            error: up?.error?.message ?? 'Cloudinary refused it',
+          });
+          continue;
+        }
+
+        const recRes = await fetch('/api/staff/media', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'record',
+            publicId: up.public_id,
+            secureUrl: up.secure_url,
+            format: up.format ?? null,
+            width: up.width ?? null,
+            height: up.height ?? null,
+            bytes: up.bytes ?? null,
+            title: items[i].title,
+            altText: items[i].altText || null,
+            tags: tagList,
+            folder,
+          }),
+        });
+
+        update(i, {
+          status: recRes.ok ? 'done' : 'failed',
+          error: recRes.ok ? undefined : 'Uploaded but not saved to the library',
+        });
+      } catch {
+        update(i, { status: 'failed', error: 'Upload failed' });
+      }
+    }
+
+    setBusy(false);
+    onUploaded();
   }
+
+  const done = items.filter((i) => i.status === 'done').length;
+  const remaining = items.filter((i) => i.status !== 'done');
 
   return (
     <div className="upload-box">
-      <h3 className="admin-h3">Add an image</h3>
+      <h3 className="admin-h3">Add images</h3>
 
       {error && <div className="alert alert-error">{error}</div>}
 
+      <div className="grid two">
+        <div className="field">
+          <label htmlFor="up-folder">Folder</label>
+          <p className="sub">Where these belong in the library.</p>
+          <select
+            id="up-folder"
+            value={folder}
+            onChange={(e) => setFolder(e.target.value)}
+          >
+            {MEDIA_FOLDERS.map(([v, l]) => (
+              <option value={v} key={v}>
+                {l}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="field">
+          <label htmlFor="up-tags">Tags for all of these</label>
+          <p className="sub">Comma separated. Optional.</p>
+          <input
+            id="up-tags"
+            type="text"
+            placeholder="wedding, buffet"
+            value={tags}
+            onChange={(e) => setTags(e.target.value)}
+          />
+        </div>
+      </div>
+
       <div
-        className={`dropzone${preview ? ' has-file' : ''}`}
+        className="dropzone"
         onDragOver={(e) => e.preventDefault()}
         onDrop={(e) => {
           e.preventDefault();
-          pick(e.dataTransfer.files?.[0] ?? null);
+          addFiles(e.dataTransfer.files);
         }}
         onClick={() => fileRef.current?.click()}
       >
-        {preview ? (
-          <img src={preview} alt="" className="dropzone-preview" />
-        ) : (
-          <>
-            <span className="dropzone-main">
-              Drop an image here, or click to choose
-            </span>
-            <span className="dropzone-sub">JPG, PNG or WebP, up to 10MB</span>
-          </>
-        )}
+        <span className="dropzone-main">
+          Drop images here, or click to choose
+        </span>
+        <span className="dropzone-sub">
+          JPG, PNG or WebP, up to 10MB each. Several at once is fine.
+        </span>
         <input
           ref={fileRef}
           type="file"
           accept="image/*"
+          multiple
           hidden
-          onChange={(e) => pick(e.target.files?.[0] ?? null)}
+          onChange={(e) => addFiles(e.target.files)}
         />
       </div>
 
-      {file && (
+      {items.length > 0 && (
         <>
-          <div className="grid two">
-            <div className="field">
-              <label htmlFor="up-title">Title</label>
-              <p className="sub">How you will find it again.</p>
-              <input
-                id="up-title"
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-              />
-            </div>
-            <div className="field">
-              <label htmlFor="up-tags">Tags</label>
-              <p className="sub">Comma separated. Optional.</p>
-              <input
-                id="up-tags"
-                type="text"
-                placeholder="ballroom, wedding, buffet"
-                value={tags}
-                onChange={(e) => setTags(e.target.value)}
-              />
-            </div>
+          <div className="upload-list">
+            {items.map((it, i) => (
+              <div className={`upload-row ${it.status}`} key={i}>
+                <img src={it.preview} alt="" />
+                <div className="upload-fields">
+                  <input
+                    type="text"
+                    placeholder="Title"
+                    value={it.title}
+                    disabled={it.status === 'done'}
+                    onChange={(e) => update(i, { title: e.target.value })}
+                    aria-label="Title"
+                  />
+                  <input
+                    type="text"
+                    placeholder="What is in the picture, for screen readers"
+                    value={it.altText}
+                    disabled={it.status === 'done'}
+                    onChange={(e) => update(i, { altText: e.target.value })}
+                    aria-label="Description"
+                  />
+                </div>
+                <div className="upload-status">
+                  {it.status === 'done' && (
+                    <span className="pill p-classified">Uploaded</span>
+                  )}
+                  {it.status === 'uploading' && (
+                    <span className="pill p-review">Uploading</span>
+                  )}
+                  {it.status === 'failed' && (
+                    <span className="pill p-flag">{it.error}</span>
+                  )}
+                  {it.status === 'waiting' && (
+                    <button
+                      className="edit-link"
+                      onClick={() =>
+                        setItems((prev) => prev.filter((_, n) => n !== i))
+                      }
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
-
-          <div className="field">
-            <label htmlFor="up-alt">Description for screen readers</label>
-            <p className="sub">
-              What is in the picture, for someone who cannot see it. Worth
-              writing &mdash; it is also what search engines read.
-            </p>
-            <input
-              id="up-alt"
-              type="text"
-              placeholder="A buffet table set for a reception in the Vermeer Banquet Room"
-              value={altText}
-              onChange={(e) => setAltText(e.target.value)}
-            />
-          </div>
-
-          {busy && (
-            <div className="upload-progress">
-              <div style={{ width: `${progress}%` }} />
-            </div>
-          )}
 
           <div className="actions">
-            <button className="btn btn-primary" onClick={upload} disabled={busy}>
-              {busy ? 'Uploading...' : 'Upload'}
-            </button>
             <button
-              className="btn btn-ghost"
-              disabled={busy}
-              onClick={() => {
-                setFile(null);
-                setPreview(null);
-                if (fileRef.current) fileRef.current.value = '';
-              }}
+              className="btn btn-primary"
+              onClick={uploadAll}
+              disabled={busy || remaining.length === 0}
             >
-              Cancel
+              {busy
+                ? 'Uploading...'
+                : `Upload ${remaining.length} image${
+                    remaining.length === 1 ? '' : 's'
+                  }`}
             </button>
+            {done > 0 && !busy && (
+              <button className="btn btn-ghost" onClick={() => setItems([])}>
+                Clear the list
+              </button>
+            )}
           </div>
         </>
       )}

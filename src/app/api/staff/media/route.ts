@@ -8,7 +8,21 @@ import { getSessionUser } from '@/lib/auth';
  *
  * The upload itself happens browser-to-Cloudinary; this records what
  * came back so the library can show it without calling Cloudinary.
+ *
+ * The folder can be changed here even though Cloudinary's cannot.
+ * This column is the index; Cloudinary is storage. A file filed
+ * wrongly should be one dropdown to fix, not a re-upload.
  */
+
+const FOLDERS = [
+  'food',
+  'staff',
+  'events',
+  'graham',
+  'maytag',
+  'chapel',
+  'other',
+] as const;
 
 const Record_ = z.object({
   action: z.literal('record'),
@@ -21,6 +35,7 @@ const Record_ = z.object({
   title: z.string().min(1).max(200),
   altText: z.string().max(300).nullable(),
   tags: z.array(z.string().max(40)).max(10).nullable(),
+  folder: z.enum(FOLDERS).default('other'),
 });
 
 const Update = z.object({
@@ -29,6 +44,13 @@ const Update = z.object({
   title: z.string().min(1).max(200),
   altText: z.string().max(300).nullable(),
   tags: z.array(z.string().max(40)).max(10).nullable(),
+  folder: z.enum(FOLDERS),
+});
+
+const Move = z.object({
+  action: z.literal('move'),
+  ids: z.array(z.string().uuid()).min(1).max(200),
+  folder: z.enum(FOLDERS),
 });
 
 const Archive = z.object({
@@ -36,7 +58,7 @@ const Archive = z.object({
   id: z.string().uuid(),
 });
 
-const Body = z.discriminatedUnion('action', [Record_, Update, Archive]);
+const Body = z.discriminatedUnion('action', [Record_, Update, Move, Archive]);
 
 export async function POST(req: NextRequest) {
   const user = await getSessionUser();
@@ -57,16 +79,17 @@ export async function POST(req: NextRequest) {
       const row = await one<{ id: string }>(
         `INSERT INTO media
            (public_id, secure_url, format, width, height, bytes,
-            title, alt_text, tags, uploaded_by)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+            title, alt_text, tags, folder, uploaded_by)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
          ON CONFLICT (public_id) DO UPDATE
            SET secure_url = EXCLUDED.secure_url,
                title = EXCLUDED.title,
-               alt_text = EXCLUDED.alt_text
+               alt_text = EXCLUDED.alt_text,
+               folder = EXCLUDED.folder
          RETURNING id`,
         [
           b.publicId, b.secureUrl, b.format, b.width, b.height, b.bytes,
-          b.title, b.altText, b.tags, user!.id,
+          b.title, b.altText, b.tags, b.folder, user!.id,
         ]
       );
       return NextResponse.json({ ok: true, id: row?.id });
@@ -74,11 +97,19 @@ export async function POST(req: NextRequest) {
 
     if (b.action === 'update') {
       await query(
-        `UPDATE media SET title = $2, alt_text = $3, tags = $4
+        `UPDATE media SET title = $2, alt_text = $3, tags = $4, folder = $5
           WHERE id = $1`,
-        [b.id, b.title, b.altText, b.tags]
+        [b.id, b.title, b.altText, b.tags, b.folder]
       );
       return NextResponse.json({ ok: true });
+    }
+
+    if (b.action === 'move') {
+      await query('UPDATE media SET folder = $2 WHERE id = ANY($1::uuid[])', [
+        b.ids,
+        b.folder,
+      ]);
+      return NextResponse.json({ ok: true, moved: b.ids.length });
     }
 
     // Archiving hides an image without breaking anything currently

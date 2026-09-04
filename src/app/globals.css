@@ -2156,3 +2156,29 @@ label.chk input{margin-top:.2rem}
   border-radius:3px;padding:.7rem 1rem;margin-bottom:1rem;
   font-size:.85rem;color:var(--slate);
 }
+/* Append these to the end of src/app/globals.css */
+
+/* ---------- media folders and batch upload ---------- */
+.media-card{position:relative}
+.media-card.picked .media-thumb img{outline:3px solid var(--crimson);outline-offset:-3px}
+.media-check{
+  position:absolute;top:.4rem;left:.4rem;
+  background:rgba(255,255,255,.9);border-radius:2px;
+  padding:.15rem .25rem;line-height:0;
+}
+.media-check input{accent-color:var(--crimson);margin:0}
+
+.upload-list{display:flex;flex-direction:column;gap:.5rem;margin:1rem 0}
+.upload-row{
+  display:flex;gap:.8rem;align-items:center;padding:.55rem;
+  background:var(--paper);border:1px solid var(--rule);border-radius:3px;
+}
+.upload-row.done{opacity:.6}
+.upload-row.failed{border-color:#E8CBD1;background:var(--crimson-soft)}
+.upload-row img{
+  width:4.5rem;height:3.2rem;object-fit:cover;border-radius:2px;flex:none;
+}
+.upload-fields{flex:1;display:flex;flex-direction:column;gap:.3rem;min-width:0}
+.upload-fields input{font-size:.85rem;padding:.35rem .5rem}
+.upload-status{flex:none;display:flex;align-items:center;gap:.5rem}
+

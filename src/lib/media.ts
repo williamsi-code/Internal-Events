@@ -3,11 +3,14 @@ import { query, one } from './db';
 /**
  * The media library.
  *
- * Cloudinary holds the files; this holds what they are and where
- * they are used. Uploads go from the browser straight to Cloudinary
- * with a server-signed request, so the API secret never reaches the
- * browser and the file never passes through our server.
+ * Cloudinary holds the files; this holds what they are, where they
+ * live and where they are used. Uploads go from the browser straight
+ * to Cloudinary with a server-signed request, so the API secret never
+ * reaches the browser and the file never passes through our server.
  */
+
+// Folder names live in media-folders.ts so client components can
+// import them without pulling the database client into the browser.
 
 export interface MediaItem {
   id: string;
@@ -20,6 +23,7 @@ export interface MediaItem {
   title: string;
   alt_text: string | null;
   tags: string[] | null;
+  folder: string;
   uploaded_by_name: string | null;
   uploaded_at: string;
   block_count: number;
@@ -31,6 +35,7 @@ export async function listMedia() {
   return query<MediaItem>(
     `SELECT m.id, m.public_id, m.secure_url, m.format,
             m.width, m.height, m.bytes, m.title, m.alt_text, m.tags,
+            m.folder,
             u.full_name AS uploaded_by_name,
             to_char(m.uploaded_at, 'Mon FMDD, YYYY') AS uploaded_at,
             coalesce(usage.block_count, 0) AS block_count,
@@ -41,6 +46,12 @@ export async function listMedia() {
        LEFT JOIN media_usage usage ON usage.id = m.id
       WHERE NOT m.is_archived
       ORDER BY m.uploaded_at DESC`
+  );
+}
+
+export async function getFolderCounts() {
+  return query<{ folder: string; n: number }>(
+    'SELECT folder, n FROM media_folder_counts'
   );
 }
 
