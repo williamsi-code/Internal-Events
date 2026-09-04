@@ -74,6 +74,13 @@ export default async function ManagePage() {
                 for maintenance or renovation.
               </p>
             </Link>
+            <Link href="/staff/manage/feeds" className="tile">
+              <h3>Calendar feeds</h3>
+              <p>
+                Read-only calendars for Outlook, so security and facilities see
+                what is happening without signing in.
+              </p>
+            </Link>
             <Link href="/staff/closeout" className="tile">
               <h3>
                 Close out
@@ -118,8 +125,8 @@ export default async function ManagePage() {
             <Link href="/staff/manage/media" className="tile">
               <h3>Images</h3>
               <p>
-                Photographs for the front page and the space pages. Upload from
-                your computer once, then use the same image anywhere.
+                Photographs in folders for food, staff, events and each
+                building. Upload once, then use anywhere.
               </p>
             </Link>
             <Link href="/staff/manage/policies" className="tile">
