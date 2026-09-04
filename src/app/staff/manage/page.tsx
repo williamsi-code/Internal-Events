@@ -67,6 +67,13 @@ export default async function ManagePage() {
                 for an event, then send it to the customer.
               </p>
             </Link>
+            <Link href="/staff/manage/scheduler" className="tile">
+              <h3>Recurring and closures</h3>
+              <p>
+                Standing meetings that repeat, and rooms taken out of service
+                for maintenance or renovation.
+              </p>
+            </Link>
             <Link href="/staff/closeout" className="tile">
               <h3>
                 Close out
@@ -160,7 +167,7 @@ export default async function ManagePage() {
               <h3>People and access</h3>
               <p>
                 Who can reach the queue, the scheduler and this back office.
-                Everyone else can only submit and track their own events.
+                Security and facilities can be given the schedule alone.
               </p>
             </Link>
           </div>

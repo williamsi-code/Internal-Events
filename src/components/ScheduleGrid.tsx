@@ -11,11 +11,11 @@ import type { Booking, SpaceRow, ConflictRow } from '@/lib/scheduler';
  *
  * A calendar answers "what is happening on the 14th". A resource grid
  * answers "is the Ballroom free", which is the question staff arrive
- * with. Every view keeps the same left column so the room list never
- * changes shape underneath you.
+ * with.
  *
- * Meeting venues are the default because that is where catering
- * happens. The other 140-odd rooms are a filter away.
+ * Read-only viewers - security, facilities - see the same grid without
+ * the controls that change anything. Same component, so what they see
+ * cannot drift from what staff see.
  */
 
 type View = 'day' | 'week' | 'month';
@@ -64,6 +64,7 @@ export default function ScheduleGrid({
   busyDays,
   view,
   anchorIso,
+  canEdit = true,
 }: {
   bookings: Booking[];
   spaces: SpaceRow[];
@@ -71,12 +72,11 @@ export default function ScheduleGrid({
   busyDays: { day: string; n: number }[];
   view: View;
   anchorIso: string;
+  canEdit?: boolean;
 }) {
   const router = useRouter();
   const [selected, setSelected] = useState<Booking | null>(null);
   const [showConflicts, setShowConflicts] = useState(false);
-
-  // Meeting venues by default. Everything else is one dropdown away.
   const [scope, setScope] = useState('Meeting Venues');
 
   const anchor = new Date(anchorIso + 'T00:00:00');
@@ -157,11 +157,7 @@ export default function ScheduleGrid({
           <button className="btn btn-ghost" onClick={() => step(1)} aria-label="Next">
             &rarr;
           </button>
-          <DatePicker
-            value={anchorIso}
-            onPick={(d) => goTo(d)}
-            busyDays={busyMap}
-          />
+          <DatePicker value={anchorIso} onPick={(d) => goTo(d)} busyDays={busyMap} />
           {anchorIso !== todayIso && (
             <button className="btn btn-ghost" onClick={() => goTo(todayIso)}>
               Today
@@ -208,7 +204,7 @@ export default function ScheduleGrid({
             </optgroup>
           </select>
 
-          {conflicts.length > 0 && (
+          {canEdit && conflicts.length > 0 && (
             <button
               className="btn btn-ghost conflict-btn"
               onClick={() => setShowConflicts((v) => !v)}
@@ -219,7 +215,7 @@ export default function ScheduleGrid({
         </div>
       </div>
 
-      {showConflicts && (
+      {canEdit && showConflicts && (
         <div className="conflict-panel">
           <h3>Overlapping bookings</h3>
           <p className="sub">
@@ -256,11 +252,13 @@ export default function ScheduleGrid({
           <span className="swatch tentative" /> Tentative hold
         </span>
         <span className="legend-item">
-          <span className="swatch blackout" /> Blackout
+          <span className="swatch blackout" /> Out of service
         </span>
-        <span className="legend-item">
-          <span className="swatch conflict" /> Overlapping
-        </span>
+        {canEdit && (
+          <span className="legend-item">
+            <span className="swatch conflict" /> Overlapping
+          </span>
+        )}
         <span className="legend-item scope-note">
           Showing {shownSpaces.length} of {spaces.length} spaces
         </span>
@@ -281,11 +279,7 @@ export default function ScheduleGrid({
                   style={{ width: hours.length * HOUR_WIDTH }}
                 >
                   {hours.map((h) => (
-                    <div
-                      className="resgrid-hour"
-                      key={h}
-                      style={{ width: HOUR_WIDTH }}
-                    >
+                    <div className="resgrid-hour" key={h} style={{ width: HOUR_WIDTH }}>
                       {h === 12 ? 'Noon' : h > 12 ? `${h - 12} PM` : `${h} AM`}
                     </div>
                   ))}
@@ -306,11 +300,6 @@ export default function ScheduleGrid({
                       }`}
                       key={iso(d)}
                       onClick={() => goTo(iso(d), 'day')}
-                      title={`Open ${d.toLocaleDateString('en-US', {
-                        weekday: 'long',
-                        month: 'long',
-                        day: 'numeric',
-                      })}`}
                     >
                       {view === 'week' ? (
                         <>
@@ -373,7 +362,7 @@ export default function ScheduleGrid({
                             key={b.id}
                             className={`res-block ${b.status}${
                               b.is_blackout ? ' blackout' : ''
-                            }${b.has_conflict ? ' conflict' : ''}`}
+                            }${b.has_conflict && canEdit ? ' conflict' : ''}`}
                             style={{ left, width }}
                             onClick={() => setSelected(b)}
                             title={`${b.title} \u00b7 ${b.starts_at}\u2013${b.ends_at}`}
@@ -409,7 +398,7 @@ export default function ScheduleGrid({
                                 key={b.id}
                                 className={`res-chip ${b.status}${
                                   b.is_blackout ? ' blackout' : ''
-                                }${b.has_conflict ? ' conflict' : ''}`}
+                                }${b.has_conflict && canEdit ? ' conflict' : ''}`}
                                 onClick={() => setSelected(b)}
                                 title={`${b.title} \u00b7 ${b.event_starts}`}
                               >
@@ -438,7 +427,11 @@ export default function ScheduleGrid({
       )}
 
       {selected && (
-        <BookingPanel booking={selected} onClose={() => setSelected(null)} />
+        <BookingPanel
+          booking={selected}
+          canEdit={canEdit}
+          onClose={() => setSelected(null)}
+        />
       )}
     </>
   );
@@ -446,9 +439,11 @@ export default function ScheduleGrid({
 
 function BookingPanel({
   booking,
+  canEdit,
   onClose,
 }: {
   booking: Booking;
+  canEdit: boolean;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -486,7 +481,11 @@ function BookingPanel({
       <div className="booking-head">
         <div>
           <span className={`pill p-${booking.status}`}>
-            {booking.status === 'confirmed' ? 'Confirmed' : 'Tentative hold'}
+            {booking.is_blackout
+              ? 'Out of service'
+              : booking.status === 'confirmed'
+                ? 'Confirmed'
+                : 'Tentative hold'}
           </span>
           <h3>{booking.title}</h3>
           <p className="sub">
@@ -500,7 +499,7 @@ function BookingPanel({
         </button>
       </div>
 
-      {booking.has_conflict && (
+      {canEdit && booking.has_conflict && (
         <div className="callout c-flag">
           <strong>Overlaps another booking in this space</strong>
           Resolve before this event is confirmed, or the confirmation will be
@@ -517,7 +516,13 @@ function BookingPanel({
         <dd>
           {booking.starts_at} {'\u2013'} {booking.ends_at}
         </dd>
-        {booking.reference_code && (
+        {booking.note && (
+          <>
+            <dt>Note</dt>
+            <dd>{booking.note}</dd>
+          </>
+        )}
+        {canEdit && booking.reference_code && (
           <>
             <dt>Request</dt>
             <dd className="mono">{booking.reference_code}</dd>
@@ -525,81 +530,90 @@ function BookingPanel({
         )}
       </dl>
 
-      {error && <div className="alert alert-error">{error}</div>}
-
-      {!booking.is_blackout && (
+      {!canEdit ? (
+        <p className="sub">
+          The held window includes setup and teardown, so the room is occupied
+          for longer than the event runs.
+        </p>
+      ) : (
         <>
-          <div className="grid two">
-            <div className="field">
-              <label htmlFor="setup">Setup (minutes)</label>
-              <input
-                id="setup"
-                type="number"
-                min={0}
-                value={setup}
-                onChange={(e) => setSetup(Number(e.target.value) || 0)}
-              />
-            </div>
-            <div className="field">
-              <label htmlFor="teardown">Teardown (minutes)</label>
-              <input
-                id="teardown"
-                type="number"
-                min={0}
-                value={teardown}
-                onChange={(e) => setTeardown(Number(e.target.value) || 0)}
-              />
-            </div>
-          </div>
-          <div className="field">
-            <label htmlFor="bnote">Note</label>
-            <input
-              id="bnote"
-              type="text"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-            />
+          {error && <div className="alert alert-error">{error}</div>}
+
+          {!booking.is_blackout && (
+            <>
+              <div className="grid two">
+                <div className="field">
+                  <label htmlFor="setup">Setup (minutes)</label>
+                  <input
+                    id="setup"
+                    type="number"
+                    min={0}
+                    value={setup}
+                    onChange={(e) => setSetup(Number(e.target.value) || 0)}
+                  />
+                </div>
+                <div className="field">
+                  <label htmlFor="teardown">Teardown (minutes)</label>
+                  <input
+                    id="teardown"
+                    type="number"
+                    min={0}
+                    value={teardown}
+                    onChange={(e) => setTeardown(Number(e.target.value) || 0)}
+                  />
+                </div>
+              </div>
+              <div className="field">
+                <label htmlFor="bnote">Note</label>
+                <input
+                  id="bnote"
+                  type="text"
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                />
+              </div>
+            </>
+          )}
+
+          <div className="actions">
+            {!booking.is_blackout && (
+              <button
+                className="btn btn-primary"
+                disabled={busy}
+                onClick={() =>
+                  send({
+                    action: 'buffers',
+                    bookingId: booking.id,
+                    setupMinutes: setup,
+                    teardownMinutes: teardown,
+                    note: note || null,
+                  })
+                }
+              >
+                {busy ? 'Saving...' : 'Save times'}
+              </button>
+            )}
+            {booking.request_id && (
+              <Link
+                href={`/staff/${booking.request_id}`}
+                className="btn btn-ghost"
+                style={{ textDecoration: 'none' }}
+              >
+                Open event
+              </Link>
+            )}
+            {booking.is_blackout && (
+              <Link
+                href="/staff/manage/scheduler"
+                className="btn btn-ghost"
+                style={{ textDecoration: 'none' }}
+              >
+                Manage closures
+              </Link>
+            )}
           </div>
         </>
       )}
-
-      <div className="actions">
-        {!booking.is_blackout && (
-          <button
-            className="btn btn-primary"
-            disabled={busy}
-            onClick={() =>
-              send({
-                action: 'buffers',
-                bookingId: booking.id,
-                setupMinutes: setup,
-                teardownMinutes: teardown,
-                note: note || null,
-              })
-            }
-          >
-            {busy ? 'Saving...' : 'Save times'}
-          </button>
-        )}
-        {booking.request_id && (
-          <Link
-            href={`/staff/${booking.request_id}`}
-            className="btn btn-ghost"
-            style={{ textDecoration: 'none' }}
-          >
-            Open event
-          </Link>
-        )}
-        {booking.is_blackout && (
-          <button
-            className="btn btn-ghost"
-            disabled={busy}
-            onClick={() => send({ action: 'release', bookingId: booking.id })}
-          >
-            Remove block
-          </button>
-        )}
-      </div>
     </div>
   );
 }

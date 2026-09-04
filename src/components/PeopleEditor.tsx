@@ -11,6 +11,11 @@ const ROLES: [string, string, string][] = [
     'Queue, schedule, classification decisions, capacity checks, back office',
   ],
   [
+    'schedule_viewer',
+    'Schedule only',
+    'Sees the room schedule and nothing else. For security, facilities and anyone who needs to know what is happening in the buildings',
+  ],
+  [
     'service_approver',
     'Service approver',
     'Sign-off for dining, facilities, campus safety or risk',
@@ -39,9 +44,13 @@ export default function PeopleEditor({
     p.roles.includes('admin') ||
     p.roles.includes('service_approver');
 
+  const isViewer = (p: Person) =>
+    p.roles.includes('schedule_viewer') && !isStaffAccount(p);
+
   const shown = people.filter((p) => {
     if (filter === 'staff') return isStaffAccount(p);
-    if (filter === 'customers') return !isStaffAccount(p);
+    if (filter === 'viewers') return isViewer(p);
+    if (filter === 'customers') return !isStaffAccount(p) && !isViewer(p);
     if (filter === 'inactive') return !p.is_active;
     return true;
   });
@@ -71,7 +80,8 @@ export default function PeopleEditor({
 
   const counts = {
     staff: people.filter(isStaffAccount).length,
-    customers: people.filter((p) => !isStaffAccount(p)).length,
+    viewers: people.filter(isViewer).length,
+    customers: people.filter((p) => !isStaffAccount(p) && !isViewer(p)).length,
     inactive: people.filter((p) => !p.is_active).length,
     all: people.length,
   };
@@ -91,6 +101,7 @@ export default function PeopleEditor({
         {(
           [
             ['staff', 'Staff'],
+            ['viewers', 'Schedule only'],
             ['customers', 'Customers'],
             ['inactive', 'Deactivated'],
             ['all', 'Everyone'],
@@ -154,10 +165,7 @@ export default function PeopleEditor({
                           checked={has}
                           disabled={!isAdmin || busy === key}
                           onChange={() =>
-                            change(
-                              { userId: p.id, role, granted: !has },
-                              key
-                            )
+                            change({ userId: p.id, role, granted: !has }, key)
                           }
                         />
                         {label}

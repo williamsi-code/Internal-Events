@@ -26,9 +26,15 @@ export default async function SchedulePage({
 }) {
   const user = await getSessionUser();
   if (!user) redirect('/sign-in');
-  const isStaff =
+
+  const canEdit =
     user.roles.includes('events_staff') || user.roles.includes('admin');
-  if (!isStaff) redirect('/');
+  const canView = canEdit || user.roles.includes('schedule_viewer');
+
+  // Security and facilities need to know what is happening in the
+  // buildings. They do not need the queue, the menu, or anyone's
+  // budget account.
+  if (!canView) redirect('/');
 
   const sp = await searchParams;
   const view: View = ['day', 'week', 'month'].includes(sp.view ?? '')
@@ -40,8 +46,6 @@ export default async function SchedulePage({
       ? new Date(sp.date + 'T00:00:00')
       : new Date();
 
-  // Fetch exactly the range the view shows, plus a day either side so
-  // a booking running past midnight renders on both days.
   let from = new Date(anchor);
   let to = new Date(anchor);
   if (view === 'week') {
@@ -56,15 +60,13 @@ export default async function SchedulePage({
   from.setDate(from.getDate() - 1);
   to.setDate(to.getDate() + 1);
 
-  // A wider window for the date picker's activity dots, so it can
-  // show where the work is a few months either side.
   const pickerFrom = new Date(anchor.getFullYear(), anchor.getMonth() - 3, 1);
   const pickerTo = new Date(anchor.getFullYear(), anchor.getMonth() + 4, 0);
 
   const [bookings, spaces, conflicts, busyDays] = await Promise.all([
     listBookings(iso(from), iso(to)),
     listSchedulableSpaces(),
-    listConflicts(),
+    canEdit ? listConflicts() : Promise.resolve([]),
     getBusyDays(iso(pickerFrom), iso(pickerTo)),
   ]);
 
@@ -75,12 +77,19 @@ export default async function SchedulePage({
         <div className="pagehead">
           <h1>Schedule</h1>
           <p className="lede">
-            Meeting venues by default. An event appears here tentatively once
-            the requester confirms their classification, and becomes solid after
-            final review. Two confirmed events cannot share a space.
+            {canEdit
+              ? 'Meeting venues by default. An event appears here tentatively once the requester confirms their classification, and becomes solid after final review.'
+              : 'What is happening in the buildings. Meeting venues by default; other spaces are in the dropdown.'}
           </p>
         </div>
         <div className="shell" style={{ maxWidth: '84rem' }}>
+          {!canEdit && (
+            <p className="viewer-note">
+              You have view access to the schedule. Times shown include setup
+              and teardown, so a room is occupied for longer than its event
+              runs.
+            </p>
+          )}
           <ScheduleGrid
             bookings={bookings}
             spaces={spaces}
@@ -88,6 +97,7 @@ export default async function SchedulePage({
             busyDays={busyDays}
             view={view}
             anchorIso={iso(anchor)}
+            canEdit={canEdit}
           />
         </div>
       </main>

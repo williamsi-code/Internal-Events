@@ -2135,3 +2135,24 @@ label.chk input{margin-top:.2rem}
 .headline-figures .pos .cap-n{color:var(--sage)}
 .headline-figures .neg .cap-n{color:var(--crimson)}
 .headline-figures .cap-l{font-size:.76rem;color:var(--slate);line-height:1.3}
+/* Append these to the end of src/app/globals.css */
+
+/* ---------- recurring bookings ---------- */
+.weekday-picker{display:flex;gap:.3rem;flex-wrap:wrap}
+.weekday{
+  border:1px solid var(--rule);background:var(--surface);
+  border-radius:2px;padding:.4rem .7rem;font:inherit;font-size:.82rem;
+  cursor:pointer;color:var(--slate);
+}
+.weekday[aria-pressed="true"]{
+  background:var(--crimson);border-color:var(--crimson);
+  color:#fff;font-weight:500;
+}
+.weekday:hover:not([aria-pressed="true"]){border-color:var(--mute)}
+
+/* ---------- read-only scheduler ---------- */
+.viewer-note{
+  background:var(--paper);border:1px solid var(--rule);
+  border-radius:3px;padding:.7rem 1rem;margin-bottom:1rem;
+  font-size:.85rem;color:var(--slate);
+}

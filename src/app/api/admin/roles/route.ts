@@ -13,7 +13,13 @@ import { getSessionUser } from '@/lib/auth';
 
 const Body = z.object({
   userId: z.string().uuid(),
-  role: z.enum(['requester', 'events_staff', 'service_approver', 'admin']),
+  role: z.enum([
+    'requester',
+    'events_staff',
+    'schedule_viewer',
+    'service_approver',
+    'admin',
+  ]),
   granted: z.boolean(),
 });
 
@@ -33,7 +39,6 @@ export async function POST(req: NextRequest) {
 
   const payload = await req.json();
 
-  // Toggling an account active or inactive.
   const deact = Deactivate.safeParse(payload);
   if (deact.success && !('role' in payload)) {
     if (deact.data.userId === actor.id) {

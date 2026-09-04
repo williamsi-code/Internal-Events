@@ -10,8 +10,6 @@ import Notifications from './Notifications';
  * working pages do not - someone filling in an intake form does not need
  * a link to the policy page beside it, and offering one invites them to
  * wander off mid-task.
- *
- * variant="public" is the browsing header. The default is the working one.
  */
 
 const SECTIONS = [
@@ -33,6 +31,8 @@ export default async function Masthead({
   const user = await getSessionUser();
   const isStaff =
     user?.roles.includes('events_staff') || user?.roles.includes('admin');
+  // Security and facilities get the schedule and nothing else.
+  const scheduleOnly = !isStaff && user?.roles.includes('schedule_viewer');
 
   const notices = user ? await getNotices(user.id, !!isStaff) : [];
 
@@ -59,6 +59,12 @@ export default async function Masthead({
                     <Link href="/staff/schedule">Schedule</Link>
                     {' \u00b7 '}
                     <Link href="/staff/manage">Back office</Link>
+                    {' \u00b7 '}
+                  </>
+                )}
+                {scheduleOnly && (
+                  <>
+                    <Link href="/staff/schedule">Schedule</Link>
                     {' \u00b7 '}
                   </>
                 )}
