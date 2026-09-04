@@ -17,18 +17,24 @@ const FoodSource = z.object({
 const Body = z.object({
   eventTypeId: z.string().uuid().nullable(),
   eventTypeOther: z.string().max(200).nullable(),
-  eventName: z.string().min(1).max(200),
-  eventPurpose: z.string().min(1).max(4000),
-  eventDate: z.string().date(),
+  eventName: z.string().min(1, 'Give the event a name').max(200),
+  // Optional. The form stopped requiring this; the server had not
+  // caught up, which produced a rejection with no explanation.
+  eventPurpose: z.string().max(4000).nullable().optional(),
+  eventDate: z.string().date('Choose a valid date'),
   startTime: z.string().nullable(),
   endTime: z.string().nullable(),
   spaceId: z.string().uuid().nullable(),
   locationFreetext: z.string().max(300).nullable(),
-  estimatedAttendance: z.number().int().positive().max(20000),
-  departmentOrg: z.string().min(1).max(200),
+  estimatedAttendance: z
+    .number()
+    .int()
+    .positive('Enter how many people you expect')
+    .max(20000),
+  departmentOrg: z.string().min(1, 'Enter your department').max(200),
   contactPhone: z.string().max(50).nullable(),
 
-  foodSources: z.array(FoodSource).min(1).max(4),
+  foodSources: z.array(FoodSource).min(1, 'Choose who is providing food').max(4),
 
   requirements: z.object({
     foodNeeds: z.string().max(4000).optional(),
@@ -62,6 +68,45 @@ const Body = z.object({
   }),
 });
 
+/** Turn Zod's paths into something a person can act on. "Section C,
+ *  financial risk" beats "funding.financialRiskBearer". */
+const FIELD_LABELS: Record<string, string> = {
+  eventName: 'Event name',
+  eventDate: 'Event date',
+  estimatedAttendance: 'Expected attendance',
+  departmentOrg: 'Department or organization',
+  foodSources: 'Who is providing the food',
+  'funding.financialRiskBearer': 'Who bears the financial risk',
+  'funding.outsideOrgInvolved': 'Outside organization involved',
+  'funding.outsideFunding': 'Outside funding',
+  'funding.revenueCollected': 'Revenue collected',
+  'answers.officialBusiness': 'Is this official College business',
+  'answers.eventOwner': 'Who owns and controls the event',
+  'answers.primaryBeneficiary': 'Who primarily benefits',
+  'answers.primaryPayer': 'Who primarily pays',
+  'answers.wouldOccurWithout': 'Would it happen without Central',
+};
+
+function describeIssues(error: z.ZodError) {
+  const seen = new Set<string>();
+  const parts: string[] = [];
+
+  for (const issue of error.issues) {
+    const path = issue.path.join('.');
+     const label =
+      FIELD_LABELS[path] ??
+      FIELD_LABELS[issue.path[0] as string] ??
+      (path || 'A required answer');
+    if (seen.has(label)) continue;
+    seen.add(label);
+    parts.push(label);
+  }
+
+  if (parts.length === 0) return 'Some answers are missing or invalid.';
+  if (parts.length === 1) return `${parts[0]} is missing or invalid.`;
+  return `These need attention: ${parts.join(', ')}.`;
+}
+
 export async function POST(req: NextRequest) {
   const user = await getSessionUser();
   if (!user) {
@@ -73,8 +118,21 @@ export async function POST(req: NextRequest) {
 
   const parsed = Body.safeParse(await req.json());
   if (!parsed.success) {
+    // Logged in full so a mismatch between the form and this schema
+    // can be diagnosed, rather than only being visible to the person
+    // who cannot submit.
+    console.error(
+      'intake rejected:',
+      JSON.stringify(parsed.error.issues, null, 2)
+    );
     return NextResponse.json(
-      { error: 'Some answers are missing or invalid.', issues: parsed.error.flatten() },
+      {
+        error: describeIssues(parsed.error),
+        issues: parsed.error.issues.map((i) => ({
+          field: i.path.join('.'),
+          message: i.message,
+        })),
+      },
       { status: 400 }
     );
   }
@@ -112,8 +170,9 @@ export async function POST(req: NextRequest) {
        RETURNING id, reference_code`,
       [
         user.id, user.full_name, b.departmentOrg, user.email, b.contactPhone,
-        b.eventTypeId, b.eventTypeOther, b.eventName, b.eventPurpose, b.eventDate,
-        b.startTime, b.endTime, b.spaceId, b.locationFreetext, b.estimatedAttendance,
+        b.eventTypeId, b.eventTypeOther, b.eventName, b.eventPurpose ?? null,
+        b.eventDate, b.startTime, b.endTime, b.spaceId, b.locationFreetext,
+        b.estimatedAttendance,
       ]
     );
     const r = rows[0];
@@ -127,13 +186,14 @@ export async function POST(req: NextRequest) {
 
       if (f.kind === 'outside_caterer' && f.catererId && f.catererId !== 'other') {
         const approved = await c.query(
-          'SELECT id, business_name FROM usable_caterers WHERE id = $1',
+          'SELECT id FROM usable_caterers WHERE id = $1',
           [f.catererId]
         );
         if (approved.rows[0]) {
           catererId = approved.rows[0].id;
         } else {
-          catererOther = catererOther ?? 'Caterer selected but not currently approved';
+          catererOther =
+            catererOther ?? 'Caterer selected but not currently approved';
         }
       }
 
@@ -161,8 +221,9 @@ export async function POST(req: NextRequest) {
          revenue_collected, revenue_detail, revenue_recipient, financial_risk_bearer)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
       [r.id, b.funding.budgetAccount, b.funding.outsideOrgName,
-       b.funding.outsideOrgInvolved, b.funding.outsideFunding, b.funding.outsideFundingDetail,
-       b.funding.revenueCollected, b.funding.revenueDetail, b.funding.revenueRecipient,
+       b.funding.outsideOrgInvolved, b.funding.outsideFunding,
+       b.funding.outsideFundingDetail, b.funding.revenueCollected,
+       b.funding.revenueDetail, b.funding.revenueRecipient,
        b.funding.financialRiskBearer]
     );
 
@@ -172,8 +233,9 @@ export async function POST(req: NextRequest) {
          suggested_class, suggested_rationale, deviates_from_type, deviation_detail)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
       [r.id, b.answers.officialBusiness, b.answers.eventOwner,
-       b.answers.primaryBeneficiary, b.answers.primaryPayer, b.answers.wouldOccurWithout,
-       b.answers.requesterNotes, advisory.classification, advisory.rationale,
+       b.answers.primaryBeneficiary, b.answers.primaryPayer,
+       b.answers.wouldOccurWithout, b.answers.requesterNotes,
+       advisory.classification, advisory.rationale,
        advisory.deviatesFromType, advisory.deviationDetail ?? null]
     );
 
@@ -186,28 +248,24 @@ export async function POST(req: NextRequest) {
     return r;
   });
 
-  await notifyEventsOffice(request.reference_code, b.eventName).catch(() => {});
+  if (process.env.RESEND_API_KEY) {
+    await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: 'Events & Conferences <noreply@central.edu>',
+        to: process.env.EVENTS_INBOX,
+        subject: `New event request ${request.reference_code} - ${b.eventName}`,
+        text: `A new request is waiting in the queue.\n\n${process.env.AUTH_URL ?? ''}/staff\n`,
+      }),
+    }).catch(() => {});
+  }
 
   return NextResponse.json({
     referenceCode: request.reference_code,
     advisory: advisory.classification,
-  });
-}
-
-async function notifyEventsOffice(ref: string, eventName: string) {
-  if (!process.env.RESEND_API_KEY) return;
-  const base = process.env.AUTH_URL ?? '';
-  await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      from: 'Events & Conferences <noreply@central.edu>',
-      to: process.env.EVENTS_INBOX,
-      subject: `New event request ${ref} — ${eventName}`,
-      text: `A new request is waiting in the queue.\n\n${base}/staff?ref=${ref}\n`,
-    }),
   });
 }
