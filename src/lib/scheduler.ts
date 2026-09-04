@@ -6,9 +6,7 @@ import type { Classification } from './classify';
  *
  * Bookings are generated from requests rather than entered by hand:
  * acknowledging a classification puts an event on the schedule
- * tentatively, and final review turns it solid. Staff can adjust
- * buffers or release a hold, but they do not create event bookings
- * directly - that would let the schedule and the request disagree.
+ * tentatively, and final review turns it solid.
  *
  * Times come back as minutes from midnight as well as formatted
  * strings, because the day view positions blocks on a timeline and
@@ -87,13 +85,27 @@ export interface SpaceRow {
   id: string;
   name: string;
   building: string | null;
+  category: string | null;
   capacity_seated: number | null;
 }
 
+/** Meeting venues first, because that is what the events office
+ *  spends its day in. The rest are available from the filter. */
 export async function listSchedulableSpaces() {
   return query<SpaceRow>(
-    `SELECT id, name, building, capacity_seated FROM spaces
-      WHERE is_active ORDER BY sort_order, name`
+    `SELECT id, name, building, category, capacity_seated
+       FROM spaces
+      WHERE is_active
+      ORDER BY
+        CASE category
+          WHEN 'Meeting Venues' THEN 0
+          WHEN 'Outside Spaces' THEN 1
+          WHEN 'Academic'       THEN 2
+          WHEN 'Athletics'      THEN 3
+          WHEN 'Housing'        THEN 4
+          ELSE 5
+        END,
+        building, sort_order, name`
   );
 }
 
@@ -123,6 +135,22 @@ export async function listConflicts() {
       ORDER BY least(booking_id, other_booking_id),
                greatest(booking_id, other_booking_id),
                starts_at`
+  );
+}
+
+/** Which days in a range have anything on them, so the date picker
+ *  can show where the activity is rather than being a blank grid. */
+export async function getBusyDays(fromDate: string, toDate: string) {
+  return query<{ day: string; n: number }>(
+    `SELECT to_char((b.starts_at AT TIME ZONE 'America/Chicago')::date,
+                    'YYYY-MM-DD') AS day,
+            count(*)::int AS n
+       FROM bookings b
+      WHERE b.status <> 'released'
+        AND (b.starts_at AT TIME ZONE 'America/Chicago')::date
+            BETWEEN $1::date AND $2::date
+      GROUP BY 1`,
+    [fromDate, toDate]
   );
 }
 

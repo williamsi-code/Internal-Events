@@ -3,21 +3,25 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import DatePicker from './DatePicker';
 import type { Booking, SpaceRow, ConflictRow } from '@/lib/scheduler';
 
 /**
  * Resource grid: spaces down the left, time across the top.
  *
  * A calendar answers "what is happening on the 14th". A resource grid
- * answers "is the Ballroom free", which is the question staff actually
- * arrive with. Every view keeps the same left column so the shape of
- * the room list never changes underneath you.
+ * answers "is the Ballroom free", which is the question staff arrive
+ * with. Every view keeps the same left column so the room list never
+ * changes shape underneath you.
+ *
+ * Meeting venues are the default because that is where catering
+ * happens. The other 140-odd rooms are a filter away.
  */
 
 type View = 'day' | 'week' | 'month';
 
-const DAY_START = 6; // 6am
-const DAY_END = 24; // midnight
+const DAY_START = 6;
+const DAY_END = 24;
 const HOUR_WIDTH = 64;
 
 const iso = (d: Date) =>
@@ -37,20 +41,17 @@ function label(view: View, anchor: Date) {
       weekday: 'long',
       month: 'long',
       day: 'numeric',
-      year: 'numeric',
     });
   }
   if (view === 'week') {
     const start = addDays(anchor, -anchor.getDay());
     const end = addDays(start, 6);
-    const sameMonth = start.getMonth() === end.getMonth();
     return `${start.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
     })} \u2013 ${end.toLocaleDateString('en-US', {
-      month: sameMonth ? undefined : 'short',
+      month: start.getMonth() === end.getMonth() ? undefined : 'short',
       day: 'numeric',
-      year: 'numeric',
     })}`;
   }
   return anchor.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
@@ -60,32 +61,54 @@ export default function ScheduleGrid({
   bookings,
   spaces,
   conflicts,
+  busyDays,
   view,
   anchorIso,
 }: {
   bookings: Booking[];
   spaces: SpaceRow[];
   conflicts: ConflictRow[];
+  busyDays: { day: string; n: number }[];
   view: View;
   anchorIso: string;
 }) {
   const router = useRouter();
   const [selected, setSelected] = useState<Booking | null>(null);
   const [showConflicts, setShowConflicts] = useState(false);
-  const [buildingFilter, setBuildingFilter] = useState('all');
+
+  // Meeting venues by default. Everything else is one dropdown away.
+  const [scope, setScope] = useState('Meeting Venues');
 
   const anchor = new Date(anchorIso + 'T00:00:00');
   const todayIso = iso(new Date());
 
-  const buildings = useMemo(
-    () => [...new Set(spaces.map((s) => s.building ?? 'Other'))],
+  const busyMap = useMemo(
+    () => new Map(busyDays.map((b) => [b.day, b.n])),
+    [busyDays]
+  );
+
+  const categories = useMemo(
+    () => [...new Set(spaces.map((s) => s.category ?? 'Other'))],
     [spaces]
   );
 
-  const shownSpaces =
-    buildingFilter === 'all'
-      ? spaces
-      : spaces.filter((s) => (s.building ?? 'Other') === buildingFilter);
+  const buildings = useMemo(
+    () => [...new Set(spaces.map((s) => s.building ?? 'Other'))].sort(),
+    [spaces]
+  );
+
+  const shownSpaces = useMemo(() => {
+    if (scope === 'all') return spaces;
+    if (scope.startsWith('building:')) {
+      const b = scope.slice(9);
+      return spaces.filter((s) => (s.building ?? 'Other') === b);
+    }
+    if (scope === 'booked') {
+      const ids = new Set(bookings.map((b) => b.space_id));
+      return spaces.filter((s) => ids.has(s.id));
+    }
+    return spaces.filter((s) => (s.category ?? 'Other') === scope);
+  }, [spaces, scope, bookings]);
 
   const days = useMemo(() => {
     if (view === 'day') return [anchor];
@@ -102,24 +125,20 @@ export default function ScheduleGrid({
     return Array.from({ length: count }, (_, i) => addDays(first, i));
   }, [view, anchorIso]);
 
-  /** Bookings for one space on one day. */
   const cell = (spaceId: string, dayIso: string) =>
     bookings.filter(
-      (b) =>
-        b.space_id === spaceId && b.day <= dayIso && b.end_day >= dayIso
+      (b) => b.space_id === spaceId && b.day <= dayIso && b.end_day >= dayIso
     );
 
-  function go(delta: number) {
-    const step = view === 'day' ? 1 : view === 'week' ? 7 : 0;
+  const goTo = (dateIso: string, v: View = view) =>
+    router.push(`/staff/schedule?view=${v}&date=${dateIso}`);
+
+  function step(delta: number) {
     const next =
       view === 'month'
         ? new Date(anchor.getFullYear(), anchor.getMonth() + delta, 1)
-        : addDays(anchor, step * delta);
-    router.push(`/staff/schedule?view=${view}&date=${iso(next)}`);
-  }
-
-  function setView(v: View) {
-    router.push(`/staff/schedule?view=${v}&date=${anchorIso}`);
+        : addDays(anchor, (view === 'day' ? 1 : 7) * delta);
+    goTo(iso(next));
   }
 
   const hours = Array.from(
@@ -131,21 +150,23 @@ export default function ScheduleGrid({
     <>
       <div className="grid-bar">
         <div className="grid-nav">
-          <button className="btn btn-ghost" onClick={() => go(-1)} aria-label="Previous">
+          <button className="btn btn-ghost" onClick={() => step(-1)} aria-label="Previous">
             &larr;
           </button>
           <h2>{label(view, anchor)}</h2>
-          <button className="btn btn-ghost" onClick={() => go(1)} aria-label="Next">
+          <button className="btn btn-ghost" onClick={() => step(1)} aria-label="Next">
             &rarr;
           </button>
-          <button
-            className="btn btn-ghost"
-            onClick={() =>
-              router.push(`/staff/schedule?view=${view}&date=${todayIso}`)
-            }
-          >
-            Today
-          </button>
+          <DatePicker
+            value={anchorIso}
+            onPick={(d) => goTo(d)}
+            busyDays={busyMap}
+          />
+          {anchorIso !== todayIso && (
+            <button className="btn btn-ghost" onClick={() => goTo(todayIso)}>
+              Today
+            </button>
+          )}
         </div>
 
         <div className="grid-tools">
@@ -155,27 +176,37 @@ export default function ScheduleGrid({
                 key={v}
                 className="chip"
                 aria-pressed={view === v}
-                onClick={() => setView(v)}
+                onClick={() => goTo(anchorIso, v)}
               >
                 {v[0].toUpperCase() + v.slice(1)}
               </button>
             ))}
           </div>
 
-          {buildings.length > 1 && (
-            <select
-              value={buildingFilter}
-              onChange={(e) => setBuildingFilter(e.target.value)}
-              aria-label="Filter by building"
-            >
-              <option value="all">All buildings</option>
+          <select
+            value={scope}
+            onChange={(e) => setScope(e.target.value)}
+            aria-label="Which spaces to show"
+          >
+            <optgroup label="By kind">
+              {categories.map((c) => (
+                <option value={c} key={c}>
+                  {c}
+                </option>
+              ))}
+            </optgroup>
+            <optgroup label="By building">
               {buildings.map((b) => (
-                <option value={b} key={b}>
+                <option value={`building:${b}`} key={b}>
                   {b}
                 </option>
               ))}
-            </select>
-          )}
+            </optgroup>
+            <optgroup label="Everything">
+              <option value="booked">Only rooms with bookings</option>
+              <option value="all">All {spaces.length} spaces</option>
+            </optgroup>
+          </select>
 
           {conflicts.length > 0 && (
             <button
@@ -230,15 +261,17 @@ export default function ScheduleGrid({
         <span className="legend-item">
           <span className="swatch conflict" /> Overlapping
         </span>
+        <span className="legend-item scope-note">
+          Showing {shownSpaces.length} of {spaces.length} spaces
+        </span>
       </div>
 
       {shownSpaces.length === 0 ? (
         <p className="empty" style={{ padding: '2rem 0' }}>
-          No spaces in this building.
+          No spaces in this selection.
         </p>
       ) : (
         <div className={`resgrid view-${view}`}>
-          {/* ---------- header ---------- */}
           <div className="resgrid-head">
             <div className="resgrid-corner">Space</div>
             <div className="resgrid-scroll">
@@ -253,11 +286,7 @@ export default function ScheduleGrid({
                       key={h}
                       style={{ width: HOUR_WIDTH }}
                     >
-                      {h === 12
-                        ? 'Noon'
-                        : h > 12
-                          ? `${h - 12} PM`
-                          : `${h} AM`}
+                      {h === 12 ? 'Noon' : h > 12 ? `${h - 12} PM` : `${h} AM`}
                     </div>
                   ))}
                 </div>
@@ -271,11 +300,17 @@ export default function ScheduleGrid({
                   }}
                 >
                   {days.map((d) => (
-                    <div
+                    <button
                       className={`resgrid-daycol${
                         iso(d) === todayIso ? ' today' : ''
                       }`}
                       key={iso(d)}
+                      onClick={() => goTo(iso(d), 'day')}
+                      title={`Open ${d.toLocaleDateString('en-US', {
+                        weekday: 'long',
+                        month: 'long',
+                        day: 'numeric',
+                      })}`}
                     >
                       {view === 'week' ? (
                         <>
@@ -287,14 +322,13 @@ export default function ScheduleGrid({
                       ) : (
                         <span className="dnum">{d.getDate()}</span>
                       )}
-                    </div>
+                    </button>
                   ))}
                 </div>
               )}
             </div>
           </div>
 
-          {/* ---------- rows ---------- */}
           <div className="resgrid-body">
             {shownSpaces.map((s) => (
               <div className="resgrid-row" key={s.id}>
@@ -329,8 +363,7 @@ export default function ScheduleGrid({
                           ? Math.min(b.end_minutes, DAY_END * 60)
                           : DAY_END * 60;
                         if (to <= from) return null;
-                        const left =
-                          ((from - DAY_START * 60) / 60) * HOUR_WIDTH;
+                        const left = ((from - DAY_START * 60) / 60) * HOUR_WIDTH;
                         const width = Math.max(
                           ((to - from) / 60) * HOUR_WIDTH,
                           28

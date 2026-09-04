@@ -6,6 +6,7 @@ import {
   listBookings,
   listSchedulableSpaces,
   listConflicts,
+  getBusyDays,
 } from '@/lib/scheduler';
 
 export const metadata = { title: 'Schedule' };
@@ -40,7 +41,7 @@ export default async function SchedulePage({
       : new Date();
 
   // Fetch exactly the range the view shows, plus a day either side so
-  // a booking that runs past midnight still renders on both days.
+  // a booking running past midnight renders on both days.
   let from = new Date(anchor);
   let to = new Date(anchor);
   if (view === 'week') {
@@ -55,10 +56,16 @@ export default async function SchedulePage({
   from.setDate(from.getDate() - 1);
   to.setDate(to.getDate() + 1);
 
-  const [bookings, spaces, conflicts] = await Promise.all([
+  // A wider window for the date picker's activity dots, so it can
+  // show where the work is a few months either side.
+  const pickerFrom = new Date(anchor.getFullYear(), anchor.getMonth() - 3, 1);
+  const pickerTo = new Date(anchor.getFullYear(), anchor.getMonth() + 4, 0);
+
+  const [bookings, spaces, conflicts, busyDays] = await Promise.all([
     listBookings(iso(from), iso(to)),
     listSchedulableSpaces(),
     listConflicts(),
+    getBusyDays(iso(pickerFrom), iso(pickerTo)),
   ]);
 
   return (
@@ -68,8 +75,8 @@ export default async function SchedulePage({
         <div className="pagehead">
           <h1>Schedule</h1>
           <p className="lede">
-            Catering and events only. An event appears here tentatively once the
-            requester confirms their classification, and becomes solid after
+            Meeting venues by default. An event appears here tentatively once
+            the requester confirms their classification, and becomes solid after
             final review. Two confirmed events cannot share a space.
           </p>
         </div>
@@ -78,6 +85,7 @@ export default async function SchedulePage({
             bookings={bookings}
             spaces={spaces}
             conflicts={conflicts}
+            busyDays={busyDays}
             view={view}
             anchorIso={iso(anchor)}
           />
