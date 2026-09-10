@@ -9,6 +9,7 @@ import {
   getSelections,
 } from '@/lib/requests';
 import { getFoodSources, getFacilityCharge } from '@/lib/food-sources';
+import { getCapacityState, isReadyForDetails } from '@/lib/capacity-state';
 
 export const metadata = { title: 'Event details' };
 export const dynamic = 'force-dynamic';
@@ -26,15 +27,52 @@ export default async function DetailsPage({
   const state = await getDetailsState(id, user.id);
   if (!state) notFound();
 
-  // The details step is only meaningful once the classification is
-  // settled and acknowledged - before that there is no price tier,
-  // so there is nothing honest to show.
-  const ready =
-    !!state.classification &&
-    state.classification !== 'needs_management_review' &&
-    !!state.acknowledged_at;
+  const [ready, capacity] = await Promise.all([
+    isReadyForDetails(id),
+    getCapacityState(id),
+  ]);
 
+  // Three things have to be true before a menu means anything: the
+  // event is classified, the requester has acknowledged that, and
+  // staff have confirmed we can actually do it. Choosing a menu for
+  // an event the kitchen cannot staff wastes the requester's time and
+  // makes the eventual conversation harder.
   if (!ready) {
+    const waitingOn = !state.classification
+      ? 'classification'
+      : !state.acknowledged_at
+        ? 'acknowledgement'
+        : capacity?.outcome === 'alternative_offered'
+          ? 'alternative'
+          : capacity?.outcome === 'declined'
+            ? 'declined'
+            : 'capacity';
+
+    const MESSAGES: Record<string, { title: string; body: string }> = {
+      classification: {
+        title: 'Not ready yet',
+        body: 'The events office is still reviewing your request. Once it has been classified you will be able to confirm your details.',
+      },
+      acknowledgement: {
+        title: 'Confirm your classification first',
+        body: 'Pricing depends on how your event is classified, so please review and confirm that before choosing a menu.',
+      },
+      capacity: {
+        title: 'We are still checking availability',
+        body: 'The events office is confirming the room, the kitchen and the staffing for your date. The menu opens once that is settled, so nothing is wasted if something needs to move.',
+      },
+      alternative: {
+        title: 'There is an alternative waiting for your answer',
+        body: 'We cannot do your event exactly as asked and have suggested something else. Let us know whether it works and we will carry on from there.',
+      },
+      declined: {
+        title: 'This event cannot go ahead as asked',
+        body: 'The events office has been in touch about why. Send them a message if you would like to look at other options.',
+      },
+    };
+
+    const m = MESSAGES[waitingOn];
+
     return (
       <>
         <Masthead />
@@ -44,12 +82,8 @@ export default async function DetailsPage({
               &larr; Back to this request
             </Link>
             <div className="card">
-              <h2>Not ready yet</h2>
-              <p className="hint">
-                {state.classification
-                  ? 'Confirm how your event has been classified first. Pricing depends on it.'
-                  : 'The events office is still reviewing your request. Once it has been classified you can confirm your details.'}
-              </p>
+              <h2>{m.title}</h2>
+              <p className="hint">{m.body}</p>
               <Link
                 href={`/my-requests/${id}`}
                 className="btn btn-primary"
@@ -82,9 +116,8 @@ export default async function DetailsPage({
           <div className="pagehead" style={{ padding: '0 0 1.5rem' }}>
             <h1>Event details</h1>
             <p className="lede">
-              Confirm your menu and how the room should be set up. Once you
-              confirm, the events office does a final check and your event moves
-              from tentative to confirmed on the campus schedule.
+              Availability is confirmed, so we know we can do this. Choose your
+              menu and tell us how the room should be set up.
             </p>
           </div>
 

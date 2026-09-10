@@ -42,10 +42,9 @@ export async function POST(req: NextRequest) {
   const owned = await one<{
     status: string;
     classification: string | null;
-    acknowledged_at: Date | null;
     revenue_collected: boolean | null;
   }>(
-    `SELECT r.status, cd.classification, cd.acknowledged_at, f.revenue_collected
+    `SELECT r.status, cd.classification, f.revenue_collected
        FROM event_requests r
        LEFT JOIN classification_decisions cd
               ON cd.request_id = r.id AND cd.is_current
@@ -58,23 +57,23 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Request not found.' }, { status: 404 });
   }
 
-  // Both halves of the gate. Details cannot be confirmed on an event
-  // whose classification is unsettled or unacknowledged - the prices
-  // shown would not be the prices that apply.
-  if (!owned.classification || owned.classification === 'needs_management_review') {
+  // The same gate as the page, enforced here too. A form left open in
+  // a tab must not be able to submit against an event that has since
+  // been put on hold.
+  const gate = await one<{ ready: boolean }>(
+    'SELECT ready_for_details($1) AS ready',
+    [requestId]
+  );
+  if (!gate?.ready) {
     return NextResponse.json(
-      { error: 'This event has not been classified yet.' },
-      { status: 409 }
-    );
-  }
-  if (!owned.acknowledged_at) {
-    return NextResponse.json(
-      { error: 'Confirm the classification before choosing details.' },
+      {
+        error:
+          'This event is not ready for menu selection. Its classification or availability has changed since you opened this page.',
+      },
       { status: 409 }
     );
   }
 
-  // Whether Central is cooking decides whether there is a menu at all.
   const central = await one<{ has_central: boolean }>(
     'SELECT has_central_dining($1) AS has_central',
     [requestId]
@@ -83,9 +82,6 @@ export async function POST(req: NextRequest) {
 
   try {
     await transaction(async (c) => {
-      // Prices are re-fetched here rather than trusted from the browser.
-      // The tier follows the classification as it stands right now, which
-      // is why a reclassification changes what the event costs.
       const { rows: tierRows } = await c.query(
         `SELECT CASE
                   WHEN cp.classification = 'internal' AND $2 THEN cp.revenue_path
@@ -153,9 +149,6 @@ export async function POST(req: NextRequest) {
       }
 
       if (confirm) {
-        // Details confirmed hands the event back to staff for a final
-        // check that the classification still applies, rather than
-        // confirming it outright.
         await c.query(
           `UPDATE event_requests
               SET details_confirmed_at = now(), details_confirmed_by = $2,
