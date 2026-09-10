@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { getSiteSettings, getSiteBlocks, splitList } from '@/lib/site';
+import { getSiteSettings, getSiteBlocks } from '@/lib/site';
 import { getSessionUser } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
@@ -35,9 +35,8 @@ export default async function Home() {
 
   const isStaff =
     user?.roles.includes('events_staff') || user?.roles.includes('admin');
+  const scheduleOnly = !isStaff && user?.roles.includes('schedule_viewer');
 
-  const services = splitList(settings?.services_list ?? null);
-  const amenities = splitList(settings?.amenities_list ?? null);
   const quote = testimonials[0];
 
   return (
@@ -63,6 +62,7 @@ export default async function Home() {
             {user ? (
               <>
                 {isStaff && <Link href="/staff">Staff</Link>}
+                {scheduleOnly && <Link href="/staff/schedule">Schedule</Link>}
                 <Link href="/my-requests">My requests</Link>
               </>
             ) : (
@@ -130,43 +130,6 @@ export default async function Home() {
               </div>
             </article>
           ))}
-        </section>
-      )}
-
-      {/* ---------- what you get ---------- */}
-      {(services.length > 0 || amenities.length > 0) && (
-        <section className="included">
-          <div className="included-inner">
-            {services.length > 0 && (
-              <div>
-                <h3>{settings?.services_heading}</h3>
-                <ul>
-                  {services.map((s) => (
-                    <li key={s}>{s}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {amenities.length > 0 && (
-              <div>
-                <h3>{settings?.amenities_heading}</h3>
-                <ul>
-                  {amenities.map((a) => (
-                    <li key={a}>{a}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            <div className="included-aside">
-              <p>
-                Every event is different. Tell us what you have in mind and we
-                will come back with what is possible and what it costs.
-              </p>
-              <Link href="/enquiry" className="btn-outline">
-                Ask us a question
-              </Link>
-            </div>
-          </div>
         </section>
       )}
 
