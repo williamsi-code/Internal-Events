@@ -4,6 +4,9 @@ import Link from 'next/link';
 import { getSessionUser } from '@/lib/auth';
 import { getCateringSheet, getCateringLines } from '@/lib/catering';
 import { getChoicesForSheet } from '@/lib/choices';
+import { getSheetLines, getSheetNotes } from '@/lib/sheet-extras';
+import { LINE_KINDS } from '@/lib/sheet-line-kinds';
+import SheetExtras from '@/components/SheetExtras';
 import { classificationLabel, type Classification } from '@/lib/classify';
 
 export const dynamic = 'force-dynamic';
@@ -28,14 +31,21 @@ export default async function CateringSheetPage({
   const sheet = await getCateringSheet(id);
   if (!sheet) notFound();
 
-  const [lines, choiceRows] = await Promise.all([
+  const [lines, choiceRows, manualLines, sheetNotes] = await Promise.all([
     getCateringLines(id),
     getChoicesForSheet(id),
+    getSheetLines(id),
+    getSheetNotes(id),
   ]);
-  const total = lines.reduce((s, l) => s + Number(l.line_total), 0);
 
-  // What was picked inside each item, keyed by item name. The kitchen
-  // needs "Buffet 1, entrée: roast pork loin", not "Buffet 1".
+  const menuTotal = lines.reduce((s, l) => s + Number(l.line_total), 0);
+  const manualTotal = manualLines
+    .filter((l) => l.is_charged)
+    .reduce((s, l) => s + Number(l.line_total), 0);
+  const total = menuTotal + manualTotal;
+
+  // What was picked inside each item. The kitchen needs "Buffet 1,
+  // entree: roast pork loin", not "Buffet 1".
   const choicesByItem = choiceRows.reduce<
     Record<string, { group: string; option: string; quantity: number | null }[]>
   >((acc, c) => {
@@ -156,7 +166,7 @@ export default async function CateringSheetPage({
 
         <section className="sheet-section">
           <h2>Order</h2>
-          {lines.length === 0 ? (
+          {lines.length === 0 && manualLines.length === 0 ? (
             <p className="sheet-empty">
               No menu items selected. Confirm with the events office before
               production.
@@ -203,6 +213,33 @@ export default async function CateringSheetPage({
                     ))}
                   </Fragment>
                 ))}
+                {manualLines.length > 0 && (
+                  <Fragment>
+                    <tr className="sheet-cat">
+                      <th colSpan={4}>Added by the events office</th>
+                    </tr>
+                    {manualLines.map((l) => (
+                      <tr key={l.id}>
+                        <td>
+                          <span className="sheet-item">{l.description}</span>
+                          <span className="sheet-item-desc">
+                            {LINE_KINDS.find(([k]) => k === l.kind)?.[1] ??
+                              l.kind}
+                            {!l.is_charged ? ' \u00b7 no charge' : ''}
+                          </span>
+                        </td>
+                        <td className="num strong">
+                          {Number(l.quantity)}
+                          {l.unit_label ? ` ${l.unit_label}` : ''}
+                        </td>
+                        <td className="num">{money(l.unit_price)}</td>
+                        <td className="num">
+                          {l.is_charged ? money(l.line_total) : '\u2014'}
+                        </td>
+                      </tr>
+                    ))}
+                  </Fragment>
+                )}
               </tbody>
               <tfoot>
                 <tr>
@@ -221,6 +258,13 @@ export default async function CateringSheetPage({
             </p>
           )}
         </section>
+
+        {sheetNotes && (
+          <section className="sheet-section sheet-notes">
+            <h2>Notes</h2>
+            <p>{sheetNotes}</p>
+          </section>
+        )}
 
         <section className="sheet-cols">
           <div className="sheet-section">
@@ -309,6 +353,8 @@ export default async function CateringSheetPage({
           <span>Printed {sheet.printed_for}</span>
         </footer>
       </article>
+
+      <SheetExtras requestId={id} lines={manualLines} notes={sheetNotes} />
     </div>
   );
 }

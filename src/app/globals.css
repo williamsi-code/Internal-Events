@@ -2508,3 +2508,40 @@ label.chk input{margin-top:.2rem}
 @media print{
   .booking-panel{display:none}
 }
+/* Append these to the end of src/app/globals.css */
+
+/* ---------- choices on the catering sheet ---------- */
+.sheet-choice{
+  display:block;font-size:.82rem;margin-top:.2rem;line-height:1.35;
+}
+.sheet-choice-label{
+  display:inline-block;min-width:5.5rem;
+  font-size:.7rem;text-transform:uppercase;letter-spacing:.07em;
+  color:var(--slate);
+}
+
+/* ---------- notes and manual lines ---------- */
+.sheet-notes p{
+  white-space:pre-wrap;line-height:1.6;
+  border-left:3px solid var(--brass);padding-left:.9rem;
+}
+
+.sheet-extras{
+  max-width:52rem;margin:1.5rem auto 3rem;
+  background:var(--surface);border:1px solid var(--rule);
+  border-radius:3px;padding:1.25rem 1.5rem;
+}
+.extras-head h3{
+  font-family:Spectral,Georgia,serif;font-size:1.15rem;
+  font-weight:600;margin:0 0 .2rem;
+}
+.extras-head .sub{margin-bottom:1rem}
+.extras-form{
+  border-top:1px solid var(--rule);margin-top:1rem;padding-top:1rem;
+}
+
+@media print{
+  .sheet-choice{font-size:9pt}
+  .sheet-choice-label{font-size:7.5pt}
+  .sheet-extras{display:none}
+}
