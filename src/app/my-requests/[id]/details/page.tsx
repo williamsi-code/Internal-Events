@@ -10,6 +10,7 @@ import {
 } from '@/lib/requests';
 import { getFoodSources, getFacilityCharge } from '@/lib/food-sources';
 import { getCapacityState, isReadyForDetails } from '@/lib/capacity-state';
+import { getChoiceGroups, getSavedChoices } from '@/lib/choices';
 
 export const metadata = { title: 'Event details' };
 export const dynamic = 'force-dynamic';
@@ -34,9 +35,7 @@ export default async function DetailsPage({
 
   // Three things have to be true before a menu means anything: the
   // event is classified, the requester has acknowledged that, and
-  // staff have confirmed we can actually do it. Choosing a menu for
-  // an event the kitchen cannot staff wastes the requester's time and
-  // makes the eventual conversation harder.
+  // staff have confirmed we can actually do it.
   if (!ready) {
     const waitingOn = !state.classification
       ? 'classification'
@@ -98,12 +97,15 @@ export default async function DetailsPage({
     );
   }
 
-  const [menu, existing, foodSources, facility] = await Promise.all([
-    getMenuForRequest(id),
-    getSelections(id),
-    getFoodSources(id),
-    getFacilityCharge(id),
-  ]);
+  const [menu, existing, foodSources, facility, choiceGroups, savedChoices] =
+    await Promise.all([
+      getMenuForRequest(id),
+      getSelections(id),
+      getFoodSources(id),
+      getFacilityCharge(id),
+      getChoiceGroups(),
+      getSavedChoices(id),
+    ]);
 
   return (
     <>
@@ -128,6 +130,8 @@ export default async function DetailsPage({
             existing={existing}
             foodSources={foodSources}
             facility={facility}
+            choiceGroups={choiceGroups}
+            existingChoices={savedChoices}
           />
         </div>
       </main>

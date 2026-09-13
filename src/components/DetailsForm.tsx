@@ -7,6 +7,8 @@ import { classificationLabel, type Classification } from '@/lib/classify';
 import type { MenuItemRow, SelectionRow, DetailsState } from '@/lib/requests';
 import type { RequestFoodSource, FacilityChargeState } from '@/lib/food-sources';
 import { FOOD_SOURCE_LABEL } from '@/lib/food-labels';
+import MenuChoices, { type ChoiceValue } from './MenuChoices';
+import type { ChoiceGroup } from '@/lib/choices';
 
 const money = (n: number) =>
   n.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
@@ -18,6 +20,8 @@ export default function DetailsForm({
   existing,
   foodSources,
   facility,
+  choiceGroups,
+  existingChoices,
 }: {
   requestId: string;
   state: DetailsState;
@@ -25,6 +29,10 @@ export default function DetailsForm({
   existing: SelectionRow[];
   foodSources: RequestFoodSource[];
   facility: FacilityChargeState | null;
+  /** Keyed by menu item id. A plain object rather than a Map, because
+   *  a Map does not survive the server-to-client boundary. */
+  choiceGroups: Record<string, ChoiceGroup[]>;
+  existingChoices: Record<string, ChoiceValue[]>;
 }) {
   const router = useRouter();
 
@@ -39,6 +47,11 @@ export default function DetailsForm({
   const [quantities, setQuantities] = useState<Record<string, number>>(() =>
     Object.fromEntries(existing.map((s) => [s.menu_item_id, s.quantity]))
   );
+  // What was picked inside each item, keyed by menu item id.
+  const [choices, setChoices] = useState<Record<string, ChoiceValue[]>>(
+    existingChoices
+  );
+
   const [serviceExpectations, setServiceExpectations] = useState(
     state.service_expectations ?? ''
   );
@@ -69,10 +82,39 @@ export default function DetailsForm({
   }, [menu]);
 
   const chosen = menu.filter((m) => (quantities[m.id] ?? 0) > 0);
+
+  /** Options that cost extra are part of the per-person price, so the
+   *  estimate has to include them or it understates the total. */
+  function unitPriceFor(m: MenuItemRow) {
+    const picked = choices[m.id] ?? [];
+    const groups = choiceGroups[m.id] ?? [];
+    const delta = picked.reduce((sum, v) => {
+      for (const g of groups) {
+        const o = g.options.find((x) => x.id === v.optionId);
+        if (o) return sum + Number(o.price_delta);
+      }
+      return sum;
+    }, 0);
+    return Number(m.unit_price) + delta;
+  }
+
   const menuTotal = chosen.reduce(
-    (sum, m) => sum + Number(m.unit_price) * (quantities[m.id] ?? 0),
+    (sum, m) => sum + unitPriceFor(m) * (quantities[m.id] ?? 0),
     0
   );
+
+  /** Items where a required choice has not been made. Confirming with
+   *  one of these outstanding would leave the kitchen guessing. */
+  const incomplete = chosen.filter((m) => {
+    const groups = choiceGroups[m.id] ?? [];
+    const picked = choices[m.id] ?? [];
+    return groups.some((g) => {
+      const inGroup = picked.filter((v) =>
+        g.options.some((o) => o.id === v.optionId)
+      );
+      return inGroup.length < g.min_select;
+    });
+  });
 
   const facilityCharge = Number(facility?.applied ?? 0);
   const facilityPending =
@@ -91,10 +133,20 @@ export default function DetailsForm({
       else next[id] = value;
       return next;
     });
+    // Removing an item drops its choices too, so a re-added item does
+    // not silently keep a selection the requester never revisited.
+    if (value <= 0) {
+      setChoices((c) => {
+        const next = { ...c };
+        delete next[id];
+        return next;
+      });
+    }
   }
 
   const canConfirm =
     (!hasCentral || chosen.length > 0) &&
+    incomplete.length === 0 &&
     (outsideSources.length === 0 || policyAck);
 
   async function submit(confirm: boolean) {
@@ -111,6 +163,10 @@ export default function DetailsForm({
           selections: chosen.map((m) => ({
             menuItemId: m.id,
             quantity: quantities[m.id],
+            choices: (choices[m.id] ?? []).map((v) => ({
+              optionId: v.optionId,
+              quantity: v.quantity,
+            })),
           })),
           requirements: {
             serviceExpectations,
@@ -202,7 +258,11 @@ export default function DetailsForm({
                   const qty = quantities[m.id] ?? 0;
                   return (
                     <div
-                      className={`menu-row ${qty > 0 ? 'chosen' : ''}`}
+                      className={`menu-row ${qty > 0 ? 'chosen' : ''}${
+                        qty > 0 && (choiceGroups[m.id]?.length ?? 0) > 0
+                          ? ' has-choices'
+                          : ''
+                      }`}
                       key={m.id}
                     >
                       <div className="menu-info">
@@ -232,6 +292,21 @@ export default function DetailsForm({
                           onChange={(e) => setQty(m.id, Number(e.target.value))}
                         />
                       </div>
+
+                      {/* Choices appear once something is ordered.
+                          Showing them on every row would make the menu
+                          unreadable. */}
+                      {qty > 0 && (choiceGroups[m.id]?.length ?? 0) > 0 && (
+                        <MenuChoices
+                          groups={choiceGroups[m.id]}
+                          values={choices[m.id] ?? []}
+                          disabled={locked}
+                          onChange={(next) => {
+                            setChoices((c) => ({ ...c, [m.id]: next }));
+                            setSaved(false);
+                          }}
+                        />
+                      )}
                     </div>
                   );
                 })}
@@ -407,18 +482,39 @@ export default function DetailsForm({
 
           {chosen.length > 0 && (
             <ul className="estimate">
-              {chosen.map((m) => (
-                <li key={m.id}>
-                  <span>
-                    {m.name}
-                    <span className="estimate-qty">
-                      {' \u00d7'}
-                      {quantities[m.id]}
+              {chosen.map((m) => {
+                const picked = (choices[m.id] ?? [])
+                  .map((v) => {
+                    for (const g of choiceGroups[m.id] ?? []) {
+                      const o = g.options.find((x) => x.id === v.optionId);
+                      if (o) {
+                        return v.quantity
+                          ? `${o.label} \u00d7${v.quantity}`
+                          : o.label;
+                      }
+                    }
+                    return null;
+                  })
+                  .filter(Boolean);
+
+                return (
+                  <li key={m.id}>
+                    <span>
+                      {m.name}
+                      <span className="estimate-qty">
+                        {' \u00d7'}
+                        {quantities[m.id]}
+                      </span>
+                      {picked.length > 0 && (
+                        <span className="estimate-choices">
+                          {picked.join(', ')}
+                        </span>
+                      )}
                     </span>
-                  </span>
-                  <span>{money(Number(m.unit_price) * quantities[m.id])}</span>
-                </li>
-              ))}
+                    <span>{money(unitPriceFor(m) * quantities[m.id])}</span>
+                  </li>
+                );
+              })}
             </ul>
           )}
 
@@ -483,7 +579,11 @@ export default function DetailsForm({
                 <p className="sub" style={{ marginTop: '.6rem' }}>
                   {hasCentral && chosen.length === 0
                     ? 'Choose at least one menu item before confirming.'
-                    : 'Acknowledge the requirements above before confirming.'}
+                    : incomplete.length > 0
+                      ? `Still to choose: ${incomplete
+                          .map((m) => m.name)
+                          .join(', ')}.`
+                      : 'Acknowledge the requirements above before confirming.'}
                 </p>
               )}
             </>

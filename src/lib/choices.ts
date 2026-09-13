@@ -28,14 +28,24 @@ export interface ChoiceGroup {
   options: ChoiceOption[];
 }
 
-export async function getChoiceGroups() {
-  const rows = await query<
-    ChoiceGroup & { option_id: string; option_label: string;
-                    option_delta: string; option_note: string | null }
-  >(
+/** Keyed by menu item id, as a plain object: a Map does not survive
+ *  the server-to-client boundary. */
+export async function getChoiceGroups(): Promise<Record<string, ChoiceGroup[]>> {
+  const rows = await query<{
+    id: string;
+    menu_item_id: string;
+    label: string;
+    help_text: string | null;
+    min_select: number;
+    max_select: number;
+    quantity_mode: 'none' | 'per_option';
+    option_id: string | null;
+    option_label: string | null;
+    option_delta: string | null;
+    option_note: string | null;
+  }>(
     `SELECT g.id, g.menu_item_id, g.label, g.help_text,
             g.min_select, g.max_select, g.quantity_mode::text,
-            g.sort_order,
             o.id AS option_id, o.label AS option_label,
             o.price_delta::text AS option_delta, o.note AS option_note
        FROM menu_choice_groups g
@@ -46,6 +56,8 @@ export async function getChoiceGroups() {
   );
 
   const groups = new Map<string, ChoiceGroup>();
+  const order: string[] = [];
+
   for (const r of rows) {
     if (!groups.has(r.id)) {
       groups.set(r.id, {
@@ -58,49 +70,50 @@ export async function getChoiceGroups() {
         quantity_mode: r.quantity_mode,
         options: [],
       });
+      order.push(r.id);
     }
     if (r.option_id) {
       groups.get(r.id)!.options.push({
         id: r.option_id,
         group_id: r.id,
-        label: r.option_label,
-        price_delta: r.option_delta,
+        label: r.option_label!,
+        price_delta: r.option_delta ?? '0',
         note: r.option_note,
       });
     }
   }
 
-  // Keyed by menu item, because that is how the form needs it.
-  const byItem = new Map<string, ChoiceGroup[]>();
-  for (const g of groups.values()) {
-    if (!byItem.has(g.menu_item_id)) byItem.set(g.menu_item_id, []);
-    byItem.get(g.menu_item_id)!.push(g);
+  const byItem: Record<string, ChoiceGroup[]> = {};
+  for (const id of order) {
+    const g = groups.get(id)!;
+    if (!byItem[g.menu_item_id]) byItem[g.menu_item_id] = [];
+    byItem[g.menu_item_id].push(g);
   }
   return byItem;
 }
 
-export interface SavedChoice {
-  selection_id: string;
-  option_id: string;
-  group_label: string;
-  option_label: string;
-  quantity: number | null;
-  price_delta: string;
-}
-
-export async function getSelectionChoices(requestId: string) {
-  return query<SavedChoice>(
-    `SELECT sc.selection_id, sc.option_id,
-            g.label AS group_label, o.label AS option_label,
-            sc.quantity, o.price_delta::text
+/** What was already chosen, in the shape the form holds it. */
+export async function getSavedChoices(
+  requestId: string
+): Promise<Record<string, { optionId: string; quantity: number | null }[]>> {
+  const rows = await query<{
+    menu_item_id: string;
+    option_id: string;
+    quantity: number | null;
+  }>(
+    `SELECT sel.menu_item_id, sc.option_id, sc.quantity
        FROM selection_choices sc
        JOIN request_menu_selections sel ON sel.id = sc.selection_id
-       JOIN menu_choice_options o ON o.id = sc.option_id
-       JOIN menu_choice_groups g ON g.id = o.group_id
-      WHERE sel.request_id = $1
-      ORDER BY g.sort_order, o.sort_order`,
+      WHERE sel.request_id = $1`,
     [requestId]
   );
+
+  const out: Record<string, { optionId: string; quantity: number | null }[]> = {};
+  for (const r of rows) {
+    if (!out[r.menu_item_id]) out[r.menu_item_id] = [];
+    out[r.menu_item_id].push({ optionId: r.option_id, quantity: r.quantity });
+  }
+  return out;
 }
 
 /** Choices in a form the catering sheet and the kitchen can read. */

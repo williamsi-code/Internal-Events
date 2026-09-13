@@ -1,7 +1,9 @@
+import { Fragment } from 'react';
 import { redirect, notFound } from 'next/navigation';
 import Link from 'next/link';
 import { getSessionUser } from '@/lib/auth';
 import { getCateringSheet, getCateringLines } from '@/lib/catering';
+import { getChoicesForSheet } from '@/lib/choices';
 import { classificationLabel, type Classification } from '@/lib/classify';
 
 export const dynamic = 'force-dynamic';
@@ -26,8 +28,42 @@ export default async function CateringSheetPage({
   const sheet = await getCateringSheet(id);
   if (!sheet) notFound();
 
-  const lines = await getCateringLines(id);
+  const [lines, choiceRows] = await Promise.all([
+    getCateringLines(id),
+    getChoicesForSheet(id),
+  ]);
   const total = lines.reduce((s, l) => s + Number(l.line_total), 0);
+
+  // What was picked inside each item, keyed by item name. The kitchen
+  // needs "Buffet 1, entrée: roast pork loin", not "Buffet 1".
+  const choicesByItem = choiceRows.reduce<
+    Record<string, { group: string; option: string; quantity: number | null }[]>
+  >((acc, c) => {
+    (acc[c.menu_item] ??= []).push({
+      group: c.group_label,
+      option: c.option_label,
+      quantity: c.quantity,
+    });
+    return acc;
+  }, {});
+
+  /** Grouped by question, so several answers to one question read as
+   *  one line rather than three. */
+  function choiceLines(itemName: string) {
+    const picked = choicesByItem[itemName];
+    if (!picked) return [];
+    const byGroup = new Map<string, string[]>();
+    for (const c of picked) {
+      if (!byGroup.has(c.group)) byGroup.set(c.group, []);
+      byGroup
+        .get(c.group)!
+        .push(c.quantity ? `${c.option} \u00d7${c.quantity}` : c.option);
+    }
+    return [...byGroup.entries()].map(([group, options]) => ({
+      group,
+      options: options.join(', '),
+    }));
+  }
 
   // Allergen notes are collected per item, but the kitchen needs them in
   // one place rather than scattered down the order.
@@ -137,8 +173,8 @@ export default async function CateringSheetPage({
               </thead>
               <tbody>
                 {Object.entries(grouped).map(([category, items]) => (
-                  <>
-                    <tr className="sheet-cat" key={category}>
+                  <Fragment key={category}>
+                    <tr className="sheet-cat">
                       <th colSpan={4}>{category}</th>
                     </tr>
                     {items.map((l, i) => (
@@ -148,6 +184,14 @@ export default async function CateringSheetPage({
                           {l.description && (
                             <span className="sheet-item-desc">{l.description}</span>
                           )}
+                          {choiceLines(l.name).map((c) => (
+                            <span className="sheet-choice" key={c.group}>
+                              <span className="sheet-choice-label">
+                                {c.group}
+                              </span>
+                              {c.options}
+                            </span>
+                          ))}
                           {l.notes && (
                             <span className="sheet-item-note">{l.notes}</span>
                           )}
@@ -157,7 +201,7 @@ export default async function CateringSheetPage({
                         <td className="num">{money(l.line_total)}</td>
                       </tr>
                     ))}
-                  </>
+                  </Fragment>
                 ))}
               </tbody>
               <tfoot>
