@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import DatePicker from './DatePicker';
+import ConvertBooking from './ConvertBooking';
 import type { Booking, SpaceRow, ConflictRow } from '@/lib/scheduler';
 
 /**
@@ -573,6 +574,16 @@ function BookingPanel({
                 />
               </div>
             </>
+          )}
+
+          {/* A room hold with no event behind it can become one. */}
+          {!booking.is_blackout && !booking.request_id && (
+            <ConvertBooking
+              bookingId={booking.id}
+              title={booking.title}
+              spaceName={booking.space_name}
+              onDone={onClose}
+            />
           )}
 
           <div className="actions">

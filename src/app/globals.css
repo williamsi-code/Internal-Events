@@ -2408,3 +2408,14 @@ label.chk input{margin-top:.2rem}
   .menu-jump,.info-cta{display:none}
   .menu-section{break-inside:auto}
 }
+/* Append these to the end of src/app/globals.css */
+
+/* ---------- converting a booking ---------- */
+.convert-panel{
+  border-top:1px solid var(--rule);margin-top:1rem;padding-top:1rem;
+}
+.convert-panel h4{
+  font-family:Spectral,Georgia,serif;font-size:1.05rem;
+  font-weight:600;margin:0 0 .2rem;
+}
+.convert-panel .field{margin-bottom:.8rem}
