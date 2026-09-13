@@ -2307,3 +2307,104 @@ label.chk input{margin-top:.2rem}
   .sheet-choice{font-size:9pt}
   .sheet-choice-label{font-size:7.5pt}
 }
+/* Append these to the end of src/app/globals.css.
+
+   These replace the old .menu-table rules. If a .menu-table block
+   still exists further up the file it can stay - nothing uses it
+   now - but deleting it keeps things tidy. */
+
+/* ============================================================
+   Public catering menu
+   Reads as a menu, not a spreadsheet.
+   ============================================================ */
+
+.menu-shell{max-width:52rem}
+
+.menu-jump{
+  display:flex;flex-wrap:wrap;gap:.3rem .9rem;
+  padding:1rem 0 1.25rem;margin-bottom:1.5rem;
+  border-bottom:1px solid var(--rule);
+  position:sticky;top:0;background:var(--surface);z-index:5;
+}
+.menu-jump a{
+  font-size:.79rem;color:var(--slate);text-decoration:none;
+  white-space:nowrap;
+}
+.menu-jump a:hover{color:var(--crimson);text-decoration:underline}
+
+.menu-section{margin-bottom:2.75rem;scroll-margin-top:4rem}
+.menu-section h2{
+  font-family:Spectral,Georgia,serif;
+  font-size:1.5rem;font-weight:600;letter-spacing:-.01em;
+  margin:0 0 .3rem;padding-bottom:.4rem;
+  border-bottom:2px solid var(--ink);
+}
+.menu-section-note{
+  font-size:.85rem;color:var(--slate);margin:.5rem 0 1.25rem;
+  font-style:italic;
+}
+
+.menu-items{display:flex;flex-direction:column;gap:1.4rem}
+
+.menu-entry{break-inside:avoid}
+.menu-entry-head{
+  display:flex;align-items:baseline;gap:.5rem;
+}
+.menu-entry-head h3{
+  font-size:1rem;font-weight:600;margin:0;flex:none;max-width:70%;
+}
+.menu-dots{
+  flex:1;border-bottom:1px dotted var(--rule);
+  transform:translateY(-.2rem);min-width:1rem;
+}
+.menu-price{
+  flex:none;font-variant-numeric:tabular-nums;
+  font-size:.95rem;font-weight:600;white-space:nowrap;
+}
+
+/* Three tiers, for people who can actually get them */
+.menu-price .tier{
+  display:inline-flex;align-items:baseline;gap:.2rem;
+  margin-left:.75rem;font-size:.85rem;font-weight:500;color:var(--slate);
+}
+.menu-price .tier.ext{color:var(--ink);font-weight:600}
+.tier-l{
+  font-size:.62rem;text-transform:uppercase;letter-spacing:.07em;
+  color:var(--mute);
+}
+
+.menu-entry-desc{
+  font-size:.89rem;color:var(--slate);line-height:1.55;
+  margin:.3rem 0 0;max-width:56ch;
+}
+
+.menu-entry-choices{
+  list-style:none;margin:.45rem 0 0;padding:0;
+  display:flex;flex-direction:column;gap:.15rem;
+}
+.menu-entry-choices li{
+  font-size:.85rem;color:var(--slate);line-height:1.45;
+}
+.menu-entry-choices .choice-label{
+  display:inline-block;min-width:5rem;
+  font-size:.68rem;text-transform:uppercase;letter-spacing:.07em;
+  color:var(--crimson);
+}
+
+.menu-entry-meta{
+  font-size:.76rem;color:var(--mute);margin:.35rem 0 0;
+}
+
+@media(max-width:640px){
+  .menu-entry-head{flex-wrap:wrap}
+  .menu-entry-head h3{max-width:100%}
+  .menu-dots{display:none}
+  .menu-price{margin-left:auto}
+  .menu-price .tier{margin-left:.6rem}
+  .menu-entry-choices .choice-label{display:block;min-width:0}
+}
+
+@media print{
+  .menu-jump,.info-cta{display:none}
+  .menu-section{break-inside:auto}
+}
