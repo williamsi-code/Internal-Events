@@ -279,7 +279,7 @@ export default async function RequestDetailPage({
               facility={facility}
             />
 
-                        <RequestLayouts requestId={id} isStaff={false} />
+                        <RequestLayouts requestId={id} isStaff />
 
             <ReopenDetails requestId={id} lock={lock} history={menuHistory} />
 
