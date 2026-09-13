@@ -3,6 +3,19 @@ import { z } from 'zod';
 import { one, transaction } from '@/lib/db';
 import { getSessionUser } from '@/lib/auth';
 
+/**
+ * Saving menu selections and the choices within them.
+ *
+ * Choices are validated against the group's own rules in SQL rather
+ * than trusted from the form: min and max are enforced here, so a
+ * tampered request cannot order a buffet with six entrées.
+ */
+
+const Choice = z.object({
+  optionId: z.string().uuid(),
+  quantity: z.number().int().positive().max(10_000).nullable(),
+});
+
 const Body = z.object({
   requestId: z.string().uuid(),
   confirm: z.boolean(),
@@ -13,6 +26,7 @@ const Body = z.object({
         menuItemId: z.string().uuid(),
         quantity: z.number().int().positive().max(10_000),
         notes: z.string().max(500).optional(),
+        choices: z.array(Choice).max(40).optional(),
       })
     )
     .max(100),
@@ -57,9 +71,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Request not found.' }, { status: 404 });
   }
 
-  // The same gate as the page, enforced here too. A form left open in
-  // a tab must not be able to submit against an event that has since
-  // been put on hold.
   const gate = await one<{ ready: boolean }>(
     'SELECT ready_for_details($1) AS ready',
     [requestId]
@@ -96,6 +107,7 @@ export async function POST(req: NextRequest) {
         throw new Error('No price tier for this classification');
       }
 
+      // Selections are replaced wholesale; the choices cascade.
       await c.query('DELETE FROM request_menu_selections WHERE request_id = $1', [
         requestId,
       ]);
@@ -111,12 +123,67 @@ export async function POST(req: NextRequest) {
         );
         if (!priceRows[0]) continue;
 
-        await c.query(
+        // Options that cost extra are added to the unit price, so the
+        // line total is right without a separate charge to reconcile.
+        let unitPrice = Number(priceRows[0].unit_price);
+        if (s.choices?.length) {
+          const { rows: deltas } = await c.query(
+            `SELECT coalesce(sum(price_delta), 0) AS d
+               FROM menu_choice_options
+              WHERE id = ANY($1::uuid[])`,
+            [s.choices.map((ch) => ch.optionId)]
+          );
+          unitPrice += Number(deltas[0]?.d ?? 0);
+        }
+
+        const { rows: selRows } = await c.query(
           `INSERT INTO request_menu_selections
              (request_id, menu_item_id, quantity, unit_price_quoted, notes)
-           VALUES ($1, $2, $3, $4, $5)`,
-          [requestId, s.menuItemId, s.quantity, priceRows[0].unit_price, s.notes ?? null]
+           VALUES ($1, $2, $3, $4, $5)
+           RETURNING id`,
+          [requestId, s.menuItemId, s.quantity, unitPrice, s.notes ?? null]
         );
+        const selectionId = selRows[0].id;
+
+        for (const ch of s.choices ?? []) {
+          // The option must belong to a group on this very item. Checked
+          // in the insert rather than trusted, so a tampered request
+          // cannot attach someone else's options.
+          await c.query(
+            `INSERT INTO selection_choices (selection_id, option_id, quantity)
+             SELECT $1, o.id, $3
+               FROM menu_choice_options o
+               JOIN menu_choice_groups g ON g.id = o.group_id
+              WHERE o.id = $2 AND g.menu_item_id = $4
+             ON CONFLICT DO NOTHING`,
+            [selectionId, ch.optionId, ch.quantity, s.menuItemId]
+          );
+        }
+
+        // Enforce each group's own minimum once the choices are in.
+        const { rows: shortfall } = await c.query(
+          `SELECT g.label, g.min_select, count(sc.id) AS chosen
+             FROM menu_choice_groups g
+             LEFT JOIN menu_choice_options o ON o.group_id = g.id
+             LEFT JOIN selection_choices sc
+                    ON sc.option_id = o.id AND sc.selection_id = $1
+            WHERE g.menu_item_id = $2 AND g.min_select > 0
+            GROUP BY g.id, g.label, g.min_select
+           HAVING count(sc.id) < g.min_select`,
+          [selectionId, s.menuItemId]
+        );
+
+        if (confirm && shortfall.length > 0) {
+          const { rows: itemRows } = await c.query(
+            'SELECT name FROM menu_items WHERE id = $1',
+            [s.menuItemId]
+          );
+          throw new Error(
+            `${itemRows[0]?.name}: ${shortfall
+              .map((r) => `choose ${r.min_select} for ${r.label}`)
+              .join(', ')}`
+          );
+        }
       }
 
       await c.query(
@@ -165,11 +232,12 @@ export async function POST(req: NextRequest) {
       }
     });
   } catch (err) {
+    const message =
+      err instanceof Error && err.message.includes('choose')
+        ? err.message
+        : 'Could not save your details.';
     console.error('details save failed:', err);
-    return NextResponse.json(
-      { error: 'Could not save your details. The events office has been notified.' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: message }, { status: 400 });
   }
 
   return NextResponse.json({ ok: true, confirmed: confirm });

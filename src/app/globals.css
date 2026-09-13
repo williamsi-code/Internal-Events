@@ -2232,4 +2232,45 @@ label.chk input{margin-top:.2rem}
 }
 .alternative-table td:first-child{color:var(--slate);width:6rem}
 .alternative-table .strong{font-weight:600;color:var(--crimson)}
+/* Append these to the end of src/app/globals.css */
+
+/* ---------- menu choices when ordering ---------- */
+.choice-groups{
+  margin:.75rem 0 0;padding-left:1rem;
+  border-left:2px solid var(--rule);
+  display:flex;flex-direction:column;gap:1rem;
+}
+.choice-group{border:0;padding:0;margin:0;min-width:0}
+.choice-group legend{
+  font-size:.82rem;font-weight:600;padding:0;margin-bottom:.15rem;
+  display:flex;align-items:baseline;gap:.5rem;flex-wrap:wrap;
+}
+.choice-group .sub{margin:0 0 .45rem}
+.choice-short{
+  font-size:.72rem;font-weight:400;color:var(--brass);
+}
+
+.choice-radios{display:flex;gap:.75rem;flex-wrap:wrap}
+.choice-radio{
+  display:flex;align-items:center;gap:.35rem;
+  font-size:.87rem;cursor:pointer;
+}
+.choice-radio input{accent-color:var(--crimson);margin:0}
+
+.choice-checks{
+  display:grid;gap:.3rem;
+  grid-template-columns:repeat(auto-fit,minmax(230px,1fr));
+}
+.choice-check{display:flex;align-items:center;gap:.5rem}
+.choice-check label{
+  display:flex;align-items:center;gap:.4rem;
+  font-size:.87rem;cursor:pointer;flex:1;min-width:0;
+}
+.choice-check label.at-limit{opacity:.45}
+.choice-check input[type=checkbox]{accent-color:var(--crimson);margin:0;flex:none}
+.choice-qty{
+  width:4rem;flex:none;padding:.25rem .4rem;font-size:.83rem;
+}
+.choice-delta{color:var(--crimson);font-size:.8rem}
+.choice-count{font-size:.73rem;color:var(--mute);margin:.35rem 0 0}
 
