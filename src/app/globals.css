@@ -2419,3 +2419,92 @@ label.chk input{margin-top:.2rem}
   font-weight:600;margin:0 0 .2rem;
 }
 .convert-panel .field{margin-bottom:.8rem}
+/* Append these to the end of src/app/globals.css.
+
+   These override the earlier .booking-panel rules by coming later in
+   the file, so nothing above needs deleting. */
+
+/* ============================================================
+   Booking panel
+   The room column on the left is sticky so it stays put while the
+   grid scrolls sideways. That also made it sit on top of the panel.
+   The panel now lifts clear of the grid entirely.
+   ============================================================ */
+
+.booking-panel{
+  position:fixed;
+  top:0;
+  right:0;
+  bottom:0;
+  width:min(26rem, 100vw);
+  z-index:200;
+  background:var(--surface);
+  border-left:1px solid var(--rule);
+  border-radius:0;
+  box-shadow:-12px 0 40px rgba(22,25,29,.18);
+  padding:1.5rem;
+  overflow-y:auto;
+  margin:0;
+  animation:panel-in .18s ease-out;
+}
+
+@keyframes panel-in{
+  from{transform:translateX(1.5rem);opacity:0}
+  to{transform:translateX(0);opacity:1}
+}
+
+/* A backdrop, drawn by the panel itself so no extra markup is
+   needed. Clicks pass through to the page underneath, which is fine:
+   the panel has its own Close button. */
+.booking-panel::before{
+  content:"";
+  position:fixed;
+  inset:0;
+  right:min(26rem, 100vw);
+  background:rgba(22,25,29,.28);
+  pointer-events:none;
+  z-index:-1;
+}
+
+.booking-panel .booking-head{
+  position:sticky;
+  top:-1.5rem;
+  margin:-1.5rem -1.5rem 1rem;
+  padding:1.5rem 1.5rem 1rem;
+  background:var(--surface);
+  border-bottom:1px solid var(--rule);
+  z-index:1;
+}
+
+.booking-panel .booking-head h3{
+  font-family:Spectral,Georgia,serif;
+  font-size:1.2rem;margin:.4rem 0 .2rem;line-height:1.25;
+}
+
+/* Keep the sticky room column below the panel. */
+.resgrid-label,
+.resgrid-corner,
+.resgrid-head{z-index:2}
+
+@media(max-width:700px){
+  .booking-panel{
+    top:auto;
+    left:0;
+    width:100%;
+    max-height:82vh;
+    border-left:0;
+    border-top:1px solid var(--rule);
+    border-radius:6px 6px 0 0;
+    box-shadow:0 -10px 40px rgba(22,25,29,.22);
+    animation:sheet-in .2s ease-out;
+  }
+  .booking-panel::before{right:0;bottom:82vh}
+  @keyframes sheet-in{
+    from{transform:translateY(1.5rem);opacity:0}
+    to{transform:translateY(0);opacity:1}
+  }
+}
+
+@media print{
+  .booking-panel{display:none}
+}
