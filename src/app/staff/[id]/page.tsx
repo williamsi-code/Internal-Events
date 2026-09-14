@@ -10,6 +10,7 @@ import ReopenDetails from '@/components/ReopenDetails';
 import PaymentPanel from '@/components/PaymentPanel';
 import RequestLayouts from '@/components/RequestLayouts';
 import CatererReferral from '@/components/CatererReferral';
+import ShortNoticePanel from '@/components/ShortNoticePanel';
 import { getSessionUser } from '@/lib/auth';
 import { getRequest, getMessages } from '@/lib/requests';
 import { changesSinceClassification } from '@/lib/changes';
@@ -23,6 +24,7 @@ import { getDetailsLockState, getMenuHistory } from '@/lib/reopen';
 import { getPayments, getPaymentConfig } from '@/lib/payments';
 import { one } from '@/lib/db';
 import { getReferrals, listReferrableCaterers } from '@/lib/referrals';
+import { getShortNotice } from '@/lib/notice';
 
 export const dynamic = 'force-dynamic';
 
@@ -82,7 +84,7 @@ export default async function RequestDetailPage({
       ])
     : [null, [], []];
 
-  const [foodSources, facility, lock, menuHistory, payments, payConfig] =
+  const [foodSources, facility, lock, menuHistory, payments, payConfig, notice] =
     await Promise.all([
       getFoodSources(id),
       getFacilityCharge(id),
@@ -90,7 +92,14 @@ export default async function RequestDetailPage({
       getMenuHistory(id),
       getPayments(id),
       getPaymentConfig(),
+      getShortNotice(id),
     ]);
+
+  // Nothing else on this request matters until the short-notice
+  // question is answered, so everything below is held back while it
+  // is outstanding.
+  const noticePending =
+    !!notice?.short_notice && notice.state === 'pending';
 
   // Suggesting a caterer only makes sense once we have said no. The
   // decline may sit on the capacity check or on the request itself.
@@ -172,6 +181,10 @@ export default async function RequestDetailPage({
                 <span>{request.estimated_attendance} guests</span>
               </div>
             </div>
+
+            {notice?.short_notice && (
+              <ShortNoticePanel requestId={id} notice={notice} />
+            )}
 
             {awaitingFinalReview && (
               <ChangeFlags
@@ -293,30 +306,38 @@ export default async function RequestDetailPage({
               </div>
             </div>
 
-            <FoodSourcePanel
-              requestId={id}
-              sources={foodSources}
-              facility={facility}
-            />
+            {!noticePending && (
+              <>
+                <FoodSourcePanel
+                  requestId={id}
+                  sources={foodSources}
+                  facility={facility}
+                />
 
-            <RequestLayouts requestId={id} isStaff />
+                <RequestLayouts requestId={id} isStaff />
 
-            <ReopenDetails requestId={id} lock={lock} history={menuHistory} />
+                <ReopenDetails
+                  requestId={id}
+                  lock={lock}
+                  history={menuHistory}
+                />
 
-            <PaymentPanel
-              requestId={id}
-              payments={payments}
-              config={payConfig}
-            />
+                <PaymentPanel
+                  requestId={id}
+                  payments={payments}
+                  config={payConfig}
+                />
 
-            <DecisionPanel request={request} messages={messages} />
+                <DecisionPanel request={request} messages={messages} />
 
-            {showCapacity && capacityContext && (
-              <CapacityPanel
-                context={capacityContext}
-                sameDay={sameDay}
-                alternatives={altSpaces}
-              />
+                {showCapacity && capacityContext && (
+                  <CapacityPanel
+                    context={capacityContext}
+                    sameDay={sameDay}
+                    alternatives={altSpaces}
+                  />
+                )}
+              </>
             )}
 
             {declined && (

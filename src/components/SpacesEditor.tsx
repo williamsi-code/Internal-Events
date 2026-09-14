@@ -28,6 +28,7 @@ const blank = (): AdminSpace => ({
   ceiling_feet: null,
   layout_notes: null,
   layout_count: 0,
+  minimum_notice_hours: 48,
 });
 
 export default function SpacesEditor({ spaces }: { spaces: AdminSpace[] }) {
@@ -103,6 +104,7 @@ export default function SpacesEditor({ spaces }: { spaces: AdminSpace[] }) {
           lengthFeet: num(space.length_feet),
           ceilingFeet: num(space.ceiling_feet),
           layoutNotes: space.layout_notes?.trim() || null,
+          minimumNoticeHours: Number(space.minimum_notice_hours) || 0,
         }),
       });
       if (!res.ok) {
@@ -363,6 +365,45 @@ export default function SpacesEditor({ spaces }: { spaces: AdminSpace[] }) {
             </p>
           )}
 
+          <h4 className="admin-h4">How much notice it needs</h4>
+          <p className="sub" style={{ marginTop: '-.4rem' }}>
+            A request inside this window cannot be submitted normally. It goes
+            to the events office first, who say whether it can go ahead. Set it
+            to zero for a room that can be taken at any notice.
+          </p>
+          <div className="grid two">
+            <div className="field">
+              <label htmlFor="sp-notice">Minimum notice (hours)</label>
+              <input
+                id="sp-notice"
+                type="number"
+                min={0}
+                step={1}
+                value={editing.minimum_notice_hours}
+                onChange={(e) =>
+                  set({ minimum_notice_hours: Number(e.target.value) || 0 })
+                }
+              />
+            </div>
+            <div className="field">
+              <label>In practice</label>
+              <p className="sub" style={{ marginTop: '.55rem' }}>
+                {Number(editing.minimum_notice_hours) === 0
+                  ? 'Bookable at any notice, including the same day.'
+                  : Number(editing.minimum_notice_hours) < 24
+                    ? `${editing.minimum_notice_hours} hours ahead.`
+                    : `${Math.round(
+                        Number(editing.minimum_notice_hours) / 24
+                      )} day${
+                        Math.round(Number(editing.minimum_notice_hours) / 24) ===
+                        1
+                          ? ''
+                          : 's'
+                      } ahead.`}
+              </p>
+            </div>
+          </div>
+
           <h4 className="admin-h4">Who can book it</h4>
           <label className="chk-inline">
             <input
@@ -488,6 +529,7 @@ export default function SpacesEditor({ spaces }: { spaces: AdminSpace[] }) {
           <tr>
             <th>Space</th>
             <th className="num">Seated</th>
+            <th className="num">Notice</th>
             <th className="num">Size</th>
             <th className="num">External rate</th>
             <th className="num">Booked</th>
@@ -521,6 +563,17 @@ export default function SpacesEditor({ spaces }: { spaces: AdminSpace[] }) {
                 </span>
               </td>
               <td className="num">{s.capacity_seated ?? '\u2014'}</td>
+              <td className="num">
+                {Number(s.minimum_notice_hours) === 0 ? (
+                  <span className="pill p-classified">Any</span>
+                ) : (
+                  <span className="admin-sub">
+                    {Number(s.minimum_notice_hours) < 24
+                      ? `${s.minimum_notice_hours}h`
+                      : `${Math.round(Number(s.minimum_notice_hours) / 24)}d`}
+                  </span>
+                )}
+              </td>
               <td className="num">
                 {s.width_feet ? (
                   <span className="admin-sub">

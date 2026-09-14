@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   classify,
@@ -86,6 +86,17 @@ export default function IntakeForm({
   const [spaceId, setSpaceId] = useState('');
   // 172 rooms is too many to scroll. Typing narrows the list.
   const [spaceSearch, setSpaceSearch] = useState('');
+
+  // Short notice. Checked against the chosen room as soon as there is
+  // a room and a date, so the requester finds out before filling in
+  // three more sections.
+  const [notice, setNotice] = useState<{
+    isShort: boolean;
+    hoursNotice: number;
+    requiredHours: number;
+    spaceName: string;
+  } | null>(null);
+  const [noticeReason, setNoticeReason] = useState('');
   const [locationFreetext, setLocationFreetext] = useState('');
   const [estimatedAttendance, setEstimatedAttendance] = useState('');
   const [foodSources, setFoodSources] = useState<FoodSource[]>([
@@ -207,6 +218,36 @@ export default function IntakeForm({
     return `${s.name} ${s.building ?? ''}`.toLowerCase().includes(q);
   });
 
+  useEffect(() => {
+    if (!spaceId || spaceId === 'other' || !eventDate) {
+      setNotice(null);
+      return;
+    }
+    let cancelled = false;
+
+    fetch('/api/requests/notice-check', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        spaceId,
+        date: eventDate,
+        time: startTime || null,
+      }),
+    })
+      .then((r) => r.json())
+      .then((d) => {
+        if (!cancelled) setNotice(d.isShort ? d : null);
+      })
+      .catch(() => {
+        // A failed check should not block the form. The server
+        // checks again on submit.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [spaceId, eventDate, startTime]);
+
   async function submit() {
     if (!validate(3)) { setStep(3); return; }
     setBusy(true);
@@ -223,6 +264,10 @@ export default function IntakeForm({
           eventDate,
           startTime: startTime || null,
           endTime: endTime || null,
+          shortNotice: !!notice?.isShort,
+          shortNoticeReason: notice?.isShort
+            ? noticeReason.trim() || null
+            : null,
           spaceId: spaceId === 'other' ? null : spaceId,
           locationFreetext: spaceId === 'other' ? locationFreetext : null,
           estimatedAttendance: Number(estimatedAttendance),
@@ -539,6 +584,38 @@ export default function IntakeForm({
                 </ul>
               )}
               {err('spaceId')}
+
+              {notice?.isShort && (
+                <div className="notice-warning">
+                  <strong>
+                    {notice.hoursNotice < 0
+                      ? 'That date has already passed'
+                      : `That is ${Math.round(notice.hoursNotice)} hours away`}
+                  </strong>
+                  <p>
+                    {notice.spaceName} normally needs{' '}
+                    {notice.requiredHours} hours&rsquo; notice. You can still
+                    send this, but it goes to the events office first and they
+                    will say whether it can go ahead before anything else
+                    happens.
+                  </p>
+                  <div className="field">
+                    <label htmlFor="noticeReason">
+                      Anything they should know?
+                    </label>
+                    <p className="sub">
+                      What has changed, or why it could not be asked sooner.
+                      It helps them say yes.
+                    </p>
+                    <textarea
+                      id="noticeReason"
+                      rows={3}
+                      value={noticeReason}
+                      onChange={(e) => setNoticeReason(e.target.value)}
+                    />
+                  </div>
+                </div>
+              )}
               {spaceId === 'other' && (
                 <div className="conditional on">
                   <label htmlFor="locationFreetext">Describe the location you have in mind</label>

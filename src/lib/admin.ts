@@ -33,6 +33,7 @@ export interface AdminSpace {
   ceiling_feet: string | null;
   layout_notes: string | null;
   layout_count: number;
+  minimum_notice_hours: number;
 }
 
 export async function listAdminSpaces() {
@@ -46,7 +47,7 @@ export async function listAdminSpaces() {
             s.facility_rate_external::text,
             s.rate_basis,
             s.width_feet::text, s.length_feet::text, s.ceiling_feet::text,
-            s.layout_notes,
+            s.layout_notes, s.minimum_notice_hours,
             (SELECT count(*) FROM layouts l WHERE l.space_id = s.id)
               AS layout_count,
             (SELECT count(*) FROM event_requests r

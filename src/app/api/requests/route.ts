@@ -32,6 +32,8 @@ const Body = z.object({
     .positive('Enter how many people you expect')
     .max(20000),
   departmentOrg: z.string().min(1, 'Enter your department').max(200),
+  shortNotice: z.boolean().default(false),
+  shortNoticeReason: z.string().max(2000).nullable().optional(),
   contactPhone: z.string().max(50).nullable(),
 
   foodSources: z.array(FoodSource).min(1, 'Choose who is providing food').max(4),
@@ -159,20 +161,37 @@ export async function POST(req: NextRequest) {
     revenueCollected: b.funding.revenueCollected,
   });
 
+  // Checked again here rather than trusted from the form: a browser
+  // can send whatever it likes, and this decides whether staff are
+  // asked before anything else happens.
+  let isShort = false;
+  if (b.spaceId) {
+    const check = await one<{ is_short: boolean }>(
+      'SELECT is_short FROM notice_check($1, $2, $3)',
+      [b.spaceId, b.eventDate, b.startTime]
+    );
+    isShort = check?.is_short ?? false;
+  }
+
   const request = await transaction(async (c) => {
     const { rows } = await c.query(
       `INSERT INTO event_requests (
          requester_id, requester_name, department_org, contact_email, contact_phone,
          event_type_id, event_type_other, event_name, event_purpose, event_date,
          start_time, end_time, space_id, location_freetext, estimated_attendance,
+         short_notice, short_notice_state, short_notice_reason,
          status, submitted_at
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'submitted',now())
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,
+                 $16,$17,$18,'submitted',now())
        RETURNING id, reference_code`,
       [
         user.id, user.full_name, b.departmentOrg, user.email, b.contactPhone,
         b.eventTypeId, b.eventTypeOther, b.eventName, b.eventPurpose ?? null,
         b.eventDate, b.startTime, b.endTime, b.spaceId, b.locationFreetext,
         b.estimatedAttendance,
+        isShort,
+        isShort ? 'pending' : null,
+        isShort ? (b.shortNoticeReason ?? null) : null,
       ]
     );
     const r = rows[0];

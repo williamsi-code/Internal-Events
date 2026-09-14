@@ -35,6 +35,9 @@ const Space = z.object({
   lengthFeet: z.number().min(0).max(2000).nullable(),
   ceilingFeet: z.number().min(0).max(200).nullable(),
   layoutNotes: z.string().max(1000).nullable(),
+  // Hours of notice this room normally needs. Zero means it can be
+  // taken at any notice.
+  minimumNoticeHours: z.number().int().min(0).max(8760),
 });
 
 const MenuItem = z.object({
@@ -99,7 +102,8 @@ export async function POST(req: NextRequest) {
                     facility_rate_external=$14,
                     rate_basis=$15,
                     width_feet=$16, length_feet=$17, ceiling_feet=$18,
-                    layout_notes=$19
+                    layout_notes=$19,
+                    minimum_notice_hours=$20
               WHERE id=$1`,
             [
               b.id, b.name, b.building, b.category, b.capacitySeated,
@@ -108,6 +112,7 @@ export async function POST(req: NextRequest) {
               b.facilityRateInternal, b.facilityRateAffiliated,
               b.facilityRateExternal, b.rateBasis,
               b.widthFeet, b.lengthFeet, b.ceilingFeet, b.layoutNotes,
+              b.minimumNoticeHours,
             ]
           );
         } else {
@@ -117,8 +122,9 @@ export async function POST(req: NextRequest) {
                 supports_catering, externally_bookable, description,
                 is_active, sort_order, facility_rate_internal,
                 facility_rate_affiliated, facility_rate_external, rate_basis,
-                width_feet, length_feet, ceiling_feet, layout_notes)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
+                width_feet, length_feet, ceiling_feet, layout_notes,
+                minimum_notice_hours)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
             [
               b.name, b.building, b.category, b.capacitySeated,
               b.capacityStanding, b.supportsCatering, b.externallyBookable,
@@ -126,6 +132,7 @@ export async function POST(req: NextRequest) {
               b.facilityRateInternal, b.facilityRateAffiliated,
               b.facilityRateExternal, b.rateBasis,
               b.widthFeet, b.lengthFeet, b.ceilingFeet, b.layoutNotes,
+              b.minimumNoticeHours,
             ]
           );
         }
