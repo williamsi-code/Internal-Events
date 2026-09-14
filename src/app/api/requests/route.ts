@@ -41,16 +41,23 @@ const Body = z.object({
   requirements: z.object({
     foodNeeds: z.string().max(4000).optional(),
     serviceExpectations: z.string().max(4000).optional(),
-    roomSetup: z.string().max(4000).optional(),
-    equipment: z.string().max(4000).optional(),
-    technology: z.string().max(4000).optional(),
     specialRequests: z.string().max(4000).optional(),
     dietaryRestrictions: z.string().max(4000).optional(),
   }),
 
+  setupSelections: z
+    .array(
+      z.object({
+        optionId: z.string().uuid(),
+        count: z.number().int().positive().max(500).nullable(),
+      })
+    )
+    .max(40)
+    .optional(),
+
   funding: z.object({
     budgetAccount: z.string().max(100).optional(),
-    outsideOrgInvolved: z.boolean(),
+    outsideOrgInvolved: z.boolean().optional(),
     outsideOrgName: z.string().max(200).optional(),
     outsideFunding: z.boolean(),
     outsideFundingDetail: z.string().max(2000).optional(),
@@ -62,10 +69,11 @@ const Body = z.object({
 
   answers: z.object({
     officialBusiness: YesNoUnsure,
-    eventOwner: Party,
     primaryBeneficiary: Party,
     primaryPayer: Party,
-    wouldOccurWithout: YesNoUnsure,
+    // No longer asked. Kept optional so an older client still works.
+    eventOwner: Party.optional(),
+    wouldOccurWithout: YesNoUnsure.optional(),
     requesterNotes: z.string().max(4000).optional(),
   }),
 });
@@ -152,11 +160,11 @@ export async function POST(req: NextRequest) {
     typeDefault: (type?.default_classification as never) ?? null,
     typeAlwaysReview: type?.always_review ?? true,
     officialBusiness: b.answers.officialBusiness,
-    eventOwner: b.answers.eventOwner,
+    eventOwner: b.answers.eventOwner ?? 'unclear',
     primaryBeneficiary: b.answers.primaryBeneficiary,
     primaryPayer: b.answers.primaryPayer,
     financialRisk: b.funding.financialRiskBearer,
-    wouldOccurWithout: b.answers.wouldOccurWithout,
+    wouldOccurWithout: b.answers.wouldOccurWithout ?? 'unsure',
     outsideOrgInvolved: b.funding.outsideOrgInvolved,
     revenueCollected: b.funding.revenueCollected,
   });
@@ -230,7 +238,7 @@ export async function POST(req: NextRequest) {
          room_setup, equipment, technology, special_requests, dietary_restrictions)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
       [r.id, b.requirements.foodNeeds, b.requirements.serviceExpectations,
-       b.requirements.roomSetup, b.requirements.equipment, b.requirements.technology,
+       null, null, null,
        b.requirements.specialRequests, b.requirements.dietaryRestrictions]
     );
 
@@ -240,7 +248,8 @@ export async function POST(req: NextRequest) {
          revenue_collected, revenue_detail, revenue_recipient, financial_risk_bearer)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
       [r.id, b.funding.budgetAccount, b.funding.outsideOrgName,
-       b.funding.outsideOrgInvolved, b.funding.outsideFunding,
+       b.funding.outsideOrgInvolved ?? !!b.funding.outsideOrgName?.trim(),
+       b.funding.outsideFunding,
        b.funding.outsideFundingDetail, b.funding.revenueCollected,
        b.funding.revenueDetail, b.funding.revenueRecipient,
        b.funding.financialRiskBearer]
@@ -257,6 +266,15 @@ export async function POST(req: NextRequest) {
        advisory.classification, advisory.rationale,
        advisory.deviatesFromType, advisory.deviationDetail ?? null]
     );
+
+    for (const sel of b.setupSelections ?? []) {
+      await c.query(
+        `INSERT INTO request_setup_selections (request_id, option_id, count)
+         VALUES ($1, $2, $3)
+         ON CONFLICT DO NOTHING`,
+        [r.id, sel.optionId, sel.count]
+      );
+    }
 
     await c.query(
       `INSERT INTO request_status_history (request_id, from_status, to_status, changed_by)

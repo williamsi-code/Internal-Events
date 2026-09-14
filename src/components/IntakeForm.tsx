@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import SetupChecklist, { type SetupValue } from './SetupChecklist';
+import type { SetupOption } from '@/lib/setup-labels';
 import { useRouter } from 'next/navigation';
 import {
   classify,
@@ -32,9 +34,8 @@ export interface SpaceOption {
 const STEPS = [
   { letter: 'A', name: 'Event details' },
   { letter: 'B', name: 'Requirements' },
-  { letter: 'C', name: 'Funding' },
-  { letter: 'D', name: 'Classification' },
-  { letter: '·', name: 'Review & submit' },
+  { letter: 'C', name: 'Funding and classification' },
+  { letter: '\u00b7', name: 'Review and submit' },
 ];
 
 const PARTY_LABEL: Record<string, string> = {
@@ -97,6 +98,10 @@ export default function IntakeForm({
     spaceName: string;
   } | null>(null);
   const [noticeReason, setNoticeReason] = useState('');
+
+  // What the chosen room can do, and what was picked from it.
+  const [setupOptions, setSetupOptions] = useState<SetupOption[]>([]);
+  const [setupValues, setSetupValues] = useState<SetupValue[]>([]);
   const [locationFreetext, setLocationFreetext] = useState('');
   const [estimatedAttendance, setEstimatedAttendance] = useState('');
   const [foodSources, setFoodSources] = useState<FoodSource[]>([
@@ -107,14 +112,10 @@ export default function IntakeForm({
   const [foodNeeds, setFoodNeeds] = useState('');
   const [serviceExpectations, setServiceExpectations] = useState('');
   const [dietaryRestrictions, setDietaryRestrictions] = useState('');
-  const [roomSetup, setRoomSetup] = useState('');
-  const [equipment, setEquipment] = useState('');
-  const [technology, setTechnology] = useState('');
   const [specialRequests, setSpecialRequests] = useState('');
 
   // C
   const [budgetAccount, setBudgetAccount] = useState('');
-  const [outsideOrgInvolved, setOutsideOrgInvolved] = useState('');
   const [outsideOrgName, setOutsideOrgName] = useState('');
   const [outsideFunding, setOutsideFunding] = useState('');
   const [outsideFundingDetail, setOutsideFundingDetail] = useState('');
@@ -124,10 +125,8 @@ export default function IntakeForm({
 
   // D
   const [officialBusiness, setOfficialBusiness] = useState('');
-  const [eventOwner, setEventOwner] = useState('');
   const [primaryBeneficiary, setPrimaryBeneficiary] = useState('');
   const [primaryPayer, setPrimaryPayer] = useState('');
-  const [wouldOccurWithout, setWouldOccurWithout] = useState('');
   const [requesterNotes, setRequesterNotes] = useState('');
 
   const selectedType = eventTypes.find(t => t.id === eventTypeId);
@@ -147,17 +146,15 @@ export default function IntakeForm({
         typeDefault: selectedType?.default_classification ?? null,
         typeAlwaysReview: selectedType ? selectedType.always_review : eventTypeId === 'other',
         officialBusiness: (officialBusiness || undefined) as YesNoUnsure | undefined,
-        eventOwner: (eventOwner || undefined) as Party | undefined,
         primaryBeneficiary: (primaryBeneficiary || undefined) as Party | undefined,
         primaryPayer: (primaryPayer || undefined) as Party | undefined,
         financialRisk: (financialRisk || undefined) as Party | undefined,
-        wouldOccurWithout: (wouldOccurWithout || undefined) as YesNoUnsure | undefined,
-        outsideOrgInvolved: outsideOrgInvolved === 'yes',
+        outsideOrgInvolved: !!outsideOrgName.trim(),
         revenueCollected: revenueCollected === 'yes',
       }),
     [
-      selectedType, eventTypeId, officialBusiness, eventOwner, primaryBeneficiary,
-      primaryPayer, financialRisk, wouldOccurWithout, outsideOrgInvolved, revenueCollected,
+      selectedType, eventTypeId, officialBusiness, primaryBeneficiary,
+      primaryPayer, financialRisk, outsideOrgName, revenueCollected,
     ]
   );
 
@@ -187,17 +184,14 @@ export default function IntakeForm({
         e.foodSources = 'Tell us where the donated food is coming from.';
     }
     if (index === 2) {
-      if (!outsideOrgInvolved) e.outsideOrgInvolved = 'Choose yes or no.';
       if (!outsideFunding) e.outsideFunding = 'Choose yes or no.';
       if (!revenueCollected) e.revenueCollected = 'Choose yes or no.';
       if (!financialRisk) e.financialRisk = 'Choose one.';
     }
     if (index === 3) {
       if (!officialBusiness) e.officialBusiness = 'Choose one.';
-      if (!eventOwner) e.eventOwner = 'Choose one.';
       if (!primaryBeneficiary) e.primaryBeneficiary = 'Choose one.';
       if (!primaryPayer) e.primaryPayer = 'Choose one.';
-      if (!wouldOccurWithout) e.wouldOccurWithout = 'Choose one.';
     }
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -217,6 +211,37 @@ export default function IntakeForm({
     const q = spaceSearch.toLowerCase();
     return `${s.name} ${s.building ?? ''}`.toLowerCase().includes(q);
   });
+
+  useEffect(() => {
+    if (!spaceId || spaceId === 'other') {
+      setSetupOptions([]);
+      setSetupValues([]);
+      return;
+    }
+    let cancelled = false;
+
+    fetch('/api/requests/space-options', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ spaceId }),
+    })
+      .then((r) => r.json())
+      .then((d) => {
+        if (cancelled) return;
+        setSetupOptions(d.options ?? []);
+        // Anything picked for the old room may not exist in the new
+        // one, so the selection starts again rather than carrying
+        // over something the room cannot do.
+        setSetupValues([]);
+      })
+      .catch(() => {
+        if (!cancelled) setSetupOptions([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [spaceId]);
 
   useEffect(() => {
     if (!spaceId || spaceId === 'other' || !eventDate) {
@@ -264,6 +289,10 @@ export default function IntakeForm({
           eventDate,
           startTime: startTime || null,
           endTime: endTime || null,
+          setupSelections: setupValues.map((v) => ({
+            optionId: v.optionId,
+            count: v.count,
+          })),
           shortNotice: !!notice?.isShort,
           shortNoticeReason: notice?.isShort
             ? noticeReason.trim() || null
@@ -280,12 +309,12 @@ export default function IntakeForm({
             covers: f.covers || null,
           })),
           requirements: {
-            foodNeeds, serviceExpectations, roomSetup,
-            equipment, technology, specialRequests, dietaryRestrictions,
+            foodNeeds, serviceExpectations, specialRequests,
+            dietaryRestrictions,
           },
           funding: {
             budgetAccount,
-            outsideOrgInvolved: outsideOrgInvolved === 'yes',
+            outsideOrgInvolved: !!outsideOrgName.trim(),
             outsideOrgName,
             outsideFunding: outsideFunding === 'yes',
             outsideFundingDetail,
@@ -295,8 +324,8 @@ export default function IntakeForm({
             financialRiskBearer: financialRisk,
           },
           answers: {
-            officialBusiness, eventOwner, primaryBeneficiary,
-            primaryPayer, wouldOccurWithout, requesterNotes,
+            officialBusiness, primaryBeneficiary,
+            primaryPayer, requesterNotes,
           },
         }),
       });
@@ -661,27 +690,23 @@ export default function IntakeForm({
                 onChange={e => setDietaryRestrictions(e.target.value)} />
             </div>
 
-            <div className="grid two">
-              <div className="field">
-                <label htmlFor="roomSetup">Room setup</label>
-                <p className="sub">Rounds, theater, classroom, standing.</p>
-                <textarea id="roomSetup" value={roomSetup} onChange={e => setRoomSetup(e.target.value)} />
-              </div>
-              <div className="field">
-                <label htmlFor="equipment">Equipment</label>
-                <p className="sub">Tables, linens, staging, podium.</p>
-                <textarea id="equipment" value={equipment} onChange={e => setEquipment(e.target.value)} />
-              </div>
-              <div className="field">
-                <label htmlFor="technology">Technology</label>
-                <p className="sub">Projection, microphones, livestream, hybrid.</p>
-                <textarea id="technology" value={technology} onChange={e => setTechnology(e.target.value)} />
-              </div>
-              <div className="field">
-                <label htmlFor="specialRequests">Special requests</label>
-                <textarea id="specialRequests" value={specialRequests}
-                  onChange={e => setSpecialRequests(e.target.value)} />
-              </div>
+            <SetupChecklist
+              options={setupOptions}
+              values={setupValues}
+              onChange={setSetupValues}
+              spaceChosen={!!spaceId && spaceId !== 'other'}
+            />
+
+            <div className="field" style={{ marginTop: '1.25rem' }}>
+              <label htmlFor="specialRequests">
+                Anything else about the setup
+              </label>
+              <p className="sub">
+                Anything the list above does not cover, or how you would like
+                it arranged.
+              </p>
+              <textarea id="specialRequests" value={specialRequests}
+                onChange={e => setSpecialRequests(e.target.value)} />
             </div>
 
             <div className="actions">
@@ -695,11 +720,12 @@ export default function IntakeForm({
         {step === 2 && (
           <section className="card">
             <span className="eyebrow">Section C</span>
-            <h2>Funding &amp; outside involvement</h2>
+            <h2>Funding and classification</h2>
             <p className="hint">
-              How the event is paid for, and whether anyone outside Central is
-              involved. These answers do most of the work in determining your
-              classification.
+              How the event is paid for and who it is for. These answers
+              determine how it is classified, and therefore what it costs.
+              &ldquo;Not sure&rdquo; is a real answer and simply sends your
+              request for a closer look.
             </p>
 
             <div className="field">
@@ -709,20 +735,17 @@ export default function IntakeForm({
                 onChange={e => setBudgetAccount(e.target.value)} />
             </div>
 
-            <fieldset className="field">
-              <span className="legend">Is an outside organization involved?<span className="req">*</span></span>
-              <p className="sub">Any group, business, or partner that is not part of Central College.</p>
-              {radios('outsideOrgInvolved', outsideOrgInvolved, setOutsideOrgInvolved,
-                [['yes', 'Yes'], ['no', 'No']])}
-              {err('outsideOrgInvolved')}
-              {outsideOrgInvolved === 'yes' && (
-                <div className="conditional on">
-                  <label htmlFor="outsideOrgName">Name of the outside organization</label>
-                  <input id="outsideOrgName" type="text" value={outsideOrgName}
-                    onChange={e => setOutsideOrgName(e.target.value)} />
-                </div>
-              )}
-            </fieldset>
+            <div className="field">
+              <label htmlFor="outsideOrgName">
+                Outside organization involved
+              </label>
+              <p className="sub">
+                Any group, business or partner that is not part of Central.
+                Leave blank if there is none.
+              </p>
+              <input id="outsideOrgName" type="text" value={outsideOrgName}
+                onChange={e => setOutsideOrgName(e.target.value)} />
+            </div>
 
             <fieldset className="field">
               <span className="legend">Is there outside funding, a grant, or sponsorship?<span className="req">*</span></span>
@@ -762,24 +785,6 @@ export default function IntakeForm({
               {err('financialRisk')}
             </fieldset>
 
-            <div className="actions">
-              <button className="btn btn-ghost" onClick={() => go(1)}>Back</button>
-              <button className="btn btn-primary" onClick={() => go(3)}>Continue to classification</button>
-            </div>
-          </section>
-        )}
-
-        {/* ---------- D ---------- */}
-        {step === 3 && (
-          <section className="card">
-            <span className="eyebrow">Section D</span>
-            <h2>Classification questions</h2>
-            <p className="hint">
-              Five questions that determine how your event is classified. Answer
-              them as plainly as you can — &ldquo;not sure&rdquo; is a valid
-              answer and simply routes your request for a closer look.
-            </p>
-
             <fieldset className="field">
               <span className="legend">Is this official Central College business?<span className="req">*</span></span>
               {radios('officialBusiness', officialBusiness, setOfficialBusiness,
@@ -788,17 +793,10 @@ export default function IntakeForm({
             </fieldset>
 
             <fieldset className="field">
-              <span className="legend">Who owns and controls the event?<span className="req">*</span></span>
-              <p className="sub">Who decides the program, the guest list, and how it runs.</p>
-              {radios('eventOwner', eventOwner, setEventOwner, [
-                ['central', 'Central'], ['shared', 'Shared'],
-                ['outside', 'Outside party'], ['unclear', 'Not sure'],
-              ])}
-              {err('eventOwner')}
-            </fieldset>
-
-            <fieldset className="field">
               <span className="legend">Who primarily benefits?<span className="req">*</span></span>
+              <p className="sub">
+                Whose purposes does this event serve, if you had to choose one.
+              </p>
               {radios('primaryBeneficiary', primaryBeneficiary, setPrimaryBeneficiary, [
                 ['central', 'Central'], ['shared', 'Both substantially'],
                 ['outside', 'Outside party'], ['unclear', 'Not sure'],
@@ -815,16 +813,6 @@ export default function IntakeForm({
               {err('primaryPayer')}
             </fieldset>
 
-            <fieldset className="field">
-              <span className="legend">
-                Would this event happen without Central College&rsquo;s involvement?
-                <span className="req">*</span>
-              </span>
-              {radios('wouldOccurWithout', wouldOccurWithout, setWouldOccurWithout,
-                [['yes', 'Yes'], ['no', 'No'], ['unsure', 'Not sure']])}
-              {err('wouldOccurWithout')}
-            </fieldset>
-
             <div className="field">
               <label htmlFor="requesterNotes">Anything else we should know?</label>
               <p className="sub">Context that might affect how this is classified.</p>
@@ -833,14 +821,14 @@ export default function IntakeForm({
             </div>
 
             <div className="actions">
-              <button className="btn btn-ghost" onClick={() => go(2)}>Back</button>
-              <button className="btn btn-primary" onClick={() => go(4)}>Review your request</button>
+              <button className="btn btn-ghost" onClick={() => go(1)}>Back</button>
+              <button className="btn btn-primary" onClick={() => go(3)}>Review your request</button>
             </div>
           </section>
         )}
 
         {/* ---------- review ---------- */}
-        {step === 4 && (
+        {step === 3 && (
           <section className="card">
             <span className="eyebrow">Review</span>
             <h2>Review your request</h2>
@@ -868,31 +856,32 @@ export default function IntakeForm({
               ['Food and beverage', foodNeeds],
               ['Service', serviceExpectations],
               ['Dietary', dietaryRestrictions],
-              ['Room setup', roomSetup],
-              ['Equipment', equipment],
-              ['Technology', technology],
+              ['Setup and equipment',
+                setupValues
+                  .map((v) => {
+                    const o = setupOptions.find((x) => x.id === v.optionId);
+                    if (!o) return null;
+                    return v.count ? `${o.label} \u00d7${v.count}` : o.label;
+                  })
+                  .filter(Boolean)
+                  .join(', ')],
               ['Special requests', specialRequests],
             ]} />
 
-            <ReviewGroup title="Funding" onEdit={() => go(2)} rows={[
+            <ReviewGroup title="Funding and classification" onEdit={() => go(2)} rows={[
               ['Budget account', budgetAccount],
-              ['Outside organization', outsideOrgInvolved === 'yes' ? outsideOrgName || 'Yes' : 'No'],
+              ['Outside organization', outsideOrgName || 'None'],
               ['Outside funding', PARTY_LABEL[outsideFunding] ?? ''],
-              ['Revenue collected', revenueCollected === 'yes' ? `Yes — to ${revenueRecipient}` : 'No'],
+              ['Revenue collected', revenueCollected === 'yes' ? `Yes \u2014 to ${revenueRecipient}` : 'No'],
               ['Financial risk', PARTY_LABEL[financialRisk] ?? ''],
-            ]} />
-
-            <ReviewGroup title="Classification answers" onEdit={() => go(3)} rows={[
               ['Official business', PARTY_LABEL[officialBusiness] ?? ''],
-              ['Owned by', PARTY_LABEL[eventOwner] ?? ''],
               ['Benefits', PARTY_LABEL[primaryBeneficiary] ?? ''],
               ['Pays', PARTY_LABEL[primaryPayer] ?? ''],
-              ['Happens without Central', PARTY_LABEL[wouldOccurWithout] ?? ''],
               ['Notes', requesterNotes],
             ]} />
 
             <div className="actions">
-              <button className="btn btn-ghost" onClick={() => go(3)}>Back</button>
+              <button className="btn btn-ghost" onClick={() => go(2)}>Back</button>
               <button className="btn btn-primary" onClick={submit} disabled={busy}>
                 {busy ? 'Submitting…' : 'Submit request'}
               </button>

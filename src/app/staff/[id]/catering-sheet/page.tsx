@@ -5,6 +5,8 @@ import { getSessionUser } from '@/lib/auth';
 import { getCateringSheet, getCateringLines } from '@/lib/catering';
 import { getChoicesForSheet } from '@/lib/choices';
 import { getSheetLines, getSheetNotes } from '@/lib/sheet-extras';
+import { getSetupForRequest } from '@/lib/setup-options';
+import { KIND_LABEL } from '@/lib/setup-labels';
 import { LINE_KINDS } from '@/lib/sheet-line-kinds';
 import SheetExtras from '@/components/SheetExtras';
 import { classificationLabel, type Classification } from '@/lib/classify';
@@ -31,12 +33,14 @@ export default async function CateringSheetPage({
   const sheet = await getCateringSheet(id);
   if (!sheet) notFound();
 
-  const [lines, choiceRows, manualLines, sheetNotes] = await Promise.all([
-    getCateringLines(id),
-    getChoicesForSheet(id),
-    getSheetLines(id),
-    getSheetNotes(id),
-  ]);
+  const [lines, choiceRows, manualLines, sheetNotes, setupRows] =
+    await Promise.all([
+      getCateringLines(id),
+      getChoicesForSheet(id),
+      getSheetLines(id),
+      getSheetNotes(id),
+      getSetupForRequest(id),
+    ]);
 
   const menuTotal = lines.reduce((s, l) => s + Number(l.line_total), 0);
   const manualTotal = manualLines
@@ -269,6 +273,23 @@ export default async function CateringSheetPage({
         <section className="sheet-cols">
           <div className="sheet-section">
             <h2>Setup</h2>
+            {setupRows.length > 0 && (
+              <ul className="sheet-setup">
+                {setupRows.map((r, i) => (
+                  <li key={i}>
+                    <span className="setup-n">
+                      {r.count ? `${r.count}\u00d7` : '\u2022'}
+                    </span>
+                    <span>
+                      {r.label}
+                      <span className="sheet-item-desc">
+                        {KIND_LABEL[r.kind]}
+                      </span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
             <dl className="sheet-dl">
               {sheet.room_setup && (
                 <>
