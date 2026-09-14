@@ -1,16 +1,3 @@
-/**
- * Advisory classification.
- *
- * Imported by both the intake form (live preview) and the API route
- * (recorded on submission). The server recomputes rather than trusting
- * whatever the browser sent — the preview is a convenience, not input.
- *
- * The event type is authoritative where the matrix settles it. The six
- * questions exist to catch requests that do not behave like their type
- * usually does; a mismatch routes to review rather than silently
- * overriding either source.
- */
-
 export type Classification =
   | 'internal'
   | 'affiliated'
@@ -20,181 +7,206 @@ export type Classification =
 export type Party = 'central' | 'shared' | 'outside' | 'unclear';
 export type YesNoUnsure = 'yes' | 'no' | 'unsure';
 
-export interface ClassificationInput {
-  /** Matrix default for the selected event type, null if unsettled. */
+export function classificationLabel(c: Classification): string {
+  switch (c) {
+    case 'internal':
+      return 'Internal';
+    case 'affiliated':
+      return 'Affiliated / sponsored';
+    case 'external':
+      return 'External';
+    case 'needs_management_review':
+      return 'Needs management review';
+  }
+}
+
+export interface ClassifyInput {
   typeDefault: Classification | null;
-  /** True for event types the matrix deliberately leaves open. */
   typeAlwaysReview: boolean;
   officialBusiness?: YesNoUnsure;
-  eventOwner?: Party;
   primaryBeneficiary?: Party;
   primaryPayer?: Party;
   financialRisk?: Party;
-  wouldOccurWithout?: YesNoUnsure;
-  outsideOrgInvolved?: boolean;
+  outsideFunding?: boolean;
   revenueCollected?: boolean;
+  outsideOrgInvolved?: boolean;
 }
 
-export interface ClassificationResult {
-  classification: Classification | null;
+export interface ClassifyResult {
+  classification: Classification;
   rationale: string;
+  /** The individual facts that pointed this way, shown to the
+   *  requester so the verdict is not a black box. */
   reasons: string[];
-  /** Answers point somewhere other than the type's usual outcome. */
   deviatesFromType: boolean;
   deviationDetail?: string;
 }
 
-const LABEL: Record<Classification, string> = {
-  internal: 'Internal',
-  affiliated: 'Affiliated / sponsored',
-  external: 'External',
-  needs_management_review: 'Needs management review',
-};
+/**
+ * The advisory classification.
+ *
+ * Advisory is the operative word: this suggests, and a person
+ * decides. It weighs what the requester is now asked - is this
+ * College business, who benefits, who pays - against the event
+ * type's usual answer.
+ *
+ * Two questions were retired in September 2026 (who owns the event,
+ * and whether it would happen without Central) because they restated
+ * what the funding answers already said. Anything that arrives
+ * without them is simply weighed on what is there.
+ */
+export function classify(input: ClassifyInput): ClassifyResult {
+  const {
+    typeDefault,
+    typeAlwaysReview,
+    officialBusiness,
+    primaryBeneficiary,
+    primaryPayer,
+    financialRisk,
+    outsideFunding,
+    revenueCollected,
+  } = input;
 
-/** Weights follow the published rubric: beneficiary is the stated test. */
-const WEIGHTS = { beneficiary: 3, owner: 2, payer: 2, risk: 2 } as const;
-
-export function classify(input: ClassificationInput): ClassificationResult {
+  // Everything the answers actually said, in the order it was asked.
+  // Shown beside the verdict so a requester can see what it rests on
+  // rather than being handed a conclusion.
   const reasons: string[] = [];
-  let central = 0;
-  let outside = 0;
-  let unclearCount = 0;
 
-  const weigh = (value: Party | undefined, weight: number, label: string) => {
-    if (!value) return;
-    if (value === 'central') {
-      central += weight;
-      reasons.push(`${label}: Central`);
-    } else if (value === 'outside') {
-      outside += weight;
-      reasons.push(`${label}: outside party`);
-    } else if (value === 'shared') {
-      central += weight / 2;
-      outside += weight / 2;
-      reasons.push(`${label}: shared`);
-    } else {
-      unclearCount++;
-    }
+  if (officialBusiness === 'yes') {
+    reasons.push('This is official College business.');
+  } else if (officialBusiness === 'no') {
+    reasons.push('This is not official College business.');
+  } else if (officialBusiness === 'unsure') {
+    reasons.push('Whether this is official College business is unclear.');
+  }
+
+  if (primaryBeneficiary === 'central') {
+    reasons.push('Central is the main beneficiary.');
+  } else if (primaryBeneficiary === 'outside') {
+    reasons.push('An outside party is the main beneficiary.');
+  } else if (primaryBeneficiary === 'shared') {
+    reasons.push('Central and an outside party both benefit substantially.');
+  }
+
+  if (primaryPayer === 'central') {
+    reasons.push('Central is paying.');
+  } else if (primaryPayer === 'outside') {
+    reasons.push('An outside party is paying.');
+  } else if (primaryPayer === 'shared') {
+    reasons.push('The cost is split.');
+  }
+
+  if (financialRisk === 'central') {
+    reasons.push('Central carries the financial risk.');
+  } else if (financialRisk === 'outside') {
+    reasons.push('An outside party carries the financial risk.');
+  } else if (financialRisk === 'shared') {
+    reasons.push('The financial risk is shared.');
+  }
+
+  if (outsideFunding) reasons.push('There is outside funding or sponsorship.');
+  if (revenueCollected) reasons.push('Revenue is being collected.');
+  if (typeAlwaysReview) {
+    reasons.push('This event type is always reviewed individually.');
+  }
+
+  const verdict = (
+    classification: Classification,
+    rationale: string
+  ): ClassifyResult => {
+    const deviates =
+      !!typeDefault &&
+      classification !== typeDefault &&
+      classification !== 'needs_management_review';
+
+    return {
+      classification,
+      rationale,
+      reasons,
+      deviatesFromType: deviates,
+      deviationDetail: deviates
+        ? `This event type is usually ${classificationLabel(
+            typeDefault!
+          )}, but the answers point to ${classificationLabel(classification)}.`
+        : undefined,
+    };
   };
 
-  weigh(input.primaryBeneficiary, WEIGHTS.beneficiary, 'Primary beneficiary');
-  weigh(input.eventOwner, WEIGHTS.owner, 'Ownership and control');
-  weigh(input.primaryPayer, WEIGHTS.payer, 'Who pays');
-  weigh(input.financialRisk, WEIGHTS.risk, 'Financial risk');
-
-  if (input.officialBusiness === 'yes') {
-    central += 2;
-    reasons.push('Stated as official College business');
-  } else if (input.officialBusiness === 'no') {
-    outside += 2;
-    reasons.push('Not official College business');
-  } else if (input.officialBusiness === 'unsure') {
-    unclearCount++;
+  // An outside party benefiting and paying is external whatever the
+  // event type says. This is the clearest case there is.
+  if (primaryBeneficiary === 'outside' && primaryPayer === 'outside') {
+    return verdict(
+      'external',
+      'An outside party both benefits from this event and pays for it.'
+    );
   }
 
-  if (input.wouldOccurWithout === 'yes') {
-    outside += 2;
-    reasons.push('Would go ahead without Central');
-  } else if (input.wouldOccurWithout === 'no') {
-    central += 2;
-    reasons.push('Depends on Central to happen');
-  } else if (input.wouldOccurWithout === 'unsure') {
-    unclearCount++;
-  }
-
-  const answeredEnough =
-    [
-      input.primaryBeneficiary,
-      input.eventOwner,
-      input.primaryPayer,
-      input.officialBusiness,
-      input.wouldOccurWithout,
-    ].filter(Boolean).length >= 3;
-
-  // Type alone is a usable answer before the questions are done.
-  if (!answeredEnough) {
-    if (input.typeAlwaysReview) {
-      return {
-        classification: 'needs_management_review',
-        rationale: 'This event type is decided case by case.',
-        reasons: [],
-        deviatesFromType: false,
-      };
-    }
-    if (input.typeDefault) {
-      return {
-        classification: input.typeDefault,
-        rationale: 'Based on the selected event type.',
-        reasons: ['Event type default'],
-        deviatesFromType: false,
-      };
-    }
-    return {
-      classification: null,
-      rationale: 'Not enough information yet.',
-      reasons: [],
-      deviatesFromType: false,
-    };
-  }
-
-  let fromAnswers: Classification;
-  if (unclearCount >= 2) {
-    fromAnswers = 'needs_management_review';
-  } else {
-    const total = central + outside;
-    const share = total > 0 ? central / total : 0.5;
-    if (share >= 0.75) fromAnswers = 'internal';
-    else if (share <= 0.35) fromAnswers = 'external';
-    else fromAnswers = 'affiliated';
-  }
-
-  // Revenue leaving Central alongside an outside organization lifts an
-  // otherwise-internal event out of the internal category.
+  // Central business, Central benefit, Central money, no outside
+  // funding. The ordinary internal event.
   if (
-    fromAnswers === 'internal' &&
-    input.revenueCollected &&
-    input.outsideOrgInvolved
+    officialBusiness === 'yes' &&
+    primaryBeneficiary === 'central' &&
+    primaryPayer === 'central' &&
+    !outsideFunding
   ) {
-    fromAnswers = 'affiliated';
-    reasons.push('Revenue collected alongside an outside organization');
-  }
-
-  if (input.typeAlwaysReview) {
-    return {
-      classification: 'needs_management_review',
-      rationale:
-        'This event type is decided case by case, so a manager classifies it directly.',
-      reasons,
-      deviatesFromType: false,
-    };
-  }
-
-  if (input.typeDefault) {
-    if (fromAnswers !== input.typeDefault) {
-      return {
-        classification: 'needs_management_review',
-        rationale: `Answers point to ${LABEL[fromAnswers].toLowerCase()}, but this event type is normally ${LABEL[input.typeDefault].toLowerCase()}.`,
-        reasons,
-        deviatesFromType: true,
-        deviationDetail: `Event type default is ${LABEL[input.typeDefault]}; the answers indicate ${LABEL[fromAnswers]}.`,
-      };
+    // Unless the event type itself is never settled by the matrix.
+    if (typeAlwaysReview) {
+      return verdict(
+        'needs_management_review',
+        'The answers point to Internal, but this event type is always reviewed.'
+      );
     }
-    return {
-      classification: input.typeDefault,
-      rationale: 'The answers agree with the usual outcome for this event type.',
-      reasons,
-      deviatesFromType: false,
-    };
+    return verdict(
+      'internal',
+      'Official College business, benefiting and paid for by Central.'
+    );
   }
 
-  return {
-    classification: fromAnswers,
-    rationale: 'Derived from the classification questions.',
-    reasons,
-    deviatesFromType: false,
-  };
-}
+  // Revenue going somewhere other than Central needs a look before
+  // anything is priced.
+  if (revenueCollected) {
+    return verdict(
+      'needs_management_review',
+      'Revenue is being collected, which needs reviewing before pricing.'
+    );
+  }
 
-export function classificationLabel(c: Classification): string {
-  return LABEL[c];
+  // Shared benefit, shared payment, or Central benefiting from
+  // outside money. This is what affiliated exists to describe.
+  if (
+    primaryBeneficiary === 'shared' ||
+    primaryPayer === 'shared' ||
+    financialRisk === 'shared' ||
+    outsideFunding ||
+    (primaryBeneficiary === 'central' && primaryPayer === 'outside')
+  ) {
+    return verdict(
+      'affiliated',
+      'Central and an outside party both have a stake in this one.'
+    );
+  }
+
+  // An outside party carrying the risk, without the clarity of the
+  // first case.
+  if (financialRisk === 'outside' || primaryPayer === 'outside') {
+    return verdict(
+      'external',
+      'An outside party is carrying the cost of this event.'
+    );
+  }
+
+  if (typeAlwaysReview || !typeDefault) {
+    return verdict(
+      'needs_management_review',
+      'The answers do not settle it and the event type is not decisive.'
+    );
+  }
+
+  // Nothing in the answers argues against the usual result.
+  return verdict(
+    typeDefault,
+    `Following the usual result for ${classificationLabel(
+      typeDefault
+    ).toLowerCase()} events of this type; nothing in the answers argues against it.`
+  );
 }

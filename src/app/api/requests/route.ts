@@ -103,7 +103,7 @@ function describeIssues(error: z.ZodError) {
 
   for (const issue of error.issues) {
     const path = issue.path.join('.');
-     const label =
+    const label =
       FIELD_LABELS[path] ??
       FIELD_LABELS[issue.path[0] as string] ??
       (path || 'A required answer');
@@ -160,11 +160,10 @@ export async function POST(req: NextRequest) {
     typeDefault: (type?.default_classification as never) ?? null,
     typeAlwaysReview: type?.always_review ?? true,
     officialBusiness: b.answers.officialBusiness,
-    eventOwner: b.answers.eventOwner ?? 'unclear',
     primaryBeneficiary: b.answers.primaryBeneficiary,
     primaryPayer: b.answers.primaryPayer,
     financialRisk: b.funding.financialRiskBearer,
-    wouldOccurWithout: b.answers.wouldOccurWithout ?? 'unsure',
+    outsideFunding: b.funding.outsideFunding,
     outsideOrgInvolved: b.funding.outsideOrgInvolved,
     revenueCollected: b.funding.revenueCollected,
   });
@@ -260,9 +259,10 @@ export async function POST(req: NextRequest) {
          primary_beneficiary, primary_payer, would_occur_without, requester_notes,
          suggested_class, suggested_rationale, deviates_from_type, deviation_detail)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
-      [r.id, b.answers.officialBusiness, b.answers.eventOwner,
+      [r.id, b.answers.officialBusiness,
+       b.answers.eventOwner ?? null,
        b.answers.primaryBeneficiary, b.answers.primaryPayer,
-       b.answers.wouldOccurWithout, b.answers.requesterNotes,
+       b.answers.wouldOccurWithout ?? null, b.answers.requesterNotes,
        advisory.classification, advisory.rationale,
        advisory.deviatesFromType, advisory.deviationDetail ?? null]
     );
