@@ -42,9 +42,29 @@ export default function DecisionPanel({
 
   const decided = !!request.current_classification && !reopening;
 
+  // A rationale is only insisted on when the decision departs from
+  // what the matrix expected. Agreeing with the default needs no
+  // explanation; overriding it will need one when someone asks why in
+  // six months.
+  const overriding =
+    !!classification &&
+    !!request.default_classification &&
+    classification !== request.default_classification;
+
+  const mustExplain =
+    overriding || request.always_review || !request.event_type_name;
+
   async function recordDecision() {
-    if (!classification || !rationale.trim()) {
-      setError('Choose a classification and give a rationale.');
+    if (!classification) {
+      setError('Choose a classification.');
+      return;
+    }
+    if (mustExplain && !rationale.trim()) {
+      setError(
+        overriding
+          ? 'This differs from the usual result for this event type, so please say why.'
+          : 'This event type is not settled by the matrix, so please say why.'
+      );
       return;
     }
     setBusy(true);
@@ -56,7 +76,7 @@ export default function DecisionPanel({
         body: JSON.stringify({
           requestId: request.id,
           classification,
-          rationale,
+          rationale: rationale.trim() || null,
         }),
       });
       if (!res.ok) {
@@ -160,7 +180,11 @@ export default function DecisionPanel({
                 {classificationLabel(request.current_classification!)}
               </strong>
               <br />
-              {request.decision_rationale}
+              {request.decision_rationale ?? (
+                <span className="sub">
+                  Matched the usual result for this event type.
+                </span>
+              )}
               <span className="when">
                 {request.decided_by_name} {'\u00b7'} {request.decided_at}
               </span>
@@ -195,10 +219,12 @@ export default function DecisionPanel({
 
             <label className="lbl" htmlFor="rationale">
               Classification rationale
+              {!mustExplain && <span className="optional">optional</span>}
             </label>
             <p className="sub">
-              Written for the requester. Explain why, in terms they will
-              understand.
+              {mustExplain
+                ? 'Needed here, because this decision is not the matrix default. Written for the requester, so explain it in terms they will understand.'
+                : 'Optional when the decision matches the matrix. Add one if there is anything the requester should know.'}
             </p>
             <textarea
               id="rationale"

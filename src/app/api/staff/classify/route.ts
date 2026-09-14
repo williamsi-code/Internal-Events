@@ -11,7 +11,9 @@ const Body = z.object({
     'external',
     'needs_management_review',
   ]),
-  rationale: z.string().min(1).max(4000),
+  // Optional: a decision that matches the matrix default explains
+  // itself. The interface insists on one where it matters.
+  rationale: z.string().max(4000).nullable().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -25,7 +27,7 @@ export async function POST(req: NextRequest) {
   const parsed = Body.safeParse(await req.json());
   if (!parsed.success) {
     return NextResponse.json(
-      { error: 'Choose a classification and give a rationale.' },
+      { error: 'Choose a classification.' },
       { status: 400 }
     );
   }
@@ -47,7 +49,13 @@ export async function POST(req: NextRequest) {
       `INSERT INTO classification_decisions
          (request_id, classification, rationale, decided_by, supersedes_id)
        VALUES ($1, $2, $3, $4, $5)`,
-      [requestId, classification, rationale, user!.id, prior[0]?.id ?? null]
+      [
+        requestId,
+        classification,
+        rationale?.trim() || null,
+        user!.id,
+        prior[0]?.id ?? null,
+      ]
     );
 
     const { rows: before } = await c.query(

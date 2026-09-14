@@ -183,14 +183,22 @@ export default function CapacityPanel({
           )}
 
           {sameDay.length > 0 && (
-            <details className="cap-sameday">
+            <details className="cap-sameday" open={context.space_conflicts > 0}>
               <summary>
                 {sameDay.length} other booking
                 {sameDay.length === 1 ? '' : 's'} on {context.event_date_long}
+                {context.space_conflicts > 0 && (
+                  <span className="sameday-flag">
+                    {context.space_conflicts} in this space
+                  </span>
+                )}
               </summary>
               <ul>
-                {sameDay.map((s, i) => (
-                  <li key={i}>
+                {sameDay.map((s, i) => {
+                  const sameSpace = s.space_name === context.space_name;
+                  // An imported hold or a blackout has no event behind
+                  // it, so there is nothing to open.
+                  const body = (
                     <span>
                       <strong>{s.title}</strong>
                       <br />
@@ -199,10 +207,39 @@ export default function CapacityPanel({
                         {s.attendance ? ` \u00b7 ${s.attendance} guests` : ''}
                       </span>
                     </span>
-                    <span className={`pill p-${s.status}`}>{s.status}</span>
-                  </li>
-                ))}
+                  );
+
+                  return (
+                    <li key={i} className={sameSpace ? 'same-space' : ''}>
+                      {s.request_id ? (
+                        <Link
+                          href={`/staff/${s.request_id}`}
+                          className="sameday-link"
+                        >
+                          {body}
+                        </Link>
+                      ) : (
+                        body
+                      )}
+                      <span className="sameday-right">
+                        <span className={`pill p-${s.status}`}>{s.status}</span>
+                        {s.request_id && (
+                          <Link
+                            href={`/staff/${s.request_id}`}
+                            className="edit-link"
+                          >
+                            Open
+                          </Link>
+                        )}
+                      </span>
+                    </li>
+                  );
+                })}
               </ul>
+              <p className="sub">
+                Bookings in this same room are highlighted. Ones with no link
+                are room holds with no catering behind them.
+              </p>
             </details>
           )}
 
@@ -376,8 +413,11 @@ export default function CapacityPanel({
                 Cancel
               </button>
             )}
-            <Link href="/staff/schedule" className="edit-link">
-              Open the schedule
+            <Link
+              href={`/staff/schedule?view=day&date=${context.event_date}`}
+              className="edit-link"
+            >
+              See this day on the schedule
             </Link>
           </div>
         </>

@@ -84,6 +84,8 @@ export default function IntakeForm({
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [spaceId, setSpaceId] = useState('');
+  // 172 rooms is too many to scroll. Typing narrows the list.
+  const [spaceSearch, setSpaceSearch] = useState('');
   const [locationFreetext, setLocationFreetext] = useState('');
   const [estimatedAttendance, setEstimatedAttendance] = useState('');
   const [foodSources, setFoodSources] = useState<FoodSource[]>([
@@ -196,6 +198,14 @@ export default function IntakeForm({
     setFurthest(f => Math.max(f, next));
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
+
+  /** Matches on room name and building, so "graham" and "vermeer"
+   *  both find the banquet room. */
+  const matchingSpaces = spaces.filter(s => {
+    if (!spaceSearch.trim()) return true;
+    const q = spaceSearch.toLowerCase();
+    return `${s.name} ${s.building ?? ''}`.toLowerCase().includes(q);
+  });
 
   async function submit() {
     if (!validate(3)) { setStep(3); return; }
@@ -435,30 +445,99 @@ export default function IntakeForm({
               </div>
               <div className="field">
                 <label htmlFor="startTime">Start time<span className="req">*</span></label>
-                <input id="startTime" type="time" value={startTime}
+                {/* step=1800 makes the browser offer half hours, so
+                    nobody has to type ":00" and nobody enters 12:07. */}
+                <input id="startTime" type="time" step={1800} value={startTime}
                   onChange={e => setStartTime(e.target.value)} />
                 {err('startTime')}
               </div>
               <div className="field">
                 <label htmlFor="endTime">End time<span className="req">*</span></label>
-                <input id="endTime" type="time" value={endTime}
+                <input id="endTime" type="time" step={1800} value={endTime}
                   onChange={e => setEndTime(e.target.value)} />
                 {err('endTime')}
               </div>
             </div>
 
             <div className="field">
-              <label htmlFor="spaceId">Location requested<span className="req">*</span></label>
-              <select id="spaceId" value={spaceId} onChange={e => setSpaceId(e.target.value)}>
-                <option value="">Choose a space</option>
-                {spaces.map(s => (
-                  <option value={s.id} key={s.id}>
-                    {s.building ? `${s.building} — ${s.name}` : s.name}
-                    {s.capacity_seated ? ` (seats ${s.capacity_seated})` : ''}
-                  </option>
-                ))}
-                <option value="other">Other / not sure yet</option>
-              </select>
+              <label htmlFor="spaceSearch">Location requested<span className="req">*</span></label>
+              <p className="sub">
+                Start typing to narrow the list, or scroll it.
+              </p>
+              <input
+                id="spaceSearch"
+                type="search"
+                placeholder="Vermeer, Maytag, chapel..."
+                value={spaceSearch}
+                onChange={e => setSpaceSearch(e.target.value)}
+                autoComplete="off"
+              />
+
+              {/* Chosen room shown plainly, so the search box can be
+                  cleared without losing what was picked. */}
+              {spaceId && spaceId !== 'other' && (
+                <div className="chosen-space">
+                  <span>
+                    <strong>
+                      {spaces.find(s => s.id === spaceId)?.name}
+                    </strong>
+                    {spaces.find(s => s.id === spaceId)?.building
+                      ? ` — ${spaces.find(s => s.id === spaceId)?.building}`
+                      : ''}
+                  </span>
+                  <button
+                    type="button"
+                    className="edit-link"
+                    onClick={() => { setSpaceId(''); setSpaceSearch(''); }}
+                  >
+                    Change
+                  </button>
+                </div>
+              )}
+
+              {(!spaceId || spaceId === 'other') && (
+                <ul className="space-options">
+                  {matchingSpaces.length === 0 && (
+                    <li className="space-none">
+                      Nothing matches &ldquo;{spaceSearch}&rdquo;.
+                    </li>
+                  )}
+                  {matchingSpaces.slice(0, 40).map(s => (
+                    <li key={s.id}>
+                      <button
+                        type="button"
+                        className="space-option"
+                        onClick={() => { setSpaceId(s.id); setSpaceSearch(''); }}
+                      >
+                        <span className="space-option-name">{s.name}</span>
+                        <span className="space-option-meta">
+                          {s.building}
+                          {s.capacity_seated ? ` \u00b7 seats ${s.capacity_seated}` : ''}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                  {matchingSpaces.length > 40 && (
+                    <li className="space-none">
+                      {matchingSpaces.length - 40} more. Keep typing to narrow it.
+                    </li>
+                  )}
+                  <li>
+                    <button
+                      type="button"
+                      className={`space-option other${spaceId === 'other' ? ' picked' : ''}`}
+                      onClick={() => setSpaceId('other')}
+                    >
+                      <span className="space-option-name">
+                        Other, or not sure yet
+                      </span>
+                      <span className="space-option-meta">
+                        Describe it and we will suggest something
+                      </span>
+                    </button>
+                  </li>
+                </ul>
+              )}
               {err('spaceId')}
               {spaceId === 'other' && (
                 <div className="conditional on">

@@ -2545,3 +2545,76 @@ label.chk input{margin-top:.2rem}
   .sheet-choice-label{font-size:7.5pt}
   .sheet-extras{display:none}
 }
+/* Append these to the end of src/app/globals.css */
+
+/* ---------- searchable room list ---------- */
+.space-options{
+  list-style:none;margin:.5rem 0 0;padding:0;
+  border:1px solid var(--rule);border-radius:3px;
+  max-height:16rem;overflow-y:auto;background:var(--surface);
+}
+.space-options li{border-bottom:1px solid var(--rule)}
+.space-options li:last-child{border-bottom:0}
+
+.space-option{
+  display:block;width:100%;text-align:left;background:none;border:0;
+  padding:.55rem .8rem;cursor:pointer;font:inherit;
+}
+.space-option:hover{background:var(--paper)}
+.space-option-name{display:block;font-size:.9rem}
+.space-option-meta{display:block;font-size:.75rem;color:var(--slate)}
+.space-option.other{background:var(--paper)}
+.space-option.other.picked{
+  background:var(--crimson-soft);
+  box-shadow:inset 3px 0 0 var(--crimson);
+}
+
+.space-none{
+  padding:.6rem .8rem;font-size:.83rem;color:var(--mute);
+}
+
+.chosen-space{
+  display:flex;justify-content:space-between;align-items:center;
+  gap:1rem;margin-top:.5rem;padding:.6rem .8rem;
+  background:var(--paper);border:1px solid var(--rule);border-radius:3px;
+  font-size:.9rem;
+}
+
+/* ---------- optional field marker ---------- */
+.optional{
+  margin-left:.4rem;font-size:.68rem;text-transform:uppercase;
+  letter-spacing:.08em;color:var(--mute);font-weight:400;
+}
+/* Append these to the end of src/app/globals.css */
+
+/* ---------- same-day bookings, now openable ---------- */
+.cap-sameday summary{
+  display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;
+}
+.sameday-flag{
+  font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;
+  background:var(--crimson-soft);color:var(--crimson);
+  border-radius:2rem;padding:.1rem .55rem;font-weight:500;
+}
+
+.cap-sameday li{
+  display:flex;justify-content:space-between;align-items:flex-start;
+  gap:1rem;padding:.55rem .6rem;border-bottom:1px solid var(--rule);
+}
+.cap-sameday li:last-of-type{border-bottom:0}
+
+/* The room this event wants is the one that matters most. */
+.cap-sameday li.same-space{
+  background:var(--crimson-soft);
+  box-shadow:inset 3px 0 0 var(--crimson);
+  border-radius:2px;
+}
+
+.sameday-link{
+  text-decoration:none;color:inherit;flex:1;min-width:0;
+}
+.sameday-link:hover strong{color:var(--crimson);text-decoration:underline}
+
+.sameday-right{
+  display:flex;align-items:center;gap:.6rem;flex:none;
+}
