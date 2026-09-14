@@ -32,6 +32,15 @@ const Body = z.object({
       z.object({
         menuItemId: z.string().uuid(),
         quantity: z.number().int().positive().max(10_000),
+        choices: z
+          .array(
+            z.object({
+              optionId: z.string().uuid(),
+              quantity: z.number().int().positive().max(10_000).nullable(),
+            })
+          )
+          .max(40)
+          .optional(),
       })
     )
     .max(100),
@@ -65,17 +74,23 @@ export async function POST(req: NextRequest) {
       const { rows } = await c.query(
         `INSERT INTO event_requests (
            requester_id, requester_name, department_org, contact_email,
-           contact_phone, event_name, event_purpose, event_date,
-           start_time, end_time, space_id, location_freetext,
+           contact_phone, event_name, event_purpose, event_type_other,
+           event_date, start_time, end_time, space_id, location_freetext,
            estimated_attendance, status, submitted_at, submitted_via
-         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,
                    'submitted', now(), 'external_order')
          RETURNING id, reference_code`,
         [
           user.id, user.full_name,
           b.organization || 'Private individual',
           user.email, b.contactPhone,
-          b.eventName, b.eventPurpose, b.eventDate,
+          b.eventName, b.eventPurpose,
+          // The ordering page does not ask for an event type: an
+          // outside customer cannot reasonably answer the
+          // classification matrix. Recording that plainly beats
+          // guessing a type nobody chose.
+          'Not asked - placed through the public ordering page',
+          b.eventDate,
           b.startTime, b.endTime, b.spaceId, b.locationFreetext,
           b.guests,
         ]
@@ -138,13 +153,42 @@ export async function POST(req: NextRequest) {
         );
         if (!price[0]) continue;
 
-        await c.query(
+        // Options that cost extra are part of the per-person price, so
+        // the line total is right without a separate charge to
+        // reconcile later.
+        let unitPrice = Number(price[0].unit_price);
+        if (s.choices?.length) {
+          const { rows: deltas } = await c.query(
+            `SELECT coalesce(sum(price_delta), 0) AS d
+               FROM menu_choice_options
+              WHERE id = ANY($1::uuid[])`,
+            [s.choices.map((ch) => ch.optionId)]
+          );
+          unitPrice += Number(deltas[0]?.d ?? 0);
+        }
+
+        const { rows: selRows } = await c.query(
           `INSERT INTO request_menu_selections
              (request_id, menu_item_id, quantity, unit_price_quoted,
               quoted_before_classification)
-           VALUES ($1,$2,$3,$4,true)`,
-          [r.id, s.menuItemId, s.quantity, price[0].unit_price]
+           VALUES ($1,$2,$3,$4,true)
+           RETURNING id`,
+          [r.id, s.menuItemId, s.quantity, unitPrice]
         );
+
+        for (const ch of s.choices ?? []) {
+          // The option must belong to a group on this very item,
+          // checked in the insert rather than trusted.
+          await c.query(
+            `INSERT INTO selection_choices (selection_id, option_id, quantity)
+             SELECT $1, o.id, $3
+               FROM menu_choice_options o
+               JOIN menu_choice_groups g ON g.id = o.group_id
+              WHERE o.id = $2 AND g.menu_item_id = $4
+             ON CONFLICT DO NOTHING`,
+            [selRows[0].id, ch.optionId, ch.quantity, s.menuItemId]
+          );
+        }
       }
 
       await c.query(
@@ -177,7 +221,15 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error('order failed:', err);
     return NextResponse.json(
-      { error: 'Could not place your order. Please call us on 641.628.5788.' },
+      {
+        error: 'Could not place your order. Please call us on 641.628.5788.',
+        // Only in development. A customer gets the phone number; a
+        // developer gets something they can act on.
+        detail:
+          process.env.NODE_ENV === 'development' && err instanceof Error
+            ? err.message
+            : undefined,
+      },
       { status: 500 }
     );
   }

@@ -6,9 +6,13 @@ import { getSessionUser } from '@/lib/auth';
 /**
  * Saving menu selections and the choices within them.
  *
- * Choices are validated against the group's own rules in SQL rather
- * than trusted from the form: min and max are enforced here, so a
- * tampered request cannot order a buffet with six entrées.
+ * Choices are validated against each group's own rules in SQL rather
+ * than trusted from the form, so a tampered request cannot order a
+ * buffet with six entrees.
+ *
+ * Add-ons are stored at the external rate and scaled to the tier
+ * here, so a dollar of guacamole costs an internal department thirty
+ * cents - the same discount as the food it sits on.
  */
 
 const Choice = z.object({
@@ -107,7 +111,14 @@ export async function POST(req: NextRequest) {
         throw new Error('No price tier for this classification');
       }
 
-      // Selections are replaced wholesale; the choices cascade.
+      // The same multiplier the menu prices use, so an add-on is
+      // discounted like everything else on the order.
+      const { rows: multRows } = await c.query(
+        'SELECT tier_multiplier($1::financial_path) AS m',
+        [path]
+      );
+      const multiplier = Number(multRows[0]?.m ?? 1);
+
       await c.query('DELETE FROM request_menu_selections WHERE request_id = $1', [
         requestId,
       ]);
@@ -123,8 +134,6 @@ export async function POST(req: NextRequest) {
         );
         if (!priceRows[0]) continue;
 
-        // Options that cost extra are added to the unit price, so the
-        // line total is right without a separate charge to reconcile.
         let unitPrice = Number(priceRows[0].unit_price);
         if (s.choices?.length) {
           const { rows: deltas } = await c.query(
@@ -133,7 +142,7 @@ export async function POST(req: NextRequest) {
               WHERE id = ANY($1::uuid[])`,
             [s.choices.map((ch) => ch.optionId)]
           );
-          unitPrice += Number(deltas[0]?.d ?? 0);
+          unitPrice += Number(deltas[0]?.d ?? 0) * multiplier;
         }
 
         const { rows: selRows } = await c.query(
@@ -141,14 +150,17 @@ export async function POST(req: NextRequest) {
              (request_id, menu_item_id, quantity, unit_price_quoted, notes)
            VALUES ($1, $2, $3, $4, $5)
            RETURNING id`,
-          [requestId, s.menuItemId, s.quantity, unitPrice, s.notes ?? null]
+          [
+            requestId,
+            s.menuItemId,
+            s.quantity,
+            Math.round(unitPrice * 100) / 100,
+            s.notes ?? null,
+          ]
         );
         const selectionId = selRows[0].id;
 
         for (const ch of s.choices ?? []) {
-          // The option must belong to a group on this very item. Checked
-          // in the insert rather than trusted, so a tampered request
-          // cannot attach someone else's options.
           await c.query(
             `INSERT INTO selection_choices (selection_id, option_id, quantity)
              SELECT $1, o.id, $3
@@ -160,7 +172,6 @@ export async function POST(req: NextRequest) {
           );
         }
 
-        // Enforce each group's own minimum once the choices are in.
         const { rows: shortfall } = await c.query(
           `SELECT g.label, g.min_select, count(sc.id) AS chosen
              FROM menu_choice_groups g

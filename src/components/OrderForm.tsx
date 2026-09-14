@@ -4,18 +4,25 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { PublicMenuItem, OrderSpace } from '@/lib/orders';
+import MenuChoices, { type ChoiceValue } from './MenuChoices';
+import type { ChoiceGroup } from '@/lib/choices';
 
 const money = (n: number) =>
   n.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
 
 const STEPS = ['Your event', 'Menu', 'Details', 'Review'];
 
+/** Choices and a section jump, so a 180-item menu is workable. */
 export default function OrderForm({
   menu,
+  choiceGroups,
   spaces,
   defaultName,
 }: {
   menu: PublicMenuItem[];
+  /** Keyed by menu item id. A plain object: a Map does not survive
+   *  the server-to-client boundary. */
+  choiceGroups: Record<string, ChoiceGroup[]>;
   spaces: OrderSpace[];
   defaultName: string;
 }) {
@@ -38,6 +45,7 @@ export default function OrderForm({
   const [guests, setGuests] = useState('');
 
   const [quantities, setQuantities] = useState<Record<string, number>>({});
+  const [choices, setChoices] = useState<Record<string, ChoiceValue[]>>({});
   const [serviceExpectations, setServiceExpectations] = useState('');
   const [roomSetup, setRoomSetup] = useState('');
   const [dietaryRestrictions, setDietaryRestrictions] = useState('');
@@ -54,8 +62,34 @@ export default function OrderForm({
   }, [menu]);
 
   const chosen = menu.filter((m) => (quantities[m.id] ?? 0) > 0);
+
+  /** Options that cost extra are part of the per-person price. */
+  function unitPriceFor(m: PublicMenuItem) {
+    const picked = choices[m.id] ?? [];
+    const groups = choiceGroups[m.id] ?? [];
+    const delta = picked.reduce((sum, v) => {
+      for (const g of groups) {
+        const o = g.options.find((x) => x.id === v.optionId);
+        if (o) return sum + Number(o.price_delta);
+      }
+      return sum;
+    }, 0);
+    return Number(m.unit_price) + delta;
+  }
+
+  /** Items where a required choice is still outstanding. */
+  const incomplete = chosen.filter((m) => {
+    const groups = choiceGroups[m.id] ?? [];
+    const picked = choices[m.id] ?? [];
+    return groups.some((g) => {
+      const inGroup = picked.filter((v) =>
+        g.options.some((o) => o.id === v.optionId)
+      );
+      return inGroup.length < g.min_select;
+    });
+  });
   const menuTotal = chosen.reduce(
-    (s, m) => s + Number(m.unit_price) * quantities[m.id],
+    (s, m) => s + unitPriceFor(m) * quantities[m.id],
     0
   );
 
@@ -122,6 +156,10 @@ export default function OrderForm({
           locationFreetext: spaceId === 'other' ? locationFreetext : null,
           guests: Number(guests),
           selections: chosen.map((m) => ({
+            choices: (choices[m.id] ?? []).map((v) => ({
+              optionId: v.optionId,
+              quantity: v.quantity,
+            })),
             menuItemId: m.id,
             quantity: quantities[m.id],
           })),
@@ -322,13 +360,39 @@ export default function OrderForm({
               person, so a count matching your guest number is usually right.
             </p>
 
+            {/* Seventeen sections is too many to scroll past. */}
+            <nav className="menu-jump" aria-label="Jump to a section">
+              {grouped.map(([category]) => (
+                <a
+                  href={`#order-${category.replace(/\s+/g, '-').toLowerCase()}`}
+                  key={category}
+                >
+                  {category}
+                  {chosen.some((m) => m.category === category) && (
+                    <span className="jump-dot" aria-label="has items" />
+                  )}
+                </a>
+              ))}
+            </nav>
+
             {grouped.map(([category, items]) => (
-              <div className="menu-group" key={category}>
+              <div
+                className="menu-group"
+                key={category}
+                id={`order-${category.replace(/\s+/g, '-').toLowerCase()}`}
+              >
                 <h3>{category}</h3>
                 {items.map((m) => {
                   const qty = quantities[m.id] ?? 0;
                   return (
-                    <div className={`menu-row ${qty > 0 ? 'chosen' : ''}`} key={m.id}>
+                    <div
+                      className={`menu-row ${qty > 0 ? 'chosen' : ''}${
+                        qty > 0 && (choiceGroups[m.id]?.length ?? 0) > 0
+                          ? ' has-choices'
+                          : ''
+                      }`}
+                      key={m.id}
+                    >
                       <div className="menu-info">
                         <div className="menu-name">{m.name}</div>
                         {m.description && (
@@ -350,15 +414,39 @@ export default function OrderForm({
                           value={qty || ''} placeholder="0"
                           onChange={(e) => setQty(m.id, Number(e.target.value))} />
                       </div>
+
+                      {/* Choices appear once something is ordered.
+                          On every row they would make the menu
+                          unreadable. */}
+                      {qty > 0 && (choiceGroups[m.id]?.length ?? 0) > 0 && (
+                        <MenuChoices
+                          groups={choiceGroups[m.id]}
+                          values={choices[m.id] ?? []}
+                          onChange={(next) =>
+                            setChoices((c) => ({ ...c, [m.id]: next }))
+                          }
+                        />
+                      )}
                     </div>
                   );
                 })}
               </div>
             ))}
 
+            {incomplete.length > 0 && (
+              <div className="callout c-warn">
+                <strong>A few choices still to make</strong>
+                {incomplete.map((m) => m.name).join(', ')}.
+              </div>
+            )}
+
             <div className="actions">
               <button className="btn btn-ghost" onClick={() => go(0)}>Back</button>
-              <button className="btn btn-primary" onClick={() => go(2)}>
+              <button
+                className="btn btn-primary"
+                onClick={() => go(2)}
+                disabled={incomplete.length > 0}
+              >
                 Continue
               </button>
             </div>
@@ -453,7 +541,7 @@ export default function OrderForm({
                   {chosen.map((m) => (
                     <div key={m.id} style={{ display: 'contents' }}>
                       <dt>{m.name} &times;{quantities[m.id]}</dt>
-                      <dd>{money(Number(m.unit_price) * quantities[m.id])}</dd>
+                      <dd>{money(unitPriceFor(m) * quantities[m.id])}</dd>
                     </div>
                   ))}
                 </dl>
@@ -490,7 +578,7 @@ export default function OrderForm({
                         {' \u00d7'}{quantities[m.id]}
                       </span>
                     </span>
-                    <span>{money(Number(m.unit_price) * quantities[m.id])}</span>
+                    <span>{money(unitPriceFor(m) * quantities[m.id])}</span>
                   </li>
                 ))}
                 {facility > 0 && space && (

@@ -2618,3 +2618,10 @@ label.chk input{margin-top:.2rem}
 .sameday-right{
   display:flex;align-items:center;gap:.6rem;flex:none;
 }
+/* Append these to the end of src/app/globals.css */
+
+/* ---------- section jump on the ordering menu ---------- */
+.menu-jump .jump-dot{
+  display:inline-block;width:5px;height:5px;border-radius:50%;
+  background:var(--crimson);margin-left:.3rem;vertical-align:.35em;
+}
