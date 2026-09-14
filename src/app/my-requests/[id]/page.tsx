@@ -26,7 +26,7 @@ const STATUS_NOTE: Record<string, string> = {
   classified:
     'Your event has been classified. Please review and confirm below.',
   details_pending:
-    'Next, confirm the details of your event.',
+    'Next, choose your menu and confirm the details of your event.',
   pending_final_review:
     'Your details are with the events office for a final check. You will hear back shortly.',
   confirmed: 'Your event is confirmed on the campus schedule.',
@@ -54,8 +54,9 @@ export default async function MyRequestPage({
       getPayments(id),
       getPaymentConfig(),
       getCapacityState(id),
-      one<{ has_central: boolean; keeps_room: boolean }>(
+     one<{ has_central: boolean; keeps_room: boolean; stage: string }>(
         `SELECT has_central_dining($1) AS has_central,
+                details_stage($1) AS stage,
                 (SELECT keeps_room_after_decline
                    FROM event_requests WHERE id = $1) AS keeps_room`,
         [id]
@@ -152,6 +153,7 @@ export default async function MyRequestPage({
               acknowledged={!!request.acknowledged_at}
               requestId={id}
               hasCentral={hasCentral}
+              stage={central?.stage ?? 'waiting'}
             />
 
             <RequestLayouts requestId={id} isStaff={false} />

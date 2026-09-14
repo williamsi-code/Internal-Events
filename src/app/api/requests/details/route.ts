@@ -23,6 +23,9 @@ const Choice = z.object({
 const Body = z.object({
   requestId: z.string().uuid(),
   confirm: z.boolean(),
+  // Confirming the menu settles the food; confirming the details
+  // sends the whole thing for final review.
+  stage: z.enum(['menu', 'details']).default('details'),
   policyAcknowledged: z.boolean().optional(),
   selections: z
     .array(
@@ -54,7 +57,7 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ error: 'Check your selections.' }, { status: 400 });
   }
-  const { requestId, confirm, selections, requirements, policyAcknowledged } =
+  const { requestId, confirm, stage, selections, requirements, policyAcknowledged } =
     parsed.data;
 
   const owned = await one<{
@@ -184,7 +187,7 @@ export async function POST(req: NextRequest) {
           [selectionId, s.menuItemId]
         );
 
-        if (confirm && shortfall.length > 0) {
+        if (confirm && stage === 'menu' && shortfall.length > 0) {
           const { rows: itemRows } = await c.query(
             'SELECT name FROM menu_items WHERE id = $1',
             [s.menuItemId]
@@ -226,10 +229,24 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      if (confirm) {
+      if (confirm && stage === 'menu') {
+        // The food is settled. The event is not ready for review until
+        // the setup is done too, so the status does not move.
+        await c.query(
+          `UPDATE event_requests
+              SET menu_confirmed_at = now(), menu_confirmed_by = $2,
+                  updated_at = now()
+            WHERE id = $1`,
+          [requestId, user.id]
+        );
+      }
+
+      if (confirm && stage === 'details') {
         await c.query(
           `UPDATE event_requests
               SET details_confirmed_at = now(), details_confirmed_by = $2,
+                  menu_confirmed_at = coalesce(menu_confirmed_at, now()),
+                  menu_confirmed_by = coalesce(menu_confirmed_by, $2),
                   status = 'pending_final_review', updated_at = now()
             WHERE id = $1`,
           [requestId, user.id]

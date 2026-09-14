@@ -22,6 +22,7 @@ export default function DetailsForm({
   facility,
   choiceGroups,
   existingChoices,
+  stage,
 }: {
   requestId: string;
   state: DetailsState;
@@ -33,8 +34,12 @@ export default function DetailsForm({
    *  a Map does not survive the server-to-client boundary. */
   choiceGroups: Record<string, ChoiceGroup[]>;
   existingChoices: Record<string, ChoiceValue[]>;
+  /** The menu and the setup are two conversations, often on two
+   *  different days. One component, two pages. */
+  stage: 'menu' | 'details';
 }) {
   const router = useRouter();
+  const onMenu = stage === 'menu';
 
   const hasCentral = foodSources.some((f) => f.kind === 'central_dining');
   const outsideSources = foodSources.filter(
@@ -144,12 +149,13 @@ export default function DetailsForm({
     }
   }
 
-  const canConfirm =
-    (!hasCentral || chosen.length > 0) &&
-    incomplete.length === 0 &&
-    (outsideSources.length === 0 || policyAck);
+  const canConfirm = onMenu
+    ? chosen.length > 0 && incomplete.length === 0
+    : outsideSources.length === 0 || policyAck;
 
   async function submit(confirm: boolean) {
+    // On the menu step, confirming settles the food and moves on. The
+    // event is not ready for final review until the setup is done too.
     setBusy(true);
     setError('');
     try {
@@ -159,6 +165,7 @@ export default function DetailsForm({
         body: JSON.stringify({
           requestId,
           confirm,
+          stage,
           policyAcknowledged: policyAck,
           selections: chosen.map((m) => ({
             menuItemId: m.id,
@@ -182,6 +189,10 @@ export default function DetailsForm({
         const d = await res.json();
         setError(d.error ?? 'Could not save.');
         setBusy(false);
+        return;
+      }
+      if (confirm && onMenu) {
+        router.push(`/my-requests/${requestId}/details`);
         return;
       }
       setSaved(true);
@@ -224,7 +235,13 @@ export default function DetailsForm({
         </div>
 
         {hasCentral && (
-          <div className="card" style={{ marginTop: '1rem' }}>
+          <div
+            className="card"
+            style={{
+              marginTop: '1rem',
+              display: onMenu ? undefined : 'none',
+            }}
+          >
             <span className="eyebrow">Menu</span>
             <h2>Choose your menu</h2>
             <p className="hint">
@@ -347,7 +364,13 @@ export default function DetailsForm({
         )}
 
         {outsideSources.length > 0 && (
-          <div className="card" style={{ marginTop: '1rem' }}>
+          <div
+            className="card"
+            style={{
+              marginTop: '1rem',
+              display: onMenu ? 'none' : undefined,
+            }}
+          >
             <span className="eyebrow">Requirements</span>
             <h2>Food brought onto campus</h2>
             <p className="hint">
@@ -395,7 +418,10 @@ export default function DetailsForm({
           </div>
         )}
 
-        <div className="card" style={{ marginTop: '1rem' }}>
+        <div
+          className="card"
+          style={{ marginTop: '1rem', display: onMenu ? 'none' : undefined }}
+        >
           <span className="eyebrow">Setup</span>
           <h2>Final details</h2>
           <p className="hint">
@@ -579,6 +605,17 @@ export default function DetailsForm({
           {!locked && (
             <>
               <div className="actions" style={{ marginTop: '1rem' }}>
+                {!onMenu && hasCentral && (
+                  <button
+                    className="btn btn-ghost"
+                    onClick={() =>
+                      router.push(`/my-requests/${requestId}/menu`)
+                    }
+                    disabled={busy}
+                  >
+                    Back to the menu
+                  </button>
+                )}
                 <button
                   className="btn btn-ghost"
                   onClick={() => submit(false)}
@@ -591,13 +628,17 @@ export default function DetailsForm({
                   onClick={() => submit(true)}
                   disabled={busy || !canConfirm}
                 >
-                  {busy ? 'Saving...' : 'Confirm details'}
+                  {busy
+                    ? 'Saving...'
+                    : onMenu
+                      ? 'Confirm menu and continue'
+                      : 'Confirm details'}
                 </button>
               </div>
               {!canConfirm && (
                 <p className="sub" style={{ marginTop: '.6rem' }}>
-                  {hasCentral && chosen.length === 0
-                    ? 'Choose at least one menu item before confirming.'
+                  {onMenu && chosen.length === 0
+                    ? 'Choose at least one menu item before continuing.'
                     : incomplete.length > 0
                       ? `Still to choose: ${incomplete
                           .map((m) => m.name)
@@ -606,6 +647,13 @@ export default function DetailsForm({
                 </p>
               )}
             </>
+          )}
+
+          {onMenu && (
+            <p className="sub" style={{ marginTop: '.8rem' }}>
+              Next you will tell us how the room should be set up. You can come
+              back and change the menu until the events office reviews it.
+            </p>
           )}
 
           <p className="disclaimer">

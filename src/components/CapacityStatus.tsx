@@ -2,10 +2,11 @@ import Link from 'next/link';
 import type { CapacityState } from '@/lib/capacity-state';
 
 /**
- * Where an event stands on capacity, for the requester.
+ * Where an event stands, for the requester.
  *
- * The next step waits on this, so the requester needs to know it
- * exists rather than wondering why nothing has appeared.
+ * Once availability is confirmed this is the way into whichever step
+ * is next, so it has to name that step rather than saying "details"
+ * and leaving them to find out.
  */
 
 export default function CapacityStatus({
@@ -13,37 +14,69 @@ export default function CapacityStatus({
   acknowledged,
   requestId,
   hasCentral,
+  stage,
 }: {
   state: CapacityState | null;
   acknowledged: boolean;
   requestId: string;
   hasCentral: boolean;
+  /** waiting, menu, details or done. */
+  stage: string;
 }) {
   if (!acknowledged) return null;
   if (state?.outcome === 'alternative_offered' && !state.response) return null;
 
   if (state?.outcome === 'proceed') {
+    if (stage === 'done') {
+      return (
+        <div className="sec">
+          <div className="sec-head">
+            <h3>Your details are with us</h3>
+          </div>
+          <div className="callout c-default">
+            <strong>Nothing more to do for now</strong>
+            The events office is giving everything a final check. You will hear
+            back shortly.
+          </div>
+        </div>
+      );
+    }
+
+    const onMenu = stage === 'menu';
+
     return (
       <div className="sec">
         <div className="sec-head">
-          <h3>Availability confirmed</h3>
+          <h3>{onMenu ? 'Time to choose your menu' : 'Almost there'}</h3>
         </div>
         <div className="callout c-default">
           <strong>We can do this</strong>
-          {hasCentral
-            ? 'The room, the kitchen and the staffing all work. Next, choose your menu and tell us how the room should be set up.'
-            : 'The room and the staffing work. Next, check the details of your event and confirm them.'}
+          {onMenu
+            ? 'The room, the kitchen and the staffing all work. Choose what you would like to serve, and the room setup comes after.'
+            : hasCentral
+              ? 'Your menu is settled. Now tell us how the room should be arranged.'
+              : 'The room and the staffing work. Check the details of your event and confirm them.'}
         </div>
         <div className="actions">
           <Link
-            href={`/my-requests/${requestId}/details`}
+            href={`/my-requests/${requestId}/${onMenu ? 'menu' : 'details'}`}
             className="btn btn-primary"
             style={{ textDecoration: 'none' }}
           >
-            {hasCentral
-              ? 'Choose your menu and details'
-              : 'Check your event details'}
+            {onMenu
+              ? 'Choose your menu'
+              : hasCentral
+                ? 'Set up the room'
+                : 'Check your event details'}
           </Link>
+          {!onMenu && hasCentral && (
+            <Link
+              href={`/my-requests/${requestId}/menu`}
+              className="edit-link"
+            >
+              Change the menu
+            </Link>
+          )}
         </div>
       </div>
     );
