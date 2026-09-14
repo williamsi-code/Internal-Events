@@ -11,6 +11,7 @@ import {
 import { getFoodSources, getFacilityCharge } from '@/lib/food-sources';
 import { getCapacityState, isReadyForDetails } from '@/lib/capacity-state';
 import { getChoiceGroups, getSavedChoices } from '@/lib/choices';
+import { one } from '@/lib/db';
 
 export const metadata = { title: 'Event details' };
 export const dynamic = 'force-dynamic';
@@ -28,10 +29,15 @@ export default async function DetailsPage({
   const state = await getDetailsState(id, user.id);
   if (!state) notFound();
 
-  const [ready, capacity] = await Promise.all([
+  const [ready, capacity, central] = await Promise.all([
     isReadyForDetails(id),
     getCapacityState(id),
+    one<{ has_central: boolean }>('SELECT has_central_dining($1) AS has_central', [
+      id,
+    ]),
   ]);
+
+  const hasCentral = central?.has_central ?? true;
 
   // Three things have to be true before a menu means anything: the
   // event is classified, the requester has acknowledged that, and
@@ -116,10 +122,11 @@ export default async function DetailsPage({
             &larr; Back to this request
           </Link>
           <div className="pagehead" style={{ padding: '0 0 1.5rem' }}>
-            <h1>Event details</h1>
+            <h1>{hasCentral ? 'Choose your menu' : 'Check your event details'}</h1>
             <p className="lede">
-              Availability is confirmed, so we know we can do this. Choose your
-              menu and tell us how the room should be set up.
+              {hasCentral
+                ? 'Availability is confirmed, so we know we can do this. Choose your menu and tell us how the room should be set up.'
+                : 'Availability is confirmed. Check the details below are right and confirm them \u2014 there is no menu to choose, since Central is not providing the food.'}
             </p>
           </div>
 

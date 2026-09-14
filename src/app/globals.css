@@ -2625,3 +2625,41 @@ label.chk input{margin-top:.2rem}
   display:inline-block;width:5px;height:5px;border-radius:50%;
   background:var(--crimson);margin-left:.3rem;vertical-align:.35em;
 }
+/* Append these to the end of src/app/globals.css */
+
+/* ---------- start something new ---------- */
+.start-bar{
+  display:flex;justify-content:space-between;align-items:center;
+  gap:1rem;flex-wrap:wrap;margin-bottom:1.5rem;
+  padding:.9rem 1.1rem;background:var(--paper);
+  border:1px solid var(--rule);border-radius:3px;
+}
+.start-bar-label{
+  font-size:.75rem;text-transform:uppercase;letter-spacing:.11em;
+  color:var(--slate);font-weight:500;
+}
+.start-bar-actions{display:flex;gap:.5rem;flex-wrap:wrap}
+.start-bar-actions .btn{
+  text-decoration:none;padding:.45rem 1rem;font-size:.87rem;
+}
+/* Append these to the end of src/app/globals.css.
+
+   The .menu-jump rules were written for the public menu page; these
+   adapt them for the ordering forms, where the nav sits inside a card
+   rather than at the top of the page. */
+
+.menu-shell .menu-jump{top:0}
+
+.card .menu-jump,
+.order-step .menu-jump{
+  position:sticky;top:0;z-index:5;
+  background:var(--surface);
+  margin:0 0 1.25rem;padding:.7rem 0;
+  border-bottom:1px solid var(--rule);
+  display:flex;flex-wrap:wrap;gap:.25rem .85rem;
+}
+
+.menu-jump .jump-dot{
+  display:inline-block;width:5px;height:5px;border-radius:50%;
+  background:var(--crimson);margin-left:.3rem;vertical-align:.35em;
+}

@@ -11,6 +11,7 @@ import { getSessionUser } from '@/lib/auth';
 import { getMyRequest, getVisibleMessages } from '@/lib/requests';
 import { getPayments, getPaymentConfig } from '@/lib/payments';
 import { getCapacityState } from '@/lib/capacity-state';
+import { one } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,7 +24,7 @@ const STATUS_NOTE: Record<string, string> = {
   classified:
     'Your event has been classified. Please review and confirm below.',
   details_pending:
-    'Next, choose your menu and confirm how the room should be set up.',
+    'Next, confirm the details of your event.',
   pending_final_review:
     'Your details are with the events office for a final check. You will hear back shortly.',
   confirmed: 'Your event is confirmed on the campus schedule.',
@@ -45,16 +46,25 @@ export default async function MyRequestPage({
   const request = await getMyRequest(id, user.id);
   if (!request) notFound();
 
-  const [messages, payments, payConfig, capacity] = await Promise.all([
+  const [messages, payments, payConfig, capacity, central] = await Promise.all([
     getVisibleMessages(id),
     getPayments(id),
     getPaymentConfig(),
     getCapacityState(id),
+    one<{ has_central: boolean }>('SELECT has_central_dining($1) AS has_central', [
+      id,
+    ]),
   ]);
 
+  const hasCentral = central?.has_central ?? true;
   const eventDate = new Date(request.event_date + 'T00:00:00');
 
+  // A guest count exists so the kitchen can produce the right amount
+  // of food. Without catering there is nothing to produce, so asking
+  // is busywork - and the deadline it carries is a deadline about
+  // nothing.
   const showHeadcount =
+    hasCentral &&
     ['confirmed', 'pending_final_review'].includes(request.status) &&
     eventDate.getTime() >= Date.now() - 86_400_000;
 
@@ -129,6 +139,7 @@ export default async function MyRequestPage({
               state={capacity}
               acknowledged={!!request.acknowledged_at}
               requestId={id}
+              hasCentral={hasCentral}
             />
 
             <RequestLayouts requestId={id} isStaff={false} />

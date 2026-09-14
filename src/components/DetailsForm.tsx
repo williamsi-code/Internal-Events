@@ -251,8 +251,27 @@ export default function DetailsForm({
               </div>
             )}
 
+            {/* Seventeen sections is too many to scroll past. */}
+            <nav className="menu-jump" aria-label="Jump to a section">
+              {grouped.map(([category]) => (
+                <a
+                  href={`#menu-${category.replace(/\s+/g, '-').toLowerCase()}`}
+                  key={category}
+                >
+                  {category}
+                  {chosen.some((m) => m.category === category) && (
+                    <span className="jump-dot" aria-label="has items" />
+                  )}
+                </a>
+              ))}
+            </nav>
+
             {grouped.map(([category, items]) => (
-              <div className="menu-group" key={category}>
+              <div
+                className="menu-group"
+                key={category}
+                id={`menu-${category.replace(/\s+/g, '-').toLowerCase()}`}
+              >
                 <h3>{category}</h3>
                 {items.map((m) => {
                   const qty = quantities[m.id] ?? 0;

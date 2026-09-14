@@ -53,6 +53,25 @@ export default async function MyRequestsPage() {
         </div>
 
         <div className="shell" style={{ maxWidth: '52rem' }}>
+          {/* Available whether or not anything is here already:
+              someone with six events still needs a seventh. */}
+          {(requests.length > 0 || enquiries.length > 0) && (
+            <div className="start-bar">
+              <span className="start-bar-label">Start something new</span>
+              <div className="start-bar-actions">
+                <Link href="/start" className="btn btn-primary">
+                  Central College event
+                </Link>
+                <Link href="/order" className="btn btn-ghost">
+                  Order catering
+                </Link>
+                <Link href="/enquiry" className="btn btn-ghost">
+                  Ask a question
+                </Link>
+              </div>
+            </div>
+          )}
+
           {requests.length === 0 && enquiries.length === 0 ? (
             <div className="card">
               <h2>Nothing here yet</h2>
@@ -73,6 +92,13 @@ export default async function MyRequestsPage() {
                   style={{ textDecoration: 'none' }}
                 >
                   Order catering
+                </Link>
+                <Link
+                  href="/enquiry"
+                  className="btn btn-ghost"
+                  style={{ textDecoration: 'none' }}
+                >
+                  Ask a question
                 </Link>
               </div>
             </div>
