@@ -2663,3 +2663,35 @@ label.chk input{margin-top:.2rem}
   display:inline-block;width:5px;height:5px;border-radius:50%;
   background:var(--crimson);margin-left:.3rem;vertical-align:.35em;
 }
+/* Append these to the end of src/app/globals.css */
+
+/* ---------- caterer referrals ---------- */
+.referral-picker{
+  display:grid;gap:.5rem;
+  grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
+}
+.referral-option{
+  display:flex;gap:.6rem;align-items:flex-start;
+  padding:.7rem .8rem;border:1px solid var(--rule);
+  border-radius:3px;cursor:pointer;background:var(--surface);
+}
+.referral-option:hover{border-color:var(--mute)}
+.referral-option.picked{
+  border-color:var(--crimson);background:var(--crimson-soft);
+}
+.referral-option input{accent-color:var(--crimson);margin:.15rem 0 0}
+
+.referral-name{display:block;font-weight:500;font-size:.92rem}
+.referral-meta{display:block;font-size:.76rem;color:var(--slate);margin-top:.1rem}
+
+.referral-list{list-style:none;margin:0 0 1rem;padding:0}
+.referral-list li{
+  display:flex;justify-content:space-between;align-items:flex-start;
+  gap:1rem;padding:.7rem 0;border-bottom:1px solid var(--rule);
+}
+.referral-list li:last-child{border-bottom:0}
+
+.referral-contact{
+  display:flex;gap:.9rem;flex-wrap:wrap;margin-top:.35rem;font-size:.83rem;
+}
+.referral-contact a{color:var(--crimson)}

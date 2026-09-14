@@ -7,10 +7,12 @@ import RequesterPayments from '@/components/RequesterPayments';
 import RequestLayouts from '@/components/RequestLayouts';
 import CapacityAlternative from '@/components/CapacityAlternative';
 import CapacityStatus from '@/components/CapacityStatus';
+import RequesterReferrals from '@/components/RequesterReferrals';
 import { getSessionUser } from '@/lib/auth';
 import { getMyRequest, getVisibleMessages } from '@/lib/requests';
 import { getPayments, getPaymentConfig } from '@/lib/payments';
 import { getCapacityState } from '@/lib/capacity-state';
+import { getReferrals } from '@/lib/referrals';
 import { one } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
@@ -46,15 +48,20 @@ export default async function MyRequestPage({
   const request = await getMyRequest(id, user.id);
   if (!request) notFound();
 
-  const [messages, payments, payConfig, capacity, central] = await Promise.all([
-    getVisibleMessages(id),
-    getPayments(id),
-    getPaymentConfig(),
-    getCapacityState(id),
-    one<{ has_central: boolean }>('SELECT has_central_dining($1) AS has_central', [
-      id,
-    ]),
-  ]);
+  const [messages, payments, payConfig, capacity, central, referrals] =
+    await Promise.all([
+      getVisibleMessages(id),
+      getPayments(id),
+      getPaymentConfig(),
+      getCapacityState(id),
+      one<{ has_central: boolean; keeps_room: boolean }>(
+        `SELECT has_central_dining($1) AS has_central,
+                (SELECT keeps_room_after_decline
+                   FROM event_requests WHERE id = $1) AS keeps_room`,
+        [id]
+      ),
+      getReferrals(id),
+    ]);
 
   const hasCentral = central?.has_central ?? true;
   const eventDate = new Date(request.event_date + 'T00:00:00');
@@ -134,6 +141,11 @@ export default async function MyRequestPage({
                 currentSpace={request.space_name ?? null}
               />
             )}
+
+            <RequesterReferrals
+              referrals={referrals}
+              keepsRoom={central?.keeps_room ?? false}
+            />
 
             <CapacityStatus
               state={capacity}

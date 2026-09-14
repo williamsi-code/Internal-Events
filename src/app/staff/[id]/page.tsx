@@ -9,6 +9,7 @@ import FoodSourcePanel from '@/components/FoodSourcePanel';
 import ReopenDetails from '@/components/ReopenDetails';
 import PaymentPanel from '@/components/PaymentPanel';
 import RequestLayouts from '@/components/RequestLayouts';
+import CatererReferral from '@/components/CatererReferral';
 import { getSessionUser } from '@/lib/auth';
 import { getRequest, getMessages } from '@/lib/requests';
 import { changesSinceClassification } from '@/lib/changes';
@@ -20,6 +21,8 @@ import {
 import { getFoodSources, getFacilityCharge } from '@/lib/food-sources';
 import { getDetailsLockState, getMenuHistory } from '@/lib/reopen';
 import { getPayments, getPaymentConfig } from '@/lib/payments';
+import { one } from '@/lib/db';
+import { getReferrals, listReferrableCaterers } from '@/lib/referrals';
 
 export const dynamic = 'force-dynamic';
 
@@ -88,6 +91,23 @@ export default async function RequestDetailPage({
       getPayments(id),
       getPaymentConfig(),
     ]);
+
+  // Suggesting a caterer only makes sense once we have said no. The
+  // decline may sit on the capacity check or on the request itself.
+  const declined =
+    request.status === 'denied' ||
+    capacityContext?.existing_outcome === 'declined';
+
+   const [referrals, referrableCaterers, roomState] = declined
+    ? await Promise.all([
+        getReferrals(id),
+        listReferrableCaterers(),
+        one<{ keeps_room: boolean }>(
+          'SELECT keeps_room_after_decline AS keeps_room FROM event_requests WHERE id = $1',
+          [id]
+        ),
+      ])
+    : [[], [], null];
 
   const eventDate = new Date(request.event_date + 'T00:00:00');
   const days = Math.round((eventDate.getTime() - Date.now()) / 86_400_000);
@@ -279,7 +299,7 @@ export default async function RequestDetailPage({
               facility={facility}
             />
 
-                        <RequestLayouts requestId={id} isStaff />
+            <RequestLayouts requestId={id} isStaff />
 
             <ReopenDetails requestId={id} lock={lock} history={menuHistory} />
 
@@ -296,6 +316,15 @@ export default async function RequestDetailPage({
                 context={capacityContext}
                 sameDay={sameDay}
                 alternatives={altSpaces}
+              />
+            )}
+
+            {declined && (
+              <CatererReferral
+                requestId={id}
+                existing={referrals}
+                caterers={referrableCaterers}
+                keepsRoom={roomState?.keeps_room ?? false}
               />
             )}
 
