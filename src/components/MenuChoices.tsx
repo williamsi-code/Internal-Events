@@ -62,7 +62,7 @@ export default function MenuChoices({
     ]);
   }
 
-  function setQuantity(optionId: string, quantity: number) {
+  function setQuantity(optionId: string, quantity: number | null) {
     onChange(
       values.map((v) => (v.optionId === optionId ? { ...v, quantity } : v))
     );
@@ -137,12 +137,22 @@ export default function MenuChoices({
                       {value && g.quantity_mode === 'per_option' && (
                         <input
                           type="number"
+                          inputMode="numeric"
                           className="choice-qty"
                           min={1}
-                          value={value.quantity ?? 1}
-                          onChange={(e) =>
-                            setQuantity(o.id, Number(e.target.value) || 1)
-                          }
+                          value={value.quantity ?? ''}
+                          placeholder="0"
+                          onChange={(e) => {
+                            // An empty box stays empty while they
+                            // type. Forcing a 1 back makes the field
+                            // impossible to clear, which is worst on
+                            // a phone.
+                            const raw = e.target.value;
+                            setQuantity(o.id, raw === '' ? null : Number(raw));
+                          }}
+                          onBlur={(e) => {
+                            if (e.target.value === '') setQuantity(o.id, 1);
+                          }}
                           aria-label={`How many ${o.label}`}
                         />
                       )}

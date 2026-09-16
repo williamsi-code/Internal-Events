@@ -57,7 +57,7 @@ export default function SetupChecklist({
     }
   }
 
-  function setCount(optionId: string, count: number) {
+  function setCount(optionId: string, count: number | null) {
     onChange(
       values.map((v) => (v.optionId === optionId ? { ...v, count } : v))
     );
@@ -101,12 +101,20 @@ export default function SetupChecklist({
                         <input
                           id={`c-${o.id}`}
                           type="number"
+                          inputMode="numeric"
                           min={1}
                           max={o.max_count ?? undefined}
-                          value={value.count ?? 1}
-                          onChange={(e) =>
-                            setCount(o.id, Number(e.target.value) || 1)
-                          }
+                          value={value.count ?? ''}
+                          placeholder="0"
+                          onChange={(e) => {
+                            // Emptyable while typing; a 1 forced back
+                            // on every keystroke cannot be cleared.
+                            const raw = e.target.value;
+                            setCount(o.id, raw === '' ? null : Number(raw));
+                          }}
+                          onBlur={(e) => {
+                            if (e.target.value === '') setCount(o.id, 1);
+                          }}
                         />
                         {o.max_count && (
                           <span className="setup-max">

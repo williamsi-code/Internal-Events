@@ -68,9 +68,6 @@ export default function DetailsForm({
   const [serviceExpectations, setServiceExpectations] = useState(
     state.service_expectations ?? ''
   );
-  const [roomSetup, setRoomSetup] = useState(state.room_setup ?? '');
-  const [equipment, setEquipment] = useState(state.equipment ?? '');
-  const [technology, setTechnology] = useState(state.technology ?? '');
   const [specialRequests, setSpecialRequests] = useState(
     state.special_requests ?? ''
   );
@@ -189,9 +186,6 @@ export default function DetailsForm({
           })),
           requirements: {
             serviceExpectations,
-            roomSetup,
-            equipment,
-            technology,
             specialRequests,
             dietaryRestrictions,
           },
@@ -474,43 +468,6 @@ export default function DetailsForm({
             </div>
           )}
 
-          <div className="field">
-            <label htmlFor="roomSetup">Room setup</label>
-            <p className="sub">Rounds, theater, classroom, standing.</p>
-            <textarea
-              id="roomSetup"
-              value={roomSetup}
-              disabled={locked}
-              onChange={(e) => {
-                setRoomSetup(e.target.value);
-                setSaved(false);
-              }}
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="equipment">Equipment</label>
-            <textarea
-              id="equipment"
-              value={equipment}
-              disabled={locked}
-              onChange={(e) => {
-                setEquipment(e.target.value);
-                setSaved(false);
-              }}
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="technology">Technology</label>
-            <textarea
-              id="technology"
-              value={technology}
-              disabled={locked}
-              onChange={(e) => {
-                setTechnology(e.target.value);
-                setSaved(false);
-              }}
-            />
-          </div>
           <div className="field">
             <label htmlFor="dietaryRestrictions">
               Dietary restrictions or allergies

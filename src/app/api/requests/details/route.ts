@@ -48,11 +48,13 @@ const Body = z.object({
     .max(100),
   requirements: z.object({
     serviceExpectations: z.string().max(4000).optional(),
+    specialRequests: z.string().max(4000).optional(),
+    dietaryRestrictions: z.string().max(4000).optional(),
+    // Setup, equipment and technology are the checklist now. The
+    // columns remain for events submitted before September 2026.
     roomSetup: z.string().max(4000).optional(),
     equipment: z.string().max(4000).optional(),
     technology: z.string().max(4000).optional(),
-    specialRequests: z.string().max(4000).optional(),
-    dietaryRestrictions: z.string().max(4000).optional(),
   }),
 });
 

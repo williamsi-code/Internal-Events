@@ -2816,3 +2816,91 @@ label.chk input{margin-top:.2rem}
   border:0;border-top:1px solid var(--rule);
   margin:1.5rem 0;
 }
+/* Append these to the end of src/app/globals.css.
+
+   These come after the earlier .choice-* and .setup-* rules, so they
+   override them. Nothing above needs deleting. */
+
+/* ============================================================
+   Choices and checklists on a narrow screen
+   The label, the checkbox and the quantity box were competing for
+   the same row and losing.
+   ============================================================ */
+
+.choice-checks{
+  grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+  gap:.2rem;
+}
+
+.choice-check{
+  align-items:center;
+  gap:.6rem;
+  padding:.3rem 0;
+  min-width:0;
+}
+.choice-check label{
+  align-items:center;
+  line-height:1.35;
+  min-width:0;
+}
+.choice-check label span{min-width:0;overflow-wrap:anywhere}
+
+.choice-qty{
+  width:4.2rem;
+  flex:none;
+  text-align:center;
+  font-variant-numeric:tabular-nums;
+}
+
+.setup-option{align-items:center;gap:.6rem}
+.setup-count input{
+  width:4.2rem;text-align:center;
+  font-variant-numeric:tabular-nums;
+}
+
+@media(max-width:640px){
+  /* One option per row: two columns of long labels on a phone
+     produces two words per line. */
+  .choice-checks,
+  .setup-options{grid-template-columns:1fr}
+
+  .choice-check,
+  .setup-option{
+    display:grid;
+    grid-template-columns:1fr auto;
+    align-items:center;
+    column-gap:.6rem;
+  }
+
+  .choice-check label,
+  .setup-option label{grid-column:1}
+  .choice-qty,
+  .setup-count{grid-column:2;justify-self:end}
+
+  /* A tap target under 44px is a missed tap. */
+  .choice-check input[type=checkbox],
+  .choice-radio input,
+  .setup-option input[type=checkbox]{
+    width:1.15rem;height:1.15rem;
+  }
+  .choice-check label,
+  .setup-option label{padding:.35rem 0}
+
+  .choice-qty,
+  .setup-count input{
+    width:4.6rem;
+    /* 16px stops iOS zooming the page when the field is focused. */
+    font-size:16px;
+    padding:.4rem;
+  }
+
+  .choice-radios{flex-direction:column;gap:.2rem}
+  .choice-radio{padding:.35rem 0}
+
+  .choice-groups{padding-left:.75rem}
+}
+
+/* The running count reads as a sentence, so it needs room. */
+.choice-count{
+  margin-top:.5rem;line-height:1.4;
+}
