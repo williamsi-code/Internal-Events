@@ -29,12 +29,12 @@ export default async function SchedulePage({
 
   const canEdit =
     user.roles.includes('events_staff') || user.roles.includes('admin');
-  const canView = canEdit || user.roles.includes('schedule_viewer');
+  const isViewer = user.roles.includes('schedule_viewer');
 
-  // Security and facilities need to know what is happening in the
-  // buildings. They do not need the queue, the menu, or anyone's
-  // budget account.
-  if (!canView) redirect('/');
+  // Anyone signed in can see the schedule and ask for a room. Staff
+  // can change bookings; security and facilities can only look;
+  // everyone else can look and book.
+  const canBook = !isViewer;
 
   const sp = await searchParams;
   const view: View = ['day', 'week', 'month'].includes(sp.view ?? '')
@@ -79,15 +79,17 @@ export default async function SchedulePage({
           <p className="lede">
             {canEdit
               ? 'Meeting venues by default. An event appears here tentatively once the requester confirms their classification, and becomes solid after final review.'
-              : 'What is happening in the buildings. Meeting venues by default; other spaces are in the dropdown.'}
+              : canBook
+                ? 'Meeting venues by default. Click an empty slot to book a room; anything involving food goes through an event request.'
+                : 'What is happening in the buildings. Meeting venues by default; other spaces are in the dropdown.'}
           </p>
         </div>
         <div className="shell" style={{ maxWidth: '84rem' }}>
           {!canEdit && (
             <p className="viewer-note">
-              You have view access to the schedule. Times shown include setup
-              and teardown, so a room is occupied for longer than its event
-              runs.
+              {canBook
+                ? 'Click an empty slot to book a meeting room. Times shown include setup and teardown, so a room is occupied for longer than its event runs.'
+                : 'You have view access to the schedule. Times shown include setup and teardown, so a room is occupied for longer than its event runs.'}
             </p>
           )}
           <ScheduleGrid
@@ -98,6 +100,7 @@ export default async function SchedulePage({
             view={view}
             anchorIso={iso(anchor)}
             canEdit={canEdit}
+            canBook={canBook}
           />
         </div>
       </main>

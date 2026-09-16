@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import DatePicker from './DatePicker';
 import ConvertBooking from './ConvertBooking';
+import QuickBooking from './QuickBooking';
 import type { Booking, SpaceRow, ConflictRow } from '@/lib/scheduler';
 
 /**
@@ -66,6 +67,7 @@ export default function ScheduleGrid({
   view,
   anchorIso,
   canEdit = true,
+  canBook = false,
 }: {
   bookings: Booking[];
   spaces: SpaceRow[];
@@ -74,11 +76,22 @@ export default function ScheduleGrid({
   view: View;
   anchorIso: string;
   canEdit?: boolean;
+  /** Whether clicking an empty slot offers to book it. */
+  canBook?: boolean;
 }) {
   const router = useRouter();
   const [selected, setSelected] = useState<Booking | null>(null);
   const [showConflicts, setShowConflicts] = useState(false);
   const [scope, setScope] = useState('Meeting Venues');
+
+  // Where they clicked on an empty part of the grid.
+  const [booking, setBooking] = useState<{
+    spaceId: string;
+    spaceName: string;
+    building: string | null;
+    date: string;
+    startTime: string;
+  } | null>(null);
 
   const anchor = new Date(anchorIso + 'T00:00:00');
   const todayIso = iso(new Date());
@@ -255,6 +268,9 @@ export default function ScheduleGrid({
         <span className="legend-item">
           <span className="swatch blackout" /> Out of service
         </span>
+        <span className="legend-item">
+          <span className="swatch quick" /> Room booking
+        </span>
         {canEdit && (
           <span className="legend-item">
             <span className="swatch conflict" /> Overlapping
@@ -333,9 +349,35 @@ export default function ScheduleGrid({
                 <div className="resgrid-scroll">
                   {view === 'day' ? (
                     <div
-                      className="resgrid-track"
+                      className={`resgrid-track${canBook ? ' bookable' : ''}`}
                       style={{ width: hours.length * HOUR_WIDTH }}
+                      onClick={(e) => {
+                        if (!canBook) return;
+                        // Only the empty track; a click on a booking
+                        // opens that booking instead.
+                        if (e.target !== e.currentTarget) return;
+                        const rect = (
+                          e.currentTarget as HTMLElement
+                        ).getBoundingClientRect();
+                        const x = e.clientX - rect.left;
+                        const hour =
+                          DAY_START + Math.floor(x / HOUR_WIDTH);
+                        setBooking({
+                          spaceId: s.id,
+                          spaceName: s.name,
+                          building: s.building,
+                          date: iso(anchor),
+                          startTime: `${String(
+                            Math.max(DAY_START, Math.min(hour, DAY_END - 1))
+                          ).padStart(2, '0')}:00`,
+                        });
+                      }}
                     >
+                      {canBook && (
+                        <span className="slot-hint">
+                          Click to book this room
+                        </span>
+                      )}
                       {hours.map((h) => (
                         <div
                           className="resgrid-tick"
@@ -363,7 +405,9 @@ export default function ScheduleGrid({
                             key={b.id}
                             className={`res-block ${b.status}${
                               b.is_blackout ? ' blackout' : ''
-                            }${b.has_conflict && canEdit ? ' conflict' : ''}`}
+                            }${b.is_quick_booking ? ' quick' : ''}${
+                              b.has_conflict && canEdit ? ' conflict' : ''
+                            }`}
                             style={{ left, width }}
                             onClick={() => setSelected(b)}
                             title={`${b.title} \u00b7 ${b.starts_at}\u2013${b.ends_at}`}
@@ -391,15 +435,28 @@ export default function ScheduleGrid({
                           <div
                             className={`resgrid-cell${
                               iso(d) === todayIso ? ' today' : ''
-                            }`}
+                            }${canBook && items.length === 0 ? ' bookable' : ''}`}
                             key={iso(d)}
+                            onClick={(e) => {
+                              if (!canBook) return;
+                              if (e.target !== e.currentTarget) return;
+                              setBooking({
+                                spaceId: s.id,
+                                spaceName: s.name,
+                                building: s.building,
+                                date: iso(d),
+                                startTime: '09:00',
+                              });
+                            }}
                           >
                             {items.map((b) => (
                               <button
                                 key={b.id}
                                 className={`res-chip ${b.status}${
                                   b.is_blackout ? ' blackout' : ''
-                                }${b.has_conflict && canEdit ? ' conflict' : ''}`}
+                                }${b.is_quick_booking ? ' quick' : ''}${
+                                  b.has_conflict && canEdit ? ' conflict' : ''
+                                }`}
                                 onClick={() => setSelected(b)}
                                 title={`${b.title} \u00b7 ${b.event_starts}`}
                               >
@@ -425,6 +482,18 @@ export default function ScheduleGrid({
             ))}
           </div>
         </div>
+      )}
+
+      {booking && (
+        <QuickBooking
+          spaceId={booking.spaceId}
+          spaceName={booking.spaceName}
+          building={booking.building}
+          date={booking.date}
+          startTime={booking.startTime}
+          isStaff={canEdit}
+          onClose={() => setBooking(null)}
+        />
       )}
 
       {selected && (

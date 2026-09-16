@@ -38,6 +38,9 @@ export interface Booking {
   attendance: number | null;
   classification: Classification | null;
   has_conflict: boolean;
+  is_quick_booking: boolean;
+  quick_state: string | null;
+  requested_by_name: string | null;
 }
 
 export async function listBookings(fromDate: string, toDate: string) {
@@ -60,6 +63,9 @@ export async function listBookings(fromDate: string, toDate: string) {
             b.setup_minutes, b.teardown_minutes,
             coalesce(r.final_attendance, r.estimated_attendance) AS attendance,
             cd.classification,
+            b.is_quick_booking,
+            b.quick_state::text,
+            qu.full_name AS requested_by_name,
             EXISTS (
               SELECT 1 FROM bookings o
                WHERE o.space_id = b.space_id
@@ -73,6 +79,7 @@ export async function listBookings(fromDate: string, toDate: string) {
        LEFT JOIN event_requests r ON r.id = b.request_id
        LEFT JOIN classification_decisions cd
               ON cd.request_id = r.id AND cd.is_current
+       LEFT JOIN users qu ON qu.id = b.requested_by
       WHERE b.status <> 'released'
         AND (b.starts_at AT TIME ZONE 'America/Chicago')::date <= $2::date
         AND (b.ends_at AT TIME ZONE 'America/Chicago')::date >= $1::date
@@ -169,12 +176,16 @@ export async function getBooking(id: string) {
             b.setup_minutes, b.teardown_minutes,
             coalesce(r.final_attendance, r.estimated_attendance) AS attendance,
             cd.classification,
+            b.is_quick_booking,
+            b.quick_state::text,
+            qu.full_name AS requested_by_name,
             false AS has_conflict
        FROM bookings b
        JOIN spaces s ON s.id = b.space_id
        LEFT JOIN event_requests r ON r.id = b.request_id
        LEFT JOIN classification_decisions cd
               ON cd.request_id = r.id AND cd.is_current
+       LEFT JOIN users qu ON qu.id = b.requested_by
       WHERE b.id = $1`,
     [id]
   );

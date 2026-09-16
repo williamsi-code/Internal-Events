@@ -2904,3 +2904,32 @@ label.chk input{margin-top:.2rem}
 .choice-count{
   margin-top:.5rem;line-height:1.4;
 }
+/* Append these to the end of src/app/globals.css */
+
+/* ---------- quick room booking ---------- */
+.quick-booking .eyebrow{
+  display:block;font-size:.7rem;text-transform:uppercase;
+  letter-spacing:.12em;color:var(--crimson);margin-bottom:.3rem;
+}
+
+/* An empty slot on the day grid invites a click. */
+.resgrid-track.bookable{cursor:cell}
+.resgrid-track.bookable:hover{background:var(--paper)}
+
+.slot-hint{
+  position:absolute;top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  font-size:.72rem;color:var(--mute);
+  pointer-events:none;opacity:0;transition:opacity .12s;
+}
+.resgrid-row:hover .slot-hint{opacity:1}
+
+.res-chip.quick,
+.res-block.quick{
+  background:repeating-linear-gradient(
+    135deg,var(--sage),var(--sage) 6px,
+    color-mix(in srgb, var(--sage) 82%, #000) 6px,
+    color-mix(in srgb, var(--sage) 82%, #000) 12px);
+}
+.res-block.quick.tentative,
+.res-chip.quick.tentative{opacity:.75}
