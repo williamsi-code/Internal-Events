@@ -11,6 +11,7 @@ import {
 import { getFoodSources, getFacilityCharge } from '@/lib/food-sources';
 import { getCapacityState } from '@/lib/capacity-state';
 import { getChoiceGroups, getSavedChoices } from '@/lib/choices';
+import { getOptionsForSpace, getSelectedOptions } from '@/lib/setup-options';
 import { one } from '@/lib/db';
 
 /**
@@ -109,15 +110,32 @@ export async function renderStage(
     redirect(`/my-requests/${id}/details`);
   }
 
-  const [menu, existing, foodSources, facility, choiceGroups, savedChoices] =
-    await Promise.all([
-      getMenuForRequest(id),
-      getSelections(id),
-      getFoodSources(id),
-      getFacilityCharge(id),
-      getChoiceGroups(),
-      getSavedChoices(id),
-    ]);
+  // The room is settled by this point, so the checklist can be the
+  // real one for that room rather than a generic list.
+  const space = await one<{ space_id: string | null }>(
+    'SELECT space_id FROM event_requests WHERE id = $1',
+    [id]
+  );
+
+  const [
+    menu,
+    existing,
+    foodSources,
+    facility,
+    choiceGroups,
+    savedChoices,
+    setupOptions,
+    savedSetup,
+  ] = await Promise.all([
+    getMenuForRequest(id),
+    getSelections(id),
+    getFoodSources(id),
+    getFacilityCharge(id),
+    getChoiceGroups(),
+    getSavedChoices(id),
+    space?.space_id ? getOptionsForSpace(space.space_id) : Promise.resolve([]),
+    getSelectedOptions(id),
+  ]);
 
   const heading =
     stage === 'menu'
@@ -185,6 +203,11 @@ export async function renderStage(
             facility={facility}
             choiceGroups={choiceGroups}
             existingChoices={savedChoices}
+            setupOptions={setupOptions}
+            existingSetup={savedSetup.map((s) => ({
+              optionId: s.option_id,
+              count: s.count,
+            }))}
             stage={stage}
           />
         </div>

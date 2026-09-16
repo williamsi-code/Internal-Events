@@ -8,6 +8,8 @@ import type { MenuItemRow, SelectionRow, DetailsState } from '@/lib/requests';
 import type { RequestFoodSource, FacilityChargeState } from '@/lib/food-sources';
 import { FOOD_SOURCE_LABEL } from '@/lib/food-labels';
 import MenuChoices, { type ChoiceValue } from './MenuChoices';
+import SetupChecklist, { type SetupValue } from './SetupChecklist';
+import type { SetupOption } from '@/lib/setup-labels';
 import type { ChoiceGroup } from '@/lib/choices';
 
 const money = (n: number) =>
@@ -22,6 +24,8 @@ export default function DetailsForm({
   facility,
   choiceGroups,
   existingChoices,
+  setupOptions,
+  existingSetup,
   stage,
 }: {
   requestId: string;
@@ -34,6 +38,9 @@ export default function DetailsForm({
    *  a Map does not survive the server-to-client boundary. */
   choiceGroups: Record<string, ChoiceGroup[]>;
   existingChoices: Record<string, ChoiceValue[]>;
+  /** What the booked room can do, and what has been picked so far. */
+  setupOptions: SetupOption[];
+  existingSetup: SetupValue[];
   /** The menu and the setup are two conversations, often on two
    *  different days. One component, two pages. */
   stage: 'menu' | 'details';
@@ -56,6 +63,7 @@ export default function DetailsForm({
   const [choices, setChoices] = useState<Record<string, ChoiceValue[]>>(
     existingChoices
   );
+  const [setupValues, setSetupValues] = useState<SetupValue[]>(existingSetup);
 
   const [serviceExpectations, setServiceExpectations] = useState(
     state.service_expectations ?? ''
@@ -166,6 +174,10 @@ export default function DetailsForm({
           requestId,
           confirm,
           stage,
+          setupSelections: setupValues.map((v) => ({
+            optionId: v.optionId,
+            count: v.count,
+          })),
           policyAcknowledged: policyAck,
           selections: chosen.map((m) => ({
             menuItemId: m.id,
@@ -336,6 +348,7 @@ export default function DetailsForm({
                         <MenuChoices
                           groups={choiceGroups[m.id]}
                           values={choices[m.id] ?? []}
+                          orderedQuantity={qty}
                           disabled={locked}
                           onChange={(next) => {
                             setChoices((c) => ({ ...c, [m.id]: next }));
@@ -424,6 +437,23 @@ export default function DetailsForm({
         >
           <span className="eyebrow">Setup</span>
           <h2>Final details</h2>
+
+          <p className="sub" style={{ marginBottom: '1rem' }}>
+            You told us roughly what you needed when you asked. This is the
+            chance to be precise, now that the room is settled.
+          </p>
+
+          <SetupChecklist
+            options={setupOptions}
+            values={setupValues}
+            onChange={(next) => {
+              setSetupValues(next);
+              setSaved(false);
+            }}
+            spaceChosen={setupOptions.length > 0}
+          />
+
+          <hr className="soft-rule" />
           <p className="hint">
             How the room should be arranged and what you need in it.
           </p>

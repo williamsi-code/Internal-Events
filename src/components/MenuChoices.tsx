@@ -21,11 +21,15 @@ export default function MenuChoices({
   values,
   onChange,
   disabled,
+  orderedQuantity,
 }: {
   groups: ChoiceGroup[];
   values: ChoiceValue[];
   onChange: (next: ChoiceValue[]) => void;
   disabled?: boolean;
+  /** How many of the item were ordered. A split should add up to it;
+   *  this says so rather than refusing the entry. */
+  orderedQuantity?: number;
 }) {
   if (groups.length === 0) return null;
 
@@ -148,10 +152,39 @@ export default function MenuChoices({
               </div>
             )}
 
-            {g.max_select > 1 && (
+            {g.max_select > 1 && g.quantity_mode !== 'per_option' && (
               <p className="choice-count">
                 {chosen.length} of {g.max_select} chosen
               </p>
+            )}
+
+            {g.quantity_mode === 'per_option' && chosen.length > 0 && (
+              (() => {
+                const allocated = chosen.reduce(
+                  (sum, v) => sum + (v.quantity ?? 0),
+                  0
+                );
+                if (!orderedQuantity) {
+                  return (
+                    <p className="choice-count">
+                      {allocated} allocated across {chosen.length}{' '}
+                      {chosen.length === 1 ? 'choice' : 'choices'}
+                    </p>
+                  );
+                }
+                const diff = orderedQuantity - allocated;
+                return (
+                  <p
+                    className={`choice-count${diff !== 0 ? ' mismatch' : ' ok'}`}
+                  >
+                    {diff === 0
+                      ? `${allocated} of ${orderedQuantity} \u2014 that adds up`
+                      : diff > 0
+                        ? `${allocated} of ${orderedQuantity} \u2014 ${diff} still to allocate`
+                        : `${allocated} of ${orderedQuantity} \u2014 ${-diff} too many`}
+                  </p>
+                );
+              })()
             )}
           </fieldset>
         );

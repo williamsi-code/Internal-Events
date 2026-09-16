@@ -2802,3 +2802,17 @@ label.chk input{margin-top:.2rem}
 .sheet-setup .setup-n{
   font-weight:600;min-width:2rem;font-variant-numeric:tabular-nums;
 }
+/* Append these to the end of src/app/globals.css */
+
+/* ---------- splitting a meal across choices ---------- */
+.choice-count.mismatch{
+  color:var(--brass);font-weight:500;
+}
+.choice-count.ok{
+  color:var(--sage);
+}
+
+.soft-rule{
+  border:0;border-top:1px solid var(--rule);
+  margin:1.5rem 0;
+}

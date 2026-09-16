@@ -26,6 +26,15 @@ const Body = z.object({
   // Confirming the menu settles the food; confirming the details
   // sends the whole thing for final review.
   stage: z.enum(['menu', 'details']).default('details'),
+  setupSelections: z
+    .array(
+      z.object({
+        optionId: z.string().uuid(),
+        count: z.number().int().positive().max(500).nullable(),
+      })
+    )
+    .max(40)
+    .optional(),
   policyAcknowledged: z.boolean().optional(),
   selections: z
     .array(
@@ -57,8 +66,15 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ error: 'Check your selections.' }, { status: 400 });
   }
-  const { requestId, confirm, stage, selections, requirements, policyAcknowledged } =
-    parsed.data;
+  const {
+    requestId,
+    confirm,
+    stage,
+    selections,
+    setupSelections,
+    requirements,
+    policyAcknowledged,
+  } = parsed.data;
 
   const owned = await one<{
     status: string;
@@ -196,6 +212,24 @@ export async function POST(req: NextRequest) {
             `${itemRows[0]?.name}: ${shortfall
               .map((r) => `choose ${r.min_select} for ${r.label}`)
               .join(', ')}`
+          );
+        }
+      }
+
+      // The setup picks are replaced wholesale: they are one answer
+      // to one question, not a list of independent facts.
+      if (stage === 'details' && setupSelections) {
+        await c.query(
+          'DELETE FROM request_setup_selections WHERE request_id = $1',
+          [requestId]
+        );
+        for (const sel of setupSelections) {
+          await c.query(
+            `INSERT INTO request_setup_selections
+               (request_id, option_id, count)
+             VALUES ($1, $2, $3)
+             ON CONFLICT DO NOTHING`,
+            [requestId, sel.optionId, sel.count]
           );
         }
       }
