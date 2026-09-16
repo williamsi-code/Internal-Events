@@ -2933,3 +2933,40 @@ label.chk input{margin-top:.2rem}
 }
 .res-block.quick.tentative,
 .res-chip.quick.tentative{opacity:.75}
+/* Append these to the end of src/app/globals.css */
+
+/* ---------- room booking requests ---------- */
+.room-list{display:flex;flex-direction:column;gap:.6rem}
+
+.room-row{
+  display:flex;justify-content:space-between;gap:1.5rem;
+  align-items:flex-start;flex-wrap:wrap;
+  padding:1rem 1.1rem;background:var(--surface);
+  border:1px solid var(--rule);border-radius:3px;
+}
+.room-row.soon{
+  border-left:3px solid var(--crimson);background:var(--crimson-soft);
+}
+
+.room-main{flex:1;min-width:0}
+.room-top{display:flex;gap:.6rem;align-items:center;flex-wrap:wrap}
+.room-title{font-weight:600;font-size:1rem}
+.room-when{display:block;font-size:.88rem;margin-top:.3rem;line-height:1.5}
+.room-who{display:block;font-size:.83rem;color:var(--slate);margin-top:.35rem}
+.room-note{
+  display:block;font-size:.85rem;margin-top:.45rem;
+  padding-left:.7rem;border-left:2px solid var(--rule);color:var(--slate);
+}
+.room-asked{display:block;font-size:.73rem;color:var(--mute);margin-top:.45rem}
+
+.room-actions{
+  display:flex;flex-direction:column;gap:.5rem;align-items:flex-end;flex:none;
+}
+.room-refuse{min-width:16rem}
+.room-refuse input{margin-bottom:.5rem}
+
+@media(max-width:600px){
+  .room-row{flex-direction:column}
+  .room-actions{align-items:stretch;width:100%}
+  .room-refuse{min-width:0;width:100%}
+}

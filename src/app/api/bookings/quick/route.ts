@@ -159,6 +159,49 @@ export async function POST(req: NextRequest) {
           b.note,
         ]
       );
+
+      // Telling them is the point. Someone who asked for a room and
+      // heard nothing will ring up to check, which costs more time
+      // than the booking saved.
+      const decided = await one<{
+        email: string;
+        title: string;
+        space_name: string;
+        when: string;
+      }>(
+        `SELECT u.email::text, b.title, s.name AS space_name,
+                to_char(b.event_starts_at AT TIME ZONE 'America/Chicago',
+                        'FMDay FMDD FMMonth, FMHH12:MI AM') AS when
+           FROM bookings b
+           JOIN spaces s ON s.id = b.space_id
+           LEFT JOIN users u ON u.id = b.requested_by
+          WHERE b.id = $1`,
+        [b.bookingId]
+      );
+
+      if (decided?.email && process.env.RESEND_API_KEY) {
+        await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            from: 'Events & Conferences <noreply@central.edu>',
+            to: decided.email,
+            subject: b.confirm
+              ? `${decided.space_name} is booked for you`
+              : `We cannot give you ${decided.space_name}`,
+            text: b.confirm
+              ? `${decided.title}\n${decided.space_name}, ${decided.when}\n\nThe room is yours. It is on the campus schedule.\n`
+              : `${decided.title}\n${decided.space_name}, ${decided.when}\n\n${
+                  b.note ??
+                  'We are not able to give you that room at that time.'
+                }\n`,
+          }),
+        }).catch(() => {});
+      }
+
       return NextResponse.json({ ok: true });
     }
 

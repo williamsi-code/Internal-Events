@@ -4,6 +4,7 @@ import Masthead from '@/components/Masthead';
 import { getSessionUser } from '@/lib/auth';
 import { getCatererSummary } from '@/lib/caterers';
 import { getCloseoutSummary } from '@/lib/closeout';
+import { one } from '@/lib/db';
 
 export const metadata = { title: 'Back office' };
 export const dynamic = 'force-dynamic';
@@ -15,10 +16,15 @@ export default async function ManagePage() {
     user.roles.includes('events_staff') || user.roles.includes('admin');
   if (!isStaff) redirect('/');
 
-  const [caterers, closeout] = await Promise.all([
+  const [caterers, closeout, rooms] = await Promise.all([
     getCatererSummary(),
     getCloseoutSummary(),
+    one<{ n: string }>(
+      'SELECT count(*)::text AS n FROM quick_bookings_waiting'
+    ),
   ]);
+
+  const roomRequests = Number(rooms?.n ?? 0);
 
   const pendingCaterers = caterers?.pending ?? 0;
   const outstandingCloseout = closeout?.outstanding ?? 0;
@@ -51,6 +57,18 @@ export default async function ManagePage() {
               <p>
                 Every room across day, week and month. Tentative holds appear on
                 acknowledgement and turn solid after final review.
+              </p>
+            </Link>
+            <Link href="/staff/rooms" className="tile">
+              <h3>
+                Room bookings
+                {roomRequests > 0 && (
+                  <span className="tile-badge">{roomRequests} waiting</span>
+                )}
+              </h3>
+              <p>
+                Rooms asked for through the scheduler with no catering
+                attached. Whoever asked is assuming the room is theirs.
               </p>
             </Link>
             <Link href="/staff/enquiries" className="tile">

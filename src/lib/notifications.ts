@@ -156,6 +156,84 @@ export async function getNotices(
     }
   }
 
+  /* ---------- everyone: rooms they have asked for ---------- */
+
+  const rooms = await query<{
+    waiting: number;
+    confirmed_unseen: number;
+    next_room: string | null;
+    next_when: string | null;
+  }>(
+    `SELECT
+       (SELECT count(*) FROM bookings b
+         WHERE b.is_quick_booking
+           AND b.requested_by = $1
+           AND b.quick_state = 'requested'
+           AND b.status <> 'released'
+           AND b.event_starts_at > now()) AS waiting,
+
+       -- Confirmed since they last looked. The acknowledgement
+       -- matters as much as the booking: someone who asked for a room
+       -- and heard nothing will ring up to check.
+       (SELECT count(*) FROM bookings b
+         WHERE b.is_quick_booking
+           AND b.requested_by = $1
+           AND b.quick_state = 'confirmed'
+           AND b.decided_at > now() - INTERVAL '7 days'
+           AND b.event_starts_at > now()) AS confirmed_unseen,
+
+       (SELECT s.name FROM bookings b
+          JOIN spaces s ON s.id = b.space_id
+         WHERE b.is_quick_booking
+           AND b.requested_by = $1
+           AND b.quick_state = 'confirmed'
+           AND b.decided_at > now() - INTERVAL '7 days'
+         ORDER BY b.decided_at DESC LIMIT 1) AS next_room,
+
+       (SELECT to_char(b.event_starts_at AT TIME ZONE 'America/Chicago',
+                       'Mon FMDD at FMHH12:MI AM')
+          FROM bookings b
+         WHERE b.is_quick_booking
+           AND b.requested_by = $1
+           AND b.quick_state = 'confirmed'
+           AND b.decided_at > now() - INTERVAL '7 days'
+         ORDER BY b.decided_at DESC LIMIT 1) AS next_when`,
+    [userId]
+  );
+
+  const r = rooms[0];
+
+  if (Number(r?.confirmed_unseen ?? 0) > 0) {
+    const n = Number(r.confirmed_unseen);
+    notices.push({
+      id: 'rooms-confirmed',
+      kind: 'waiting',
+      title:
+        n === 1
+          ? `${r.next_room} is booked for you`
+          : `${n} room bookings confirmed`,
+      detail:
+        n === 1 && r.next_when
+          ? `${r.next_when}. The events office has confirmed it.`
+          : 'The events office has confirmed them',
+      href: '/staff/schedule',
+      count: n,
+    });
+  }
+
+  if (Number(r?.waiting ?? 0) > 0) {
+    notices.push({
+      id: 'rooms-waiting',
+      kind: 'waiting',
+      title: `${r.waiting} room booking${
+        Number(r.waiting) === 1 ? '' : 's'
+      } with the events office`,
+      detail: 'Held for you pending confirmation',
+      href: '/staff/schedule',
+      count: Number(r.waiting),
+    });
+  }
+
   if (!isStaff) return notices;
 
   /* ---------- staff: the office's queue ---------- */
@@ -171,6 +249,8 @@ export async function getNotices(
     closeout_oldest: number | null;
     facility_undecided: number;
     payments_overdue: number;
+    room_requests: number;
+    room_requests_soon: number;
   }>(
     `SELECT
        (SELECT count(*) FROM event_requests r
@@ -196,6 +276,11 @@ export async function getNotices(
 
        (SELECT count(*) FROM headcount_outstanding WHERE days_remaining < 0)
          AS headcount_overdue,
+
+       (SELECT count(*) FROM quick_bookings_waiting) AS room_requests,
+
+       (SELECT count(*) FROM quick_bookings_waiting
+         WHERE event_date <= CURRENT_DATE + 2) AS room_requests_soon,
 
        (SELECT count(*) FROM awaiting_closeout) AS closeout,
        (SELECT max(days_since) FROM awaiting_closeout) AS closeout_oldest,
@@ -251,6 +336,25 @@ export async function getNotices(
   add(Number(s.facility_undecided), 'action', 'staff-facility',
     'split event needs a facility charge', 'split events need a facility charge',
     'Central is catering part of these', '/staff');
+
+  // A room request is small but time-critical: the person asking has
+  // put it in their diary and is assuming it is theirs.
+  if (Number(s.room_requests) > 0) {
+    const soon = Number(s.room_requests_soon ?? 0);
+    notices.push({
+      id: 'staff-rooms',
+      kind: soon > 0 ? 'overdue' : 'action',
+      title: `${s.room_requests} room booking${
+        Number(s.room_requests) === 1 ? '' : 's'
+      } to confirm`,
+      detail:
+        soon > 0
+          ? `${soon} of them ${soon === 1 ? 'is' : 'are'} within two days`
+          : 'Held on the schedule until you say yes',
+      href: '/staff/rooms',
+      count: Number(s.room_requests),
+    });
+  }
 
   add(Number(s.caterers_pending), 'action', 'staff-caterers',
     'caterer application waiting', 'caterer applications waiting',
