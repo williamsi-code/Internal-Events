@@ -16,15 +16,19 @@ export default async function ManagePage() {
     user.roles.includes('events_staff') || user.roles.includes('admin');
   if (!isStaff) redirect('/');
 
-  const [caterers, closeout, rooms] = await Promise.all([
+  const [caterers, closeout, rooms, stock] = await Promise.all([
     getCatererSummary(),
     getCloseoutSummary(),
     one<{ n: string }>(
       'SELECT count(*)::text AS n FROM quick_bookings_waiting'
     ),
+    one<{ n: string }>(
+      'SELECT count(*)::text AS n FROM ingredient_stock WHERE below_par'
+    ),
   ]);
 
   const roomRequests = Number(rooms?.n ?? 0);
+  const belowPar = Number(stock?.n ?? 0);
 
   const pendingCaterers = caterers?.pending ?? 0;
   const outstandingCloseout = closeout?.outstanding ?? 0;
@@ -152,6 +156,30 @@ export default async function ManagePage() {
               <p>
                 Catering policies, external event policies, outside caterer
                 requirements and the donated food policy, as published.
+              </p>
+            </Link>
+          </div>
+
+          <h2 className="bo-heading">The kitchen</h2>
+          <div className="tiles">
+            <Link href="/staff/manage/recipes" className="tile">
+              <h3>Recipes</h3>
+              <p>
+                What each menu item is made of. Recipes are what let an order
+                be costed, scaled to a headcount, and turned into a shopping
+                list.
+              </p>
+            </Link>
+            <Link href="/staff/manage/inventory" className="tile">
+              <h3>
+                Inventory
+                {belowPar > 0 && (
+                  <span className="tile-badge">{belowPar} low</span>
+                )}
+              </h3>
+              <p>
+                What is in the store and what needs ordering. Counts are
+                entered when someone walks the shelves, not after every event.
               </p>
             </Link>
           </div>

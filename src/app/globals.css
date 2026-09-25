@@ -2970,3 +2970,211 @@ label.chk input{margin-top:.2rem}
   .room-actions{align-items:stretch;width:100%}
   .room-refuse{min-width:0;width:100%}
 }
+/* Append these to the end of src/app/globals.css */
+
+/* ============================================================
+   Recipes
+   ============================================================ */
+
+/* ---------- how far through the data entry ---------- */
+.coverage{margin-bottom:1.5rem}
+.coverage-bar{
+  height:.4rem;background:var(--rule);border-radius:2rem;overflow:hidden;
+}
+.coverage-fill{
+  display:block;height:100%;background:var(--sage);
+  transition:width .4s ease-out;
+}
+.coverage-text{
+  display:flex;justify-content:space-between;gap:1rem;
+  flex-wrap:wrap;margin-top:.5rem;font-size:.85rem;
+}
+.coverage-text span{color:var(--slate)}
+
+/* ---------- the list ---------- */
+.recipe-group{margin-bottom:1.75rem}
+.recipe-list{display:flex;flex-direction:column;gap:.4rem}
+.recipe-row{
+  display:flex;justify-content:space-between;gap:1.5rem;
+  align-items:center;padding:.75rem 1rem;
+  background:var(--surface);border:1px solid var(--rule);
+  border-radius:3px;text-decoration:none;color:inherit;
+}
+.recipe-row:hover{border-color:var(--crimson)}
+.recipe-main{min-width:0}
+.recipe-name{display:block;font-weight:500;font-size:.95rem}
+.recipe-meta{display:block;font-size:.78rem;color:var(--slate);margin-top:.15rem}
+.recipe-figures{
+  text-align:right;flex:none;
+  display:flex;flex-direction:column;gap:.1rem;
+}
+.recipe-cost{
+  font-family:Spectral,Georgia,serif;font-size:1.05rem;font-weight:600;
+}
+.recipe-per{font-size:.74rem;color:var(--slate)}
+
+/* ---------- pasting a list ---------- */
+.paste-box{
+  background:var(--paper);border:1px solid var(--rule);
+  border-radius:3px;padding:1rem 1.1rem;margin-bottom:1.25rem;
+}
+.paste-box textarea{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;
+  font-size:.85rem;line-height:1.6;
+}
+
+/* ---------- the ingredient rows ---------- */
+.ing-rows{display:flex;flex-direction:column;gap:.3rem;margin:1rem 0}
+
+.ing-row{
+  display:grid;
+  grid-template-columns:5rem 5.5rem minmax(0,1.6fr) minmax(0,1fr) 2rem;
+  gap:.4rem;align-items:center;
+}
+.ing-row.new .ing-name{
+  border-color:var(--brass);background:var(--brass-soft);
+}
+.ing-row input,
+.ing-row select{margin:0;padding:.4rem .5rem;font-size:.88rem}
+.ing-qty{text-align:right;font-variant-numeric:tabular-nums}
+.ing-prep{font-size:.82rem}
+
+.ing-remove{
+  background:none;border:0;cursor:pointer;color:var(--mute);
+  font-size:1.2rem;line-height:1;padding:.2rem;border-radius:2px;
+}
+.ing-remove:hover{color:var(--crimson);background:var(--crimson-soft)}
+
+.yield-row{display:flex;gap:.4rem}
+.yield-row input{flex:1;min-width:0}
+.yield-row select{flex:none;width:9rem}
+
+/* ---------- saving ---------- */
+.sticky-save{
+  position:sticky;bottom:0;z-index:5;
+  background:var(--surface);
+  border-top:1px solid var(--rule);
+  padding:.9rem 0;margin-top:1.5rem;
+  display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;
+}
+.sticky-save .btn{text-decoration:none}
+.save-cost{
+  margin-left:auto;font-size:.85rem;color:var(--slate);
+}
+
+@media(max-width:700px){
+  .ing-row{
+    grid-template-columns:4.5rem 4.5rem 1fr 2rem;
+    grid-template-areas:
+      "qty unit name remove"
+      "prep prep prep prep";
+  }
+  .ing-qty{grid-area:qty}
+  .ing-unit{grid-area:unit}
+  .ing-name{grid-area:name}
+  .ing-prep{grid-area:prep}
+  .ing-remove{grid-area:remove}
+  .ing-row{
+    padding:.5rem;border:1px solid var(--rule);border-radius:3px;
+  }
+  .recipe-row{flex-direction:column;align-items:flex-start;gap:.5rem}
+  .recipe-figures{text-align:left}
+  .save-cost{margin-left:0;width:100%}
+}
+
+@media print{
+  .sticky-save,.admin-bar,.filters,.paste-box{display:none}
+}
+/* Append these to the end of src/app/globals.css */
+
+/* ============================================================
+   Inventory
+   ============================================================ */
+
+.count-group{margin-bottom:1.75rem}
+.count-group-n{
+  margin-left:.5rem;font-size:.72rem;font-weight:400;
+  color:var(--mute);background:var(--paper);
+  border-radius:2rem;padding:.1rem .5rem;
+}
+
+.count-rows{display:flex;flex-direction:column;gap:.2rem}
+
+.count-row{
+  display:flex;justify-content:space-between;align-items:center;
+  gap:1rem;padding:.5rem .75rem;
+  border:1px solid transparent;border-radius:3px;
+  background:var(--surface);
+}
+.count-row:nth-child(odd){background:var(--paper)}
+.count-row.low{box-shadow:inset 3px 0 0 var(--brass)}
+.count-row.differs{
+  border-color:var(--crimson);background:var(--crimson-soft);
+}
+
+.count-name{min-width:0}
+.count-item{display:block;font-size:.92rem}
+.count-meta{display:block;font-size:.74rem;color:var(--slate);margin-top:.1rem}
+
+.count-entry{display:flex;align-items:center;gap:.4rem;flex:none}
+.count-entry input{
+  width:5.5rem;text-align:right;margin:0;
+  padding:.35rem .5rem;font-variant-numeric:tabular-nums;
+}
+.count-unit{font-size:.78rem;color:var(--mute);min-width:2.5rem}
+
+.count-save{
+  position:sticky;bottom:0;background:var(--surface);
+  border-top:1px solid var(--rule);
+  padding:1rem 0;margin-top:1.5rem;z-index:5;
+}
+.count-diff{font-size:.83rem;color:var(--crimson);margin-left:auto}
+
+/* ---------- the shopping list ---------- */
+.shop-head{
+  display:flex;justify-content:space-between;align-items:baseline;
+  gap:1rem;margin-bottom:1rem;font-size:.9rem;
+}
+.shop-total{
+  font-family:Spectral,Georgia,serif;font-size:1.2rem;font-weight:600;
+}
+
+.shop-group{margin-bottom:1.75rem;break-inside:avoid}
+.shop-table{width:100%;border-collapse:collapse;font-size:.9rem}
+.shop-table th{
+  text-align:left;font-size:.7rem;text-transform:uppercase;
+  letter-spacing:.08em;color:var(--slate);font-weight:500;
+  padding:.4rem .5rem;border-bottom:1px solid var(--ink);
+}
+.shop-table th.num,
+.shop-table td.num{text-align:right;font-variant-numeric:tabular-nums}
+.shop-table td{padding:.5rem;border-bottom:1px solid var(--rule)}
+.shop-table tr.ticked td{opacity:.4;text-decoration:line-through}
+.shop-table input[type=checkbox]{accent-color:var(--crimson)}
+
+@media(max-width:640px){
+  .count-row{flex-wrap:wrap}
+  .count-entry input{width:4.6rem;font-size:16px}
+}
+
+@media print{
+  .shop-table{font-size:10pt}
+  .shop-group{break-inside:avoid}
+}
+/* Append these to the end of src/app/globals.css */
+
+/* ---------- allergen picker ---------- */
+.allergen-picker{
+  display:flex;flex-wrap:wrap;gap:.35rem;margin-bottom:1rem;
+}
+.allergen{
+  display:flex;align-items:center;gap:.35rem;
+  border:1px solid var(--rule);border-radius:2rem;
+  padding:.3rem .75rem;font-size:.83rem;cursor:pointer;
+  background:var(--surface);text-transform:capitalize;
+}
+.allergen.picked{
+  border-color:var(--crimson);background:var(--crimson-soft);
+  font-weight:500;
+}
+.allergen input{accent-color:var(--crimson);margin:0}
