@@ -162,6 +162,21 @@ export default async function ManagePage() {
 
           <h2 className="bo-heading">The kitchen</h2>
           <div className="tiles">
+            <Link href="/staff/kitchen" className="tile">
+              <h3>Catering schedule</h3>
+              <p>
+                What the kitchen has to make and when it has to be out.
+                Checked against the room schedule, so a van does not arrive
+                before the room is held.
+              </p>
+            </Link>
+            <Link href="/staff/manage/customers" className="tile">
+              <h3>Customers</h3>
+              <p>
+                Who we cook for and what they have asked for before, with what
+                they always need written down.
+              </p>
+            </Link>
             <Link href="/staff/manage/recipes" className="tile">
               <h3>Recipes</h3>
               <p>
