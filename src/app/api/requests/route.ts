@@ -1,49 +1,61 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { one, transaction } from '@/lib/db';
-import { classify } from '@/lib/classify';
 import { getSessionUser } from '@/lib/auth';
 
-const Party = z.enum(['central', 'shared', 'outside', 'unclear']);
-const YesNoUnsure = z.enum(['yes', 'no', 'unsure']);
-
-const FoodSource = z.object({
-  kind: z.enum(['central_dining', 'outside_caterer', 'donated', 'no_food']),
-  catererId: z.string().nullable(),
-  catererOther: z.string().max(200).nullable(),
-  covers: z.string().max(300).nullable(),
-});
+/**
+ * A request for an event.
+ *
+ * One form, one call. The classification questions are gone: staff
+ * read the description and the funding and decide. What arrives here
+ * is what the requester actually knows.
+ *
+ * A menu chosen now is quoted at the external rate and flagged. The
+ * trigger on classification_decisions reprices it the moment staff
+ * classify, so nobody is quoted a number that turns out to be wrong.
+ */
 
 const Body = z.object({
+  requesterName: z.string().min(1, 'Enter your name').max(200),
+  departmentOrg: z.string().min(1, 'Enter your department').max(200),
+  contactPhone: z.string().max(50).nullable(),
+
+  eventName: z.string().min(1, 'Name your event').max(200),
   eventTypeId: z.string().uuid().nullable(),
   eventTypeOther: z.string().max(200).nullable(),
-  eventName: z.string().min(1, 'Give the event a name').max(200),
-  // Optional. The form stopped requiring this; the server had not
-  // caught up, which produced a rejection with no explanation.
-  eventPurpose: z.string().max(4000).nullable().optional(),
-  eventDate: z.string().date('Choose a valid date'),
+  eventDescription: z.string().max(8000).nullable(),
+
+  eventDate: z.string().date(),
   startTime: z.string().nullable(),
   endTime: z.string().nullable(),
   spaceId: z.string().uuid().nullable(),
   locationFreetext: z.string().max(300).nullable(),
-  estimatedAttendance: z
-    .number()
-    .int()
-    .positive('Enter how many people you expect')
-    .max(20000),
-  departmentOrg: z.string().min(1, 'Enter your department').max(200),
-  shortNotice: z.boolean().default(false),
-  shortNoticeReason: z.string().max(2000).nullable().optional(),
-  contactPhone: z.string().max(50).nullable(),
+  estimatedAttendance: z.number().int().positive().max(20_000),
 
-  foodSources: z.array(FoodSource).min(1, 'Choose who is providing food').max(4),
+  foodSource: z.enum([
+    'central_dining', 'outside_caterer', 'donated', 'no_food',
+  ]),
+  catererName: z.string().max(200).nullable(),
+  dietaryRestrictions: z.string().max(4000).nullable(),
 
-  requirements: z.object({
-    foodNeeds: z.string().max(4000).optional(),
-    serviceExpectations: z.string().max(4000).optional(),
-    specialRequests: z.string().max(4000).optional(),
-    dietaryRestrictions: z.string().max(4000).optional(),
-  }),
+  menuSelections: z
+    .array(
+      z.object({
+        menuItemId: z.string().uuid(),
+        quantity: z.number().int().positive().max(10_000),
+        choices: z
+          .array(
+            z.object({
+              optionId: z.string().uuid(),
+              quantity: z.number().int().positive().max(10_000).nullable(),
+            })
+          )
+          .max(40)
+          .optional(),
+      })
+    )
+    .max(100)
+    .optional(),
 
   setupSelections: z
     .array(
@@ -54,123 +66,64 @@ const Body = z.object({
     )
     .max(40)
     .optional(),
+  setupNotes: z.string().max(4000).nullable(),
 
   funding: z.object({
-    budgetAccount: z.string().max(100).optional(),
-    outsideOrgInvolved: z.boolean().optional(),
-    outsideOrgName: z.string().max(200).optional(),
+    budgetAccount: z.string().max(100).nullable(),
+    outsideOrgName: z.string().max(200).nullable(),
     outsideFunding: z.boolean(),
-    outsideFundingDetail: z.string().max(2000).optional(),
+    outsideFundingDetail: z.string().max(1000).nullable(),
     revenueCollected: z.boolean(),
-    revenueDetail: z.string().max(2000).optional(),
-    revenueRecipient: z.string().max(200).optional(),
-    financialRiskBearer: Party,
+    revenueRecipient: z.string().max(200).nullable(),
+    financialRiskBearer: z.enum(['central', 'shared', 'outside', 'unclear']),
   }),
 
-  answers: z.object({
-    officialBusiness: YesNoUnsure,
-    primaryBeneficiary: Party,
-    primaryPayer: Party,
-    // No longer asked. Kept optional so an older client still works.
-    eventOwner: Party.optional(),
-    wouldOccurWithout: YesNoUnsure.optional(),
-    requesterNotes: z.string().max(4000).optional(),
-  }),
+  shortNotice: z.boolean().default(false),
+  shortNoticeReason: z.string().max(2000).nullable().optional(),
+  submittedComplete: z.boolean().default(false),
 });
 
-/** Turn Zod's paths into something a person can act on. "Section C,
- *  financial risk" beats "funding.financialRiskBearer". */
 const FIELD_LABELS: Record<string, string> = {
-  eventName: 'Event name',
-  eventDate: 'Event date',
-  estimatedAttendance: 'Expected attendance',
+  requesterName: 'Your name',
   departmentOrg: 'Department or organization',
-  foodSources: 'Who is providing the food',
-  'funding.financialRiskBearer': 'Who bears the financial risk',
-  'funding.outsideOrgInvolved': 'Outside organization involved',
-  'funding.outsideFunding': 'Outside funding',
-  'funding.revenueCollected': 'Revenue collected',
-  'answers.officialBusiness': 'Is this official College business',
-  'answers.eventOwner': 'Who owns and controls the event',
-  'answers.primaryBeneficiary': 'Who primarily benefits',
-  'answers.primaryPayer': 'Who primarily pays',
-  'answers.wouldOccurWithout': 'Would it happen without Central',
+  eventName: 'Event name',
+  eventDate: 'Date',
+  estimatedAttendance: 'How many people',
+  foodSource: 'Who is providing the food',
+  'funding.financialRiskBearer': 'Who carries the risk',
 };
-
-function describeIssues(error: z.ZodError) {
-  const seen = new Set<string>();
-  const parts: string[] = [];
-
-  for (const issue of error.issues) {
-    const path = issue.path.join('.');
-    const label =
-      FIELD_LABELS[path] ??
-      FIELD_LABELS[issue.path[0] as string] ??
-      (path || 'A required answer');
-    if (seen.has(label)) continue;
-    seen.add(label);
-    parts.push(label);
-  }
-
-  if (parts.length === 0) return 'Some answers are missing or invalid.';
-  if (parts.length === 1) return `${parts[0]} is missing or invalid.`;
-  return `These need attention: ${parts.join(', ')}.`;
-}
 
 export async function POST(req: NextRequest) {
   const user = await getSessionUser();
   if (!user) {
     return NextResponse.json(
-      { error: 'Sign in to submit a request.' },
+      { error: 'Sign in to send a request.' },
       { status: 401 }
     );
   }
 
   const parsed = Body.safeParse(await req.json());
   if (!parsed.success) {
-    // Logged in full so a mismatch between the form and this schema
-    // can be diagnosed, rather than only being visible to the person
-    // who cannot submit.
-    console.error(
-      'intake rejected:',
-      JSON.stringify(parsed.error.issues, null, 2)
-    );
+    const seen = new Set<string>();
+    const parts: string[] = [];
+    for (const issue of parsed.error.issues) {
+      const path = issue.path.join('.');
+      const label =
+        FIELD_LABELS[path] ??
+        FIELD_LABELS[issue.path[0] as string] ??
+        (path || 'A required answer');
+      if (seen.has(label)) continue;
+      seen.add(label);
+      parts.push(label);
+    }
     return NextResponse.json(
-      {
-        error: describeIssues(parsed.error),
-        issues: parsed.error.issues.map((i) => ({
-          field: i.path.join('.'),
-          message: i.message,
-        })),
-      },
+      { error: `Still needed: ${parts.join(', ')}.` },
       { status: 400 }
     );
   }
   const b = parsed.data;
 
-  // Look up the matrix default rather than trusting the client's copy.
-  const type = b.eventTypeId
-    ? await one<{ default_classification: string | null; always_review: boolean }>(
-        'SELECT default_classification, always_review FROM event_types WHERE id = $1 AND is_active',
-        [b.eventTypeId]
-      )
-    : null;
-
-  const advisory = classify({
-    typeDefault: (type?.default_classification as never) ?? null,
-    typeAlwaysReview: type?.always_review ?? true,
-    officialBusiness: b.answers.officialBusiness,
-    primaryBeneficiary: b.answers.primaryBeneficiary,
-    primaryPayer: b.answers.primaryPayer,
-    financialRisk: b.funding.financialRiskBearer,
-    outsideFunding: b.funding.outsideFunding,
-    outsideOrgInvolved: b.funding.outsideOrgInvolved,
-    revenueCollected: b.funding.revenueCollected,
-  });
-
-  // Checked again here rather than trusted from the form: a browser
-  // can send whatever it likes, and this decides whether staff are
-  // asked before anything else happens.
+  // Checked here rather than trusted from the browser.
   let isShort = false;
   if (b.spaceId) {
     const check = await one<{ is_short: boolean }>(
@@ -180,129 +133,154 @@ export async function POST(req: NextRequest) {
     isShort = check?.is_short ?? false;
   }
 
-  const request = await transaction(async (c) => {
-    const { rows } = await c.query(
-      `INSERT INTO event_requests (
-         requester_id, requester_name, department_org, contact_email, contact_phone,
-         event_type_id, event_type_other, event_name, event_purpose, event_date,
-         start_time, end_time, space_id, location_freetext, estimated_attendance,
-         short_notice, short_notice_state, short_notice_reason,
-         status, submitted_at
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,
-                 $16,$17,$18,'submitted',now())
-       RETURNING id, reference_code`,
-      [
-        user.id, user.full_name, b.departmentOrg, user.email, b.contactPhone,
-        b.eventTypeId, b.eventTypeOther, b.eventName, b.eventPurpose ?? null,
-        b.eventDate, b.startTime, b.endTime, b.spaceId, b.locationFreetext,
-        b.estimatedAttendance,
-        isShort,
-        isShort ? 'pending' : null,
-        isShort ? (b.shortNoticeReason ?? null) : null,
-      ]
-    );
-    const r = rows[0];
-
-    // Food sources are validated against the approved list here rather
-    // than trusted: a caterer id that is not currently usable becomes a
-    // named suggestion for staff instead of a booking.
-    for (const f of b.foodSources) {
-      let catererId: string | null = null;
-      let catererOther: string | null = f.catererOther ?? null;
-
-      if (f.kind === 'outside_caterer' && f.catererId && f.catererId !== 'other') {
-        const approved = await c.query(
-          'SELECT id FROM usable_caterers WHERE id = $1',
-          [f.catererId]
-        );
-        if (approved.rows[0]) {
-          catererId = approved.rows[0].id;
-        } else {
-          catererOther =
-            catererOther ?? 'Caterer selected but not currently approved';
-        }
-      }
+  try {
+    const request = await transaction(async (c) => {
+      const { rows } = await c.query(
+        `INSERT INTO event_requests (
+           requester_id, requester_name, department_org, contact_email,
+           contact_phone, event_type_id, event_type_other,
+           event_name, event_description, event_date,
+           start_time, end_time, space_id, location_freetext,
+           estimated_attendance, short_notice, short_notice_state,
+           short_notice_reason, submitted_complete,
+           status, submitted_at
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,
+                   $16,$17,$18,$19,'submitted',now())
+         RETURNING id, reference_code`,
+        [
+          user.id, b.requesterName, b.departmentOrg, user.email,
+          b.contactPhone, b.eventTypeId, b.eventTypeOther,
+          b.eventName, b.eventDescription, b.eventDate,
+          b.startTime, b.endTime, b.spaceId, b.locationFreetext,
+          b.estimatedAttendance,
+          isShort, isShort ? 'pending' : null,
+          isShort ? (b.shortNoticeReason ?? null) : null,
+          b.submittedComplete,
+        ]
+      );
+      const r = rows[0];
 
       await c.query(
         `INSERT INTO event_food_sources
-           (request_id, kind, caterer_id, caterer_other, covers)
-         VALUES ($1, $2::food_source_kind, $3, $4, $5)
-         ON CONFLICT DO NOTHING`,
-        [r.id, f.kind, catererId, catererOther, f.covers ?? null]
+           (request_id, kind, caterer_other)
+         VALUES ($1, $2::food_source_kind, $3)`,
+        [r.id, b.foodSource, b.catererName]
       );
-    }
 
-    await c.query(
-      `INSERT INTO event_requirements (request_id, food_needs, service_expectations,
-         room_setup, equipment, technology, special_requests, dietary_restrictions)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-      [r.id, b.requirements.foodNeeds, b.requirements.serviceExpectations,
-       null, null, null,
-       b.requirements.specialRequests, b.requirements.dietaryRestrictions]
-    );
-
-    await c.query(
-      `INSERT INTO event_funding (request_id, budget_account, outside_org_name,
-         outside_org_involved, outside_funding, outside_funding_detail,
-         revenue_collected, revenue_detail, revenue_recipient, financial_risk_bearer)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-      [r.id, b.funding.budgetAccount, b.funding.outsideOrgName,
-       b.funding.outsideOrgInvolved ?? !!b.funding.outsideOrgName?.trim(),
-       b.funding.outsideFunding,
-       b.funding.outsideFundingDetail, b.funding.revenueCollected,
-       b.funding.revenueDetail, b.funding.revenueRecipient,
-       b.funding.financialRiskBearer]
-    );
-
-    await c.query(
-      `INSERT INTO classification_answers (request_id, official_business, event_owner,
-         primary_beneficiary, primary_payer, would_occur_without, requester_notes,
-         suggested_class, suggested_rationale, deviates_from_type, deviation_detail)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
-      [r.id, b.answers.officialBusiness,
-       b.answers.eventOwner ?? null,
-       b.answers.primaryBeneficiary, b.answers.primaryPayer,
-       b.answers.wouldOccurWithout ?? null, b.answers.requesterNotes,
-       advisory.classification, advisory.rationale,
-       advisory.deviatesFromType, advisory.deviationDetail ?? null]
-    );
-
-    for (const sel of b.setupSelections ?? []) {
       await c.query(
-        `INSERT INTO request_setup_selections (request_id, option_id, count)
-         VALUES ($1, $2, $3)
-         ON CONFLICT DO NOTHING`,
-        [r.id, sel.optionId, sel.count]
+        `INSERT INTO event_requirements
+           (request_id, dietary_restrictions, special_requests)
+         VALUES ($1, $2, $3)`,
+        [r.id, b.dietaryRestrictions, b.setupNotes]
       );
-    }
 
-    await c.query(
-      `INSERT INTO request_status_history (request_id, from_status, to_status, changed_by)
-       VALUES ($1, 'draft', 'submitted', $2)`,
-      [r.id, user.id]
+      await c.query(
+        `INSERT INTO event_funding
+           (request_id, budget_account, outside_org_involved,
+            outside_org_name, outside_funding, outside_funding_detail,
+            revenue_collected, revenue_recipient, financial_risk_bearer)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+        [
+          r.id, b.funding.budgetAccount,
+          !!b.funding.outsideOrgName?.trim(),
+          b.funding.outsideOrgName, b.funding.outsideFunding,
+          b.funding.outsideFundingDetail, b.funding.revenueCollected,
+          b.funding.revenueRecipient, b.funding.financialRiskBearer,
+        ]
+      );
+
+      // The row still exists for the notes field and for anything
+      // written before September 2026. The matrix answers are no
+      // longer asked and stay null.
+      await c.query(
+        `INSERT INTO classification_answers (request_id, requester_notes)
+         VALUES ($1, $2)`,
+        [r.id, b.eventDescription]
+      );
+
+      for (const sel of b.setupSelections ?? []) {
+        await c.query(
+          `INSERT INTO request_setup_selections (request_id, option_id, count)
+           VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
+          [r.id, sel.optionId, sel.count]
+        );
+      }
+
+      // Quoted at the external rate and flagged. Classifying the
+      // event reprices every one of these.
+      for (const sel of b.menuSelections ?? []) {
+        const { rows: price } = await c.query(
+          `SELECT unit_price FROM menu_item_prices
+            WHERE menu_item_id = $1 AND path = 'external_commercial'
+              AND effective_from <= CURRENT_DATE
+              AND (effective_to IS NULL OR effective_to > CURRENT_DATE)
+            ORDER BY effective_from DESC LIMIT 1`,
+          [sel.menuItemId]
+        );
+        if (!price[0]) continue;
+
+        let unitPrice = Number(price[0].unit_price);
+        if (sel.choices?.length) {
+          const { rows: deltas } = await c.query(
+            `SELECT coalesce(sum(price_delta), 0) AS d
+               FROM menu_choice_options WHERE id = ANY($1::uuid[])`,
+            [sel.choices.map((ch) => ch.optionId)]
+          );
+          unitPrice += Number(deltas[0]?.d ?? 0);
+        }
+
+        const { rows: selRows } = await c.query(
+          `INSERT INTO request_menu_selections
+             (request_id, menu_item_id, quantity, unit_price_quoted,
+              quoted_before_classification)
+           VALUES ($1,$2,$3,$4,true)
+           RETURNING id`,
+          [r.id, sel.menuItemId, sel.quantity, unitPrice]
+        );
+
+        for (const ch of sel.choices ?? []) {
+          await c.query(
+            `INSERT INTO selection_choices (selection_id, option_id, quantity)
+             SELECT $1, o.id, $3
+               FROM menu_choice_options o
+               JOIN menu_choice_groups g ON g.id = o.group_id
+              WHERE o.id = $2 AND g.menu_item_id = $4
+             ON CONFLICT DO NOTHING`,
+            [selRows[0].id, ch.optionId, ch.quantity, sel.menuItemId]
+          );
+        }
+      }
+
+      // A complete submission records its menu as settled, so the
+      // requester is not sent back through a step they have done.
+      if (b.submittedComplete && (b.menuSelections?.length ?? 0) > 0) {
+        await c.query(
+          `UPDATE event_requests
+              SET menu_confirmed_at = now(), menu_confirmed_by = $2
+            WHERE id = $1`,
+          [r.id, user.id]
+        );
+      }
+
+      await c.query(
+        `INSERT INTO request_status_history
+           (request_id, from_status, to_status, changed_by, reason)
+         VALUES ($1, 'draft', 'submitted', $2, 'Request submitted')`,
+        [r.id, user.id]
+      );
+
+      return r;
+    });
+
+    return NextResponse.json({
+      id: request.id,
+      referenceCode: request.reference_code,
+    });
+  } catch (err) {
+    console.error('request failed:', err);
+    return NextResponse.json(
+      { error: 'Could not send your request. Please try again.' },
+      { status: 500 }
     );
-
-    return r;
-  });
-
-  if (process.env.RESEND_API_KEY) {
-    await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: 'Events & Conferences <noreply@central.edu>',
-        to: process.env.EVENTS_INBOX,
-        subject: `New event request ${request.reference_code} - ${b.eventName}`,
-        text: `A new request is waiting in the queue.\n\n${process.env.AUTH_URL ?? ''}/staff\n`,
-      }),
-    }).catch(() => {});
   }
-
-  return NextResponse.json({
-    referenceCode: request.reference_code,
-    advisory: advisory.classification,
-  });
 }

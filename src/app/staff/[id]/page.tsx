@@ -25,6 +25,7 @@ import { getPayments, getPaymentConfig } from '@/lib/payments';
 import { one } from '@/lib/db';
 import { getReferrals, listReferrableCaterers } from '@/lib/referrals';
 import { getShortNotice } from '@/lib/notice';
+import { getClassificationContext } from '@/lib/classification';
 
 export const dynamic = 'force-dynamic';
 
@@ -84,8 +85,10 @@ export default async function RequestDetailPage({
       ])
     : [null, [], []];
 
-  const [foodSources, facility, lock, menuHistory, payments, payConfig, notice] =
-    await Promise.all([
+  const [
+    foodSources, facility, lock, menuHistory, payments, payConfig, notice,
+    classContext,
+  ] = await Promise.all([
       getFoodSources(id),
       getFacilityCharge(id),
       getDetailsLockState(id),
@@ -93,6 +96,7 @@ export default async function RequestDetailPage({
       getPayments(id),
       getPaymentConfig(),
       getShortNotice(id),
+      getClassificationContext(id),
     ]);
 
   // Nothing else on this request matters until the short-notice
@@ -275,27 +279,11 @@ export default async function RequestDetailPage({
                 </div>
 
                 <div className="subgroup">
-                  <h4>Classification answers</h4>
+                  <h4>What they told us</h4>
                   <dl>
                     <Row
-                      label="Official College business"
-                      value={PARTY[request.official_business]}
-                    />
-                    <Row
-                      label="Owned and controlled by"
-                      value={PARTY[request.event_owner]}
-                    />
-                    <Row
-                      label="Primarily benefits"
-                      value={PARTY[request.primary_beneficiary]}
-                    />
-                    <Row
-                      label="Primarily pays"
-                      value={PARTY[request.primary_payer]}
-                    />
-                    <Row
-                      label="Happens without Central"
-                      value={PARTY[request.would_occur_without]}
+                      label="About the event"
+                      value={request.event_description}
                     />
                     <Row
                       label="Requester notes"
@@ -328,7 +316,11 @@ export default async function RequestDetailPage({
                   config={payConfig}
                 />
 
-                <DecisionPanel request={request} messages={messages} />
+                <DecisionPanel
+                  request={request}
+                  messages={messages}
+                  context={classContext}
+                />
 
                 {showCapacity && capacityContext && (
                   <CapacityPanel

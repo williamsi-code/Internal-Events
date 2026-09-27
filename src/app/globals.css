@@ -3350,3 +3350,103 @@ label.chk input{margin-top:.2rem}
   .sched-when{min-width:0;font-size:1rem}
   .task-event{flex-direction:column;align-items:flex-start}
 }
+/* Append these to the end of src/app/globals.css */
+
+/* ============================================================
+   The one-page intake form
+   ============================================================ */
+
+.intake{max-width:44rem}
+
+.intake-block{
+  padding:1.75rem 0;
+  border-bottom:1px solid var(--rule);
+}
+.intake-block:first-child{padding-top:0}
+.intake-block:last-of-type{border-bottom:0}
+
+.intake-block h2{
+  font-family:Spectral,Georgia,serif;
+  font-size:1.35rem;font-weight:600;
+  margin:0 0 .3rem;
+}
+.block-note{
+  font-size:.87rem;color:var(--slate);
+  margin:0 0 1.25rem;line-height:1.55;
+}
+.intake-block h2 + .grid,
+.intake-block h2 + .field,
+.intake-block h2 + fieldset{margin-top:1.25rem}
+
+/* ---------- who provides the food ---------- */
+.food-choices{
+  display:grid;gap:.5rem;
+  grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+  margin-top:.5rem;
+}
+.food-choice{
+  display:flex;gap:.6rem;align-items:flex-start;
+  padding:.8rem .9rem;border:1px solid var(--rule);
+  border-radius:3px;cursor:pointer;background:var(--surface);
+}
+.food-choice:hover{border-color:var(--slate)}
+.food-choice.picked{
+  border-color:var(--crimson);background:var(--crimson-soft);
+}
+.food-choice input{accent-color:var(--crimson);margin:.2rem 0 0;flex:none}
+.food-label{display:block;font-weight:500;font-size:.93rem}
+.food-hint{display:block;font-size:.77rem;color:var(--slate);margin-top:.15rem}
+
+/* ---------- sending ---------- */
+.intake-send{
+  position:sticky;bottom:0;z-index:5;
+  background:var(--surface);
+  border-top:1px solid var(--ink);
+  padding:1.1rem 0;margin-top:1rem;
+}
+.intake-send .btn{font-size:1rem;padding:.7rem 1.6rem}
+.intake-send .sub{margin:.6rem 0 0;max-width:32rem}
+
+@media(max-width:640px){
+  .food-choices{grid-template-columns:1fr}
+  .intake-block{padding:1.25rem 0}
+  .intake-send .btn{width:100%}
+}
+/* Append these to the end of src/app/globals.css */
+
+/* ============================================================
+   Classifying, without a matrix
+   ============================================================ */
+
+.class-context{
+  background:var(--paper);border:1px solid var(--rule);
+  border-radius:3px;padding:1.1rem 1.2rem;margin-bottom:1.25rem;
+}
+
+.cc-description{
+  font-size:.96rem;line-height:1.65;white-space:pre-wrap;
+  padding-bottom:1rem;margin-bottom:1rem;
+  border-bottom:1px solid var(--rule);
+}
+
+.cc-facts{
+  display:grid;gap:.7rem 1.5rem;
+  grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+  margin:0;
+}
+.cc-facts dt{
+  font-size:.68rem;text-transform:uppercase;letter-spacing:.09em;
+  color:var(--slate);font-weight:500;margin-bottom:.15rem;
+}
+.cc-facts dd{margin:0;font-size:.89rem;line-height:1.45}
+.cc-hint{
+  display:block;font-size:.73rem;color:var(--mute);font-style:italic;
+}
+
+.cc-history{
+  margin-top:1rem;padding-top:1rem;
+  border-top:1px solid var(--rule);
+  font-size:.87rem;line-height:1.55;
+}
+.cc-history strong{display:block;margin-bottom:.2rem}
+.cc-history span{color:var(--slate)}

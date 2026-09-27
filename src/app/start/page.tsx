@@ -1,62 +1,61 @@
 import { redirect } from 'next/navigation';
 import Masthead from '@/components/Masthead';
-import IntakeForm, {
-  type EventTypeOption,
-  type SpaceOption,
-} from '@/components/IntakeForm';
+import IntakeForm from '@/components/IntakeForm';
 import { getSessionUser } from '@/lib/auth';
+import { getOrderSpaces, getPublicMenu } from '@/lib/orders';
+import { getChoiceGroups } from '@/lib/choices';
 import { query } from '@/lib/db';
-import { listApprovedCaterers } from '@/lib/caterers';
 
-export const metadata = { title: 'Start creating your event' };
+export const metadata = { title: 'Request an event - Central College' };
 export const dynamic = 'force-dynamic';
+
+interface EventType {
+  id: string;
+  name: string;
+  guidance: string | null;
+}
 
 export default async function StartPage() {
   const user = await getSessionUser();
-  if (!user) redirect('/sign-in');
+  if (!user) redirect('/sign-in?next=/start');
 
-  const [eventTypes, spaces, caterers] = await Promise.all([
-    query<EventTypeOption>(
-      `SELECT et.id, et.name, c.name AS category,
-              et.default_classification, et.always_review, et.guidance
-         FROM event_types et
-         JOIN event_type_categories c ON c.id = et.category_id
-        WHERE et.is_active
-        ORDER BY c.sort_order, et.sort_order`
-    ),
-    query<SpaceOption>(
-      `SELECT id, name, building, capacity_seated, capacity_standing
-         FROM spaces
+  const [spaces, eventTypes, menu, choiceGroups] = await Promise.all([
+    getOrderSpaces(),
+    // Queried here rather than through a helper: the event type is
+    // now only a label on the form and a column in the report, so it
+    // does not need a module of its own.
+    query<EventType>(
+      `SELECT id, name, guidance
+         FROM event_types
         WHERE is_active
         ORDER BY sort_order, name`
     ),
-    // Only caterers with current paperwork are offered. A lapsed
-    // certificate quietly removes them rather than presenting a
-    // choice that would be refused later.
-    listApprovedCaterers().then((list) =>
-      list.filter((c) => !c.insurance_lapsed && !c.license_lapsed)
-    ),
+    getPublicMenu(),
+    getChoiceGroups(),
   ]);
 
   return (
     <>
-      <Masthead current="/start" />
+      <Masthead />
       <main id="main">
         <div className="pagehead">
-          <h1>Start creating your event</h1>
+          <h1>Request an event</h1>
           <p className="lede">
-            Every event begins here. Tell us what you are planning and how it is
-            funded, and the events office will confirm how your event is
-            classified &mdash; which determines the policies, pricing, and
-            services that apply.
+            One form. Tell us what you know and leave the rest &mdash; we will
+            come back to you about anything that needs deciding. If you already
+            know your menu, you can choose it here and be done.
           </p>
         </div>
-        <div className="shell">
+
+        <div className="shell" style={{ maxWidth: '46rem' }}>
           <IntakeForm
-            eventTypes={eventTypes}
             spaces={spaces}
-            caterers={caterers}
-            defaultDepartment={user.department_org ?? ''}
+            eventTypes={eventTypes}
+            menu={menu}
+            choiceGroups={choiceGroups}
+            defaultName={user.full_name}
+            defaultOrg={user.department_org}
+            defaultEmail={user.email}
           />
         </div>
       </main>

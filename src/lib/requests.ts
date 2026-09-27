@@ -88,6 +88,8 @@ export interface RequestDetail extends QueueRow {
   primary_payer: string;
   would_occur_without: string;
   requester_notes: string | null;
+  event_description: string | null;
+  submitted_complete: boolean;
 
   decision_rationale: string | null;
   decided_by_name: string | null;
@@ -120,6 +122,7 @@ export async function getRequest(id: string) {
 
            ca.official_business, ca.event_owner, ca.primary_beneficiary,
            ca.primary_payer, ca.would_occur_without, ca.requester_notes,
+           r.event_description, r.submitted_complete,
            ca.suggested_class, ca.suggested_rationale,
            ca.deviates_from_type, ca.deviation_detail,
 

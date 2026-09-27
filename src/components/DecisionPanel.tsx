@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { classificationLabel, type Classification } from '@/lib/classify';
 import type { RequestDetail, Message } from '@/lib/requests';
+import type { ClassificationContext } from '@/lib/classification';
 
 const OPTIONS: Classification[] = [
   'internal',
@@ -11,6 +12,13 @@ const OPTIONS: Classification[] = [
   'external',
   'needs_management_review',
 ];
+
+const PARTY: Record<string, string> = {
+  central: 'Central College',
+  shared: 'Shared',
+  outside: 'An outside party',
+  unclear: 'They were not sure',
+};
 
 const VERDICT_CLASS: Record<string, string> = {
   internal: 'internal',
@@ -22,9 +30,12 @@ const VERDICT_CLASS: Record<string, string> = {
 export default function DecisionPanel({
   request,
   messages,
+  context,
 }: {
   request: RequestDetail;
   messages: Message[];
+  /** Everything worth reading before deciding, in one place. */
+  context: ClassificationContext | null;
 }) {
   const router = useRouter();
 
@@ -42,17 +53,16 @@ export default function DecisionPanel({
 
   const decided = !!request.current_classification && !reopening;
 
-  // A rationale is only insisted on when the decision departs from
-  // what the matrix expected. Agreeing with the default needs no
-  // explanation; overriding it will need one when someone asks why in
-  // six months.
-  const overriding =
+  // A rationale is insisted on where someone will later ask why:
+  // when this differs from how the same requester was classified
+  // before, and when the answer is that it needs reviewing.
+  const differsFromLast =
     !!classification &&
-    !!request.default_classification &&
-    classification !== request.default_classification;
+    !!context?.previous_classification &&
+    classification !== context.previous_classification;
 
   const mustExplain =
-    overriding || request.always_review || !request.event_type_name;
+    differsFromLast || classification === 'needs_management_review';
 
   async function recordDecision() {
     if (!classification) {
@@ -61,9 +71,11 @@ export default function DecisionPanel({
     }
     if (mustExplain && !rationale.trim()) {
       setError(
-        overriding
-          ? 'This differs from the usual result for this event type, so please say why.'
-          : 'This event type is not settled by the matrix, so please say why.'
+        differsFromLast
+          ? `This differs from how they were classified last time (${classificationLabel(
+              context!.previous_classification as Classification
+            )}), so please say why.`
+          : 'Say what needs reviewing, so whoever picks it up knows where to start.'
       );
       return;
     }
@@ -127,40 +139,6 @@ export default function DecisionPanel({
     }
   }
 
-  /* Which callout leads section E depends on how confident the
-     matrix is about this event type. */
-  const callout = !request.event_type_name ? (
-    <div className="callout c-warn">
-      <strong>Event type not listed</strong>
-      The requester described it as &ldquo;{request.event_type_other}&rdquo;.
-      Classify it directly, and consider whether it should be added to the
-      matrix.
-    </div>
-  ) : request.always_review ? (
-    <div className="callout c-warn">
-      <strong>This event type is always reviewed</strong>
-      The matrix does not settle &ldquo;{request.event_type_name}&rdquo;.
-      {request.type_guidance ? ` ${request.type_guidance}` : ''}
-    </div>
-  ) : request.deviates_from_type ? (
-    <div className="callout c-flag">
-      <strong>Answers differ from the usual result for this type</strong>
-      {request.deviation_detail ??
-        'The requester answers point somewhere other than the matrix default.'}
-    </div>
-  ) : (
-    <div className="callout c-default">
-      <strong>
-        Matrix default:{' '}
-        {request.default_classification
-          ? classificationLabel(request.default_classification)
-          : 'none'}
-      </strong>
-      Based on the event type &ldquo;{request.event_type_name}&rdquo;. The
-      requester&rsquo;s answers agree.
-    </div>
-  );
-
   return (
     <>
       <div className="sec">
@@ -186,7 +164,7 @@ export default function DecisionPanel({
                 </span>
               )}
               <span className="when">
-                {request.decided_by_name} {'\u00b7'} {request.decided_at}
+                {request.decided_by_name} {'·'} {request.decided_at}
               </span>
             </div>
             <button className="btn btn-ghost" onClick={() => setReopening(true)}>
@@ -198,7 +176,97 @@ export default function DecisionPanel({
           </>
         ) : (
           <>
-            {callout}
+            {context && (
+              <div className="class-context">
+                {context.event_description ? (
+                  <div className="cc-description">
+                    {context.event_description}
+                  </div>
+                ) : (
+                  <p className="sub">
+                    They did not describe it. The funding below is what there
+                    is to go on.
+                  </p>
+                )}
+
+                <dl className="cc-facts">
+                  <div>
+                    <dt>Type</dt>
+                    <dd>
+                      {context.event_type_name ??
+                        `${context.event_type_other} (not listed)`}
+                      {context.type_hint && (
+                        <span className="cc-hint">
+                          usually {classificationLabel(
+                            context.type_hint as Classification
+                          ).toLowerCase()}
+                        </span>
+                      )}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Paying</dt>
+                    <dd>
+                      {context.budget_account
+                        ? `Central account ${context.budget_account}`
+                        : 'No Central account given'}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Outside involvement</dt>
+                    <dd>
+                      {context.outside_org_name || 'None named'}
+                      {context.outside_funding
+                        ? ` · funded in part by ${
+                            context.outside_funding_detail ?? 'an outside party'
+                          }`
+                        : ''}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Revenue</dt>
+                    <dd>
+                      {context.revenue_collected
+                        ? `Collected, to ${context.revenue_recipient ?? 'unstated'}`
+                        : 'None collected'}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Carries the risk</dt>
+                    <dd>{PARTY[context.financial_risk_bearer ?? ''] ?? '—'}</dd>
+                  </div>
+                </dl>
+
+                {context.previous_classification && (
+                  <div className="cc-history">
+                    <strong>
+                      Last time:{' '}
+                      {classificationLabel(
+                        context.previous_classification as Classification
+                      )}
+                    </strong>
+                    <span>
+                      {context.previous_events} previous event
+                      {context.previous_events === 1 ? '' : 's'} from{' '}
+                      {context.department_org}. Classifying this one
+                      differently is fine, but worth explaining.
+                    </span>
+                  </div>
+                )}
+
+                {context.awaiting_reprice > 0 && (
+                  <div className="callout c-warn">
+                    <strong>
+                      They chose a menu before this was classified
+                    </strong>
+                    {context.awaiting_reprice} line
+                    {context.awaiting_reprice === 1 ? '' : 's'} quoted at the
+                    standard rate. Recording a decision reprices them and
+                    tells the requester what changed.
+                  </div>
+                )}
+              </div>
+            )}
 
             {error && <div className="alert alert-error">{error}</div>}
 
@@ -223,8 +291,8 @@ export default function DecisionPanel({
             </label>
             <p className="sub">
               {mustExplain
-                ? 'Needed here, because this decision is not the matrix default. Written for the requester, so explain it in terms they will understand.'
-                : 'Optional when the decision matches the matrix. Add one if there is anything the requester should know.'}
+                ? 'Needed here. Written for the requester, so explain it in terms they will understand.'
+                : 'Optional. Add one if there is anything the requester should know.'}
             </p>
             <textarea
               id="rationale"
@@ -277,8 +345,8 @@ export default function DecisionPanel({
                 }
               >
                 <div className="who">
-                  {m.author_name} {'\u00b7'} {m.created_at}
-                  {m.is_internal ? ' \u00b7 internal note' : ''}
+                  {m.author_name} {'·'} {m.created_at}
+                  {m.is_internal ? ' · internal note' : ''}
                 </div>
                 {m.body}
               </li>

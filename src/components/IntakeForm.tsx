@@ -1,120 +1,117 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import SetupChecklist, { type SetupValue } from './SetupChecklist';
-import type { SetupOption } from '@/lib/setup-labels';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import {
-  classify,
-  classificationLabel,
-  type Classification,
-  type Party,
-  type YesNoUnsure,
-} from '@/lib/classify';
-import FoodSourcePicker, { type FoodSource } from './FoodSourcePicker';
-import type { ApprovedCaterer } from '@/lib/caterers';
+import SetupChecklist, { type SetupValue } from './SetupChecklist';
+import MenuChoices, { type ChoiceValue } from './MenuChoices';
+import type { SetupOption } from '@/lib/setup-labels';
+import type { ChoiceGroup } from '@/lib/choices';
 
-export interface EventTypeOption {
-  id: string;
-  name: string;
-  category: string;
-  default_classification: Classification | null;
-  always_review: boolean;
-  guidance: string | null;
-}
+/**
+ * Asking for an event.
+ *
+ * One page. The classification questions are gone: a department
+ * secretary booking a lunch should not have to work out who the
+ * primary beneficiary is, and their guess was never what staff
+ * recorded anyway. Staff read the description and the funding and
+ * decide.
+ *
+ * The menu is here too, for anyone who already knows. Prices shown
+ * are the standard rate until the event is classified, which is said
+ * plainly rather than discovered later.
+ */
 
-export interface SpaceOption {
+interface SpaceOption {
   id: string;
   name: string;
   building: string | null;
   capacity_seated: number | null;
   capacity_standing: number | null;
+  supports_catering: boolean;
 }
 
-const STEPS = [
-  { letter: 'A', name: 'Event details' },
-  { letter: 'B', name: 'Requirements' },
-  { letter: 'C', name: 'Funding and classification' },
-  { letter: '\u00b7', name: 'Review and submit' },
-];
+interface MenuItem {
+  id: string;
+  name: string;
+  description: string | null;
+  category: string;
+  unit: string;
+  unit_price: string;
+  minimum_quantity: number | null;
+}
 
-const PARTY_LABEL: Record<string, string> = {
-  central: 'Central College',
-  shared: 'Shared',
-  outside: 'Outside party',
-  unclear: 'Not sure',
-  yes: 'Yes',
-  no: 'No',
-  unsure: 'Not sure',
-};
+interface EventType {
+  id: string;
+  name: string;
+  guidance: string | null;
+}
 
-const VERDICT_CLASS: Record<string, string> = {
-  internal: 'internal',
-  affiliated: 'affiliated',
-  external: 'external',
-  needs_management_review: 'review',
-};
+const FOOD_SOURCES = [
+  ['central_dining', 'Central Catering', 'We cook it and serve it'],
+  ['outside_caterer', 'An outside caterer', 'Someone from our approved list'],
+  ['donated', 'Donated or brought in', 'A potluck, or food somebody is giving'],
+  ['no_food', 'No food at all', 'Just the room'],
+] as const;
+
+const PARTY = [
+  ['central', 'Central College'],
+  ['shared', 'Shared'],
+  ['outside', 'An outside party'],
+  ['unclear', 'Not sure'],
+] as const;
 
 export default function IntakeForm({
-  eventTypes,
   spaces,
-  caterers,
-  defaultDepartment,
+  eventTypes,
+  menu,
+  choiceGroups,
+  defaultName,
+  defaultOrg,
+  defaultEmail,
 }: {
-  eventTypes: EventTypeOption[];
   spaces: SpaceOption[];
-  caterers: ApprovedCaterer[];
-  defaultDepartment: string;
+  eventTypes: EventType[];
+  menu: MenuItem[];
+  choiceGroups: Record<string, ChoiceGroup[]>;
+  defaultName: string;
+  defaultOrg: string | null;
+  defaultEmail: string;
 }) {
   const router = useRouter();
-  const [step, setStep] = useState(0);
-  const [furthest, setFurthest] = useState(0);
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [busy, setBusy] = useState(false);
-  const [submitError, setSubmitError] = useState('');
-  const [reference, setReference] = useState('');
 
-  // A
-  const [departmentOrg, setDepartmentOrg] = useState(defaultDepartment);
+  /* ---------- who and what ---------- */
+  const [requesterName, setRequesterName] = useState(defaultName);
+  const [departmentOrg, setDepartmentOrg] = useState(defaultOrg ?? '');
   const [contactPhone, setContactPhone] = useState('');
+  const [eventName, setEventName] = useState('');
   const [eventTypeId, setEventTypeId] = useState('');
   const [eventTypeOther, setEventTypeOther] = useState('');
-  const [eventName, setEventName] = useState('');
-  const [eventPurpose, setEventPurpose] = useState('');
+  const [description, setDescription] = useState('');
+
+  /* ---------- when and where ---------- */
   const [eventDate, setEventDate] = useState('');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
+  const [attendance, setAttendance] = useState('');
   const [spaceId, setSpaceId] = useState('');
-  // 172 rooms is too many to scroll. Typing narrows the list.
   const [spaceSearch, setSpaceSearch] = useState('');
+  const [locationFreetext, setLocationFreetext] = useState('');
 
-  // Short notice. Checked against the chosen room as soon as there is
-  // a room and a date, so the requester finds out before filling in
-  // three more sections.
-  const [notice, setNotice] = useState<{
-    isShort: boolean;
-    hoursNotice: number;
-    requiredHours: number;
-    spaceName: string;
-  } | null>(null);
-  const [noticeReason, setNoticeReason] = useState('');
+  /* ---------- food ---------- */
+  const [foodSource, setFoodSource] = useState('');
+  const [catererName, setCatererName] = useState('');
+  const [menuNow, setMenuNow] = useState<boolean | null>(null);
+  const [quantities, setQuantities] = useState<Record<string, number>>({});
+  const [choices, setChoices] = useState<Record<string, ChoiceValue[]>>({});
+  const [dietary, setDietary] = useState('');
 
-  // What the chosen room can do, and what was picked from it.
+  /* ---------- setup ---------- */
   const [setupOptions, setSetupOptions] = useState<SetupOption[]>([]);
   const [setupValues, setSetupValues] = useState<SetupValue[]>([]);
-  const [locationFreetext, setLocationFreetext] = useState('');
-  const [estimatedAttendance, setEstimatedAttendance] = useState('');
-  const [foodSources, setFoodSources] = useState<FoodSource[]>([
-    { kind: 'central_dining', catererId: '', catererOther: '', covers: '' },
-  ]);
+  const [setupNotes, setSetupNotes] = useState('');
 
-  // B
-  const [foodNeeds, setFoodNeeds] = useState('');
-  const [serviceExpectations, setServiceExpectations] = useState('');
-  const [dietaryRestrictions, setDietaryRestrictions] = useState('');
-  const [specialRequests, setSpecialRequests] = useState('');
-
-  // C
+  /* ---------- money ---------- */
   const [budgetAccount, setBudgetAccount] = useState('');
   const [outsideOrgName, setOutsideOrgName] = useState('');
   const [outsideFunding, setOutsideFunding] = useState('');
@@ -123,95 +120,23 @@ export default function IntakeForm({
   const [revenueRecipient, setRevenueRecipient] = useState('');
   const [financialRisk, setFinancialRisk] = useState('');
 
-  // D
-  const [officialBusiness, setOfficialBusiness] = useState('');
-  const [primaryBeneficiary, setPrimaryBeneficiary] = useState('');
-  const [primaryPayer, setPrimaryPayer] = useState('');
-  const [requesterNotes, setRequesterNotes] = useState('');
+  /* ---------- short notice ---------- */
+  const [notice, setNotice] = useState<{
+    isShort: boolean;
+    hoursNotice: number;
+    requiredHours: number;
+    spaceName: string;
+  } | null>(null);
+  const [noticeReason, setNoticeReason] = useState('');
 
-  const selectedType = eventTypes.find(t => t.id === eventTypeId);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [busy, setBusy] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
-  const grouped = useMemo(() => {
-    const map = new Map<string, EventTypeOption[]>();
-    for (const t of eventTypes) {
-      if (!map.has(t.category)) map.set(t.category, []);
-      map.get(t.category)!.push(t);
-    }
-    return [...map.entries()];
-  }, [eventTypes]);
+  const err = (key: string) =>
+    errors[key] ? <span className="err">{errors[key]}</span> : null;
 
-  const advisory = useMemo(
-    () =>
-      classify({
-        typeDefault: selectedType?.default_classification ?? null,
-        typeAlwaysReview: selectedType ? selectedType.always_review : eventTypeId === 'other',
-        officialBusiness: (officialBusiness || undefined) as YesNoUnsure | undefined,
-        primaryBeneficiary: (primaryBeneficiary || undefined) as Party | undefined,
-        primaryPayer: (primaryPayer || undefined) as Party | undefined,
-        financialRisk: (financialRisk || undefined) as Party | undefined,
-        outsideOrgInvolved: !!outsideOrgName.trim(),
-        revenueCollected: revenueCollected === 'yes',
-      }),
-    [
-      selectedType, eventTypeId, officialBusiness, primaryBeneficiary,
-      primaryPayer, financialRisk, outsideOrgName, revenueCollected,
-    ]
-  );
-
-  function validate(index: number) {
-    const e: Record<string, string> = {};
-    if (index === 0) {
-      if (!eventTypeId) e.eventTypeId = 'Choose an event type.';
-      if (eventTypeId === 'other' && !eventTypeOther.trim())
-        e.eventTypeOther = 'Describe your event type.';
-      if (!eventName.trim()) e.eventName = 'Give the event a name.';
-      if (!eventDate) e.eventDate = 'Choose a date.';
-      if (!startTime) e.startTime = 'Enter a start time.';
-      if (!endTime) e.endTime = 'Enter an end time.';
-      if (!spaceId) e.spaceId = 'Choose a location.';
-      if (spaceId === 'other' && !locationFreetext.trim())
-        e.locationFreetext = 'Describe the location.';
-      if (!estimatedAttendance || Number(estimatedAttendance) < 1)
-        e.estimatedAttendance = 'Enter an estimated number of guests.';
-      if (!departmentOrg.trim()) e.departmentOrg = 'Enter your department or organization.';
-      if (foodSources.length === 0)
-        e.foodSources = 'Choose who is providing the food.';
-      const oc = foodSources.find((f) => f.kind === 'outside_caterer');
-      if (oc && !oc.catererId && !oc.catererOther.trim())
-        e.foodSources = 'Choose a caterer, or tell us who you have in mind.';
-      const dn = foodSources.find((f) => f.kind === 'donated');
-      if (dn && !dn.catererOther.trim())
-        e.foodSources = 'Tell us where the donated food is coming from.';
-    }
-    if (index === 2) {
-      if (!outsideFunding) e.outsideFunding = 'Choose yes or no.';
-      if (!revenueCollected) e.revenueCollected = 'Choose yes or no.';
-      if (!financialRisk) e.financialRisk = 'Choose one.';
-    }
-    if (index === 3) {
-      if (!officialBusiness) e.officialBusiness = 'Choose one.';
-      if (!primaryBeneficiary) e.primaryBeneficiary = 'Choose one.';
-      if (!primaryPayer) e.primaryPayer = 'Choose one.';
-    }
-    setErrors(e);
-    return Object.keys(e).length === 0;
-  }
-
-  function go(next: number) {
-    if (next > step && !validate(step)) return;
-    setStep(next);
-    setFurthest(f => Math.max(f, next));
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }
-
-  /** Matches on room name and building, so "graham" and "vermeer"
-   *  both find the banquet room. */
-  const matchingSpaces = spaces.filter(s => {
-    if (!spaceSearch.trim()) return true;
-    const q = spaceSearch.toLowerCase();
-    return `${s.name} ${s.building ?? ''}`.toLowerCase().includes(q);
-  });
-
+  /* ---------- the room decides the checklist ---------- */
   useEffect(() => {
     if (!spaceId || spaceId === 'other') {
       setSetupOptions([]);
@@ -219,7 +144,6 @@ export default function IntakeForm({
       return;
     }
     let cancelled = false;
-
     fetch('/api/requests/space-options', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -229,27 +153,23 @@ export default function IntakeForm({
       .then((d) => {
         if (cancelled) return;
         setSetupOptions(d.options ?? []);
-        // Anything picked for the old room may not exist in the new
-        // one, so the selection starts again rather than carrying
-        // over something the room cannot do.
         setSetupValues([]);
       })
       .catch(() => {
         if (!cancelled) setSetupOptions([]);
       });
-
     return () => {
       cancelled = true;
     };
   }, [spaceId]);
 
+  /* ---------- short notice ---------- */
   useEffect(() => {
     if (!spaceId || spaceId === 'other' || !eventDate) {
       setNotice(null);
       return;
     }
     let cancelled = false;
-
     fetch('/api/requests/notice-check', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -263,134 +183,191 @@ export default function IntakeForm({
       .then((d) => {
         if (!cancelled) setNotice(d.isShort ? d : null);
       })
-      .catch(() => {
-        // A failed check should not block the form. The server
-        // checks again on submit.
-      });
-
+      .catch(() => {});
     return () => {
       cancelled = true;
     };
   }, [spaceId, eventDate, startTime]);
 
+  /* ---------- the room list ---------- */
+  const matchingSpaces = spaces.filter((s) => {
+    if (!spaceSearch.trim()) return true;
+    const q = spaceSearch.toLowerCase();
+    return `${s.name} ${s.building ?? ''}`.toLowerCase().includes(q);
+  });
+
+  const chosenSpace = spaces.find((s) => s.id === spaceId);
+
+  const overCapacity = useMemo(() => {
+    if (!chosenSpace || !attendance) return false;
+    const cap =
+      chosenSpace.capacity_standing ?? chosenSpace.capacity_seated ?? 0;
+    return cap > 0 && Number(attendance) > cap;
+  }, [chosenSpace, attendance]);
+
+  /* ---------- the menu ---------- */
+  const wantsCentral = foodSource === 'central_dining';
+  const chosen = menu.filter((m) => (quantities[m.id] ?? 0) > 0);
+
+  const grouped = useMemo(() => {
+    const map = new Map<string, MenuItem[]>();
+    for (const m of menu) {
+      if (!map.has(m.category)) map.set(m.category, []);
+      map.get(m.category)!.push(m);
+    }
+    return [...map.entries()];
+  }, [menu]);
+
+  function unitPrice(m: MenuItem) {
+    const picked = choices[m.id] ?? [];
+    const groups = choiceGroups[m.id] ?? [];
+    const delta = picked.reduce((sum, v) => {
+      for (const g of groups) {
+        const o = g.options.find((x) => x.id === v.optionId);
+        if (o) return sum + Number(o.price_delta);
+      }
+      return sum;
+    }, 0);
+    return Number(m.unit_price) + delta;
+  }
+
+  const estimate = chosen.reduce(
+    (sum, m) => sum + unitPrice(m) * quantities[m.id],
+    0
+  );
+
+  const incomplete = chosen.filter((m) => {
+    const groups = choiceGroups[m.id] ?? [];
+    const picked = choices[m.id] ?? [];
+    return groups.some((g) => {
+      const inGroup = picked.filter((v) =>
+        g.options.some((o) => o.id === v.optionId)
+      );
+      return inGroup.length < g.min_select;
+    });
+  });
+
+  const money = (v: number) =>
+    v.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+
+  /* ---------- submitting ---------- */
+
+  function validate() {
+    const e: Record<string, string> = {};
+    if (!requesterName.trim()) e.requesterName = 'We need your name.';
+    if (!departmentOrg.trim())
+      e.departmentOrg = 'Which department or organization?';
+    if (!eventName.trim()) e.eventName = 'Give your event a name.';
+    if (!eventTypeId && !eventTypeOther.trim())
+      e.eventType = 'Choose the closest type, or describe it.';
+    if (!eventDate) e.eventDate = 'When is it?';
+    if (!attendance || Number(attendance) < 1)
+      e.attendance = 'Roughly how many people?';
+    if (!spaceId) e.spaceId = 'Where would you like it?';
+    if (spaceId === 'other' && !locationFreetext.trim())
+      e.locationFreetext = 'Tell us roughly where.';
+    if (!foodSource) e.foodSource = 'Choose one.';
+    if (foodSource === 'outside_caterer' && !catererName.trim())
+      e.catererName = 'Which caterer?';
+    if (!financialRisk) e.financialRisk = 'Choose one.';
+    if (incomplete.length > 0)
+      e.menu = `Still to choose: ${incomplete.map((m) => m.name).join(', ')}.`;
+
+    setErrors(e);
+    if (Object.keys(e).length > 0) {
+      const first = document.querySelector('.err');
+      first?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return false;
+    }
+    return true;
+  }
+
   async function submit() {
-    if (!validate(3)) { setStep(3); return; }
+    if (!validate()) return;
     setBusy(true);
     setSubmitError('');
+
     try {
       const res = await fetch('/api/requests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          eventTypeId: eventTypeId === 'other' ? null : eventTypeId,
-          eventTypeOther: eventTypeId === 'other' ? eventTypeOther : null,
-          eventName,
-          eventPurpose,
+          requesterName: requesterName.trim(),
+          departmentOrg: departmentOrg.trim(),
+          contactPhone: contactPhone.trim() || null,
+          eventName: eventName.trim(),
+          eventTypeId: eventTypeId || null,
+          eventTypeOther: eventTypeOther.trim() || null,
+          eventDescription: description.trim() || null,
           eventDate,
           startTime: startTime || null,
           endTime: endTime || null,
+          spaceId: spaceId === 'other' ? null : spaceId,
+          locationFreetext: locationFreetext.trim() || null,
+          estimatedAttendance: Number(attendance),
+
+          foodSource,
+          catererName: catererName.trim() || null,
+          dietaryRestrictions: dietary.trim() || null,
+
+          menuSelections: wantsCentral
+            ? chosen.map((m) => ({
+                menuItemId: m.id,
+                quantity: quantities[m.id],
+                choices: (choices[m.id] ?? []).map((v) => ({
+                  optionId: v.optionId,
+                  quantity: v.quantity,
+                })),
+              }))
+            : [],
+
           setupSelections: setupValues.map((v) => ({
             optionId: v.optionId,
             count: v.count,
           })),
+          setupNotes: setupNotes.trim() || null,
+
+          funding: {
+            budgetAccount: budgetAccount.trim() || null,
+            outsideOrgName: outsideOrgName.trim() || null,
+            outsideFunding: outsideFunding === 'yes',
+            outsideFundingDetail: outsideFundingDetail.trim() || null,
+            revenueCollected: revenueCollected === 'yes',
+            revenueRecipient: revenueRecipient.trim() || null,
+            financialRiskBearer: financialRisk,
+          },
+
           shortNotice: !!notice?.isShort,
           shortNoticeReason: notice?.isShort
             ? noticeReason.trim() || null
             : null,
-          spaceId: spaceId === 'other' ? null : spaceId,
-          locationFreetext: spaceId === 'other' ? locationFreetext : null,
-          estimatedAttendance: Number(estimatedAttendance),
-          departmentOrg,
-          contactPhone: contactPhone || null,
-          foodSources: foodSources.map((f) => ({
-            kind: f.kind,
-            catererId: f.catererId || null,
-            catererOther: f.catererOther || null,
-            covers: f.covers || null,
-          })),
-          requirements: {
-            foodNeeds, serviceExpectations, specialRequests,
-            dietaryRestrictions,
-          },
-          funding: {
-            budgetAccount,
-            outsideOrgInvolved: !!outsideOrgName.trim(),
-            outsideOrgName,
-            outsideFunding: outsideFunding === 'yes',
-            outsideFundingDetail,
-            revenueCollected: revenueCollected === 'yes',
-            revenueDetail: '',
-            revenueRecipient,
-            financialRiskBearer: financialRisk,
-          },
-          answers: {
-            officialBusiness, primaryBeneficiary,
-            primaryPayer, requesterNotes,
-          },
+
+          // Everything given at once: no coming back for a menu they
+          // have already chosen.
+          submittedComplete: !wantsCentral || chosen.length > 0,
         }),
       });
-      const data = await res.json();
+
+      const d = await res.json();
       if (!res.ok) {
-        setSubmitError(data.error ?? 'Could not submit the request.');
+        setSubmitError(d.error ?? 'Something went wrong. Please try again.');
         setBusy(false);
         return;
       }
-      setReference(data.referenceCode);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      router.push(`/my-requests/${d.id}?new=1`);
     } catch {
-      setSubmitError('Could not reach the server. Try again.');
+      setSubmitError('Could not reach the server. Please try again.');
       setBusy(false);
     }
-  }
-
-  /* ---------- confirmation ---------- */
-  if (reference) {
-    return (
-      <div className="card">
-        <span className="eyebrow">Submitted</span>
-        <h2>Your request is with the events office</h2>
-        <p className="confirm-code">{reference}</p>
-        <p className="hint">
-          Keep this reference number — it identifies your request in any email
-          or phone call.
-        </p>
-        <ol className="next-steps">
-          <li>
-            The events office reviews your request and confirms the
-            classification. If anything is unclear, they will send you a
-            question rather than guessing.
-          </li>
-          <li>
-            Once classified, you will receive the applicable policies and an
-            estimated charge for your department or organization.
-          </li>
-          <li>
-            You will then choose menu items and confirm setup, equipment, and
-            technology details.
-          </li>
-          <li>
-            Final headcount is locked shortly before the event, and the
-            confirmed details are sent to everyone involved.
-          </li>
-        </ol>
-        <button
-          className="btn btn-ghost"
-          style={{ marginTop: '1.5rem' }}
-          onClick={() => router.push('/')}
-        >
-          Back to Events &amp; Conferences
-        </button>
-      </div>
-    );
   }
 
   const radios = (
     name: string,
     value: string,
-    setter: (v: string) => void,
-    options: [string, string][]
+    onChange: (v: string) => void,
+    options: readonly (readonly [string, string])[]
   ) => (
-    <div className="choices" role="radiogroup" aria-label={name}>
+    <div className="choices" role="radiogroup">
       {options.map(([v, label]) => (
         <label className="choice" key={v}>
           <input
@@ -398,7 +375,7 @@ export default function IntakeForm({
             name={name}
             value={v}
             checked={value === v}
-            onChange={() => setter(v)}
+            onChange={() => onChange(v)}
           />
           {label}
         </label>
@@ -406,552 +383,631 @@ export default function IntakeForm({
     </div>
   );
 
-  const err = (key: string) =>
-    errors[key] ? <p className="err on">{errors[key]}</p> : null;
-
   return (
-    <div className="intake-layout">
-      <div>
-        <ol className="progress">
-          {STEPS.map((s, i) => (
-            <li key={s.name} data-state={i === step ? 'active' : i < furthest ? 'done' : ''}>
-              <button type="button" onClick={() => i <= furthest && go(i)}>
-                <span className="letter">{s.letter}</span>
-                <span className="name">{s.name}</span>
-              </button>
-            </li>
-          ))}
-        </ol>
+    <div className="intake">
+      {/* ============ your event ============ */}
+      <section className="intake-block">
+        <h2>Your event</h2>
 
-        {/* ---------- A ---------- */}
-        {step === 0 && (
-          <section className="card">
-            <span className="eyebrow">Section A</span>
-            <h2>Requester &amp; event information</h2>
-            <p className="hint">
-              The basics. If your date or space is not settled yet, give your
-              best estimate — we confirm availability before anything is booked.
-            </p>
-
-            <div className="field">
-              <label htmlFor="eventTypeId">What kind of event is this?<span className="req">*</span></label>
-              <p className="sub">
-                Pick the closest match. This is the single most useful thing you
-                can tell us — most classifications are already decided for common
-                event types.
-              </p>
-              <select id="eventTypeId" value={eventTypeId} onChange={e => setEventTypeId(e.target.value)}>
-                <option value="">Choose an event type</option>
-                {grouped.map(([category, items]) => (
-                  <optgroup label={category} key={category}>
-                    {items.map(t => (
-                      <option value={t.id} key={t.id}>{t.name}</option>
-                    ))}
-                  </optgroup>
-                ))}
-                <option value="other">Something else — not listed here</option>
-              </select>
-              {err('eventTypeId')}
-              {selectedType?.guidance && (
-                <p className="sub" style={{ color: 'var(--brass)', marginTop: '.6rem' }}>
-                  {selectedType.guidance}
-                </p>
-              )}
-              {eventTypeId === 'other' && (
-                <div className="conditional on">
-                  <label htmlFor="eventTypeOther">Describe your event type</label>
-                  <input id="eventTypeOther" type="text" value={eventTypeOther}
-                    onChange={e => setEventTypeOther(e.target.value)} />
-                  {err('eventTypeOther')}
-                </div>
-              )}
-            </div>
-
-            <FoodSourcePicker
-              sources={foodSources}
-              setSources={setFoodSources}
-              caterers={caterers}
-              error={errors.foodSources}
+        <div className="grid two">
+          <div className="field">
+            <label htmlFor="if-name">
+              Your name<span className="req">*</span>
+            </label>
+            <input
+              id="if-name"
+              type="text"
+              value={requesterName}
+              onChange={(e) => setRequesterName(e.target.value)}
             />
+            {err('requesterName')}
+          </div>
+          <div className="field">
+            <label htmlFor="if-dept">
+              Department or organization<span className="req">*</span>
+            </label>
+            <input
+              id="if-dept"
+              type="text"
+              value={departmentOrg}
+              onChange={(e) => setDepartmentOrg(e.target.value)}
+            />
+            {err('departmentOrg')}
+          </div>
+          <div className="field">
+            <label htmlFor="if-phone">Phone</label>
+            <p className="sub">For anything urgent on the day.</p>
+            <input
+              id="if-phone"
+              type="tel"
+              value={contactPhone}
+              onChange={(e) => setContactPhone(e.target.value)}
+            />
+          </div>
+          <div className="field">
+            <label>Email</label>
+            <p className="sub" style={{ marginTop: '.55rem' }}>
+              {defaultEmail}
+            </p>
+          </div>
+        </div>
 
-            <div className="grid two">
-              <div className="field">
-                <label htmlFor="departmentOrg">Department or organization<span className="req">*</span></label>
-                <input id="departmentOrg" type="text" value={departmentOrg}
-                  onChange={e => setDepartmentOrg(e.target.value)} />
-                {err('departmentOrg')}
-              </div>
-              <div className="field">
-                <label htmlFor="contactPhone">Phone</label>
-                <input id="contactPhone" type="tel" value={contactPhone}
-                  onChange={e => setContactPhone(e.target.value)} />
-              </div>
+        <div className="field">
+          <label htmlFor="if-event">
+            What is it called?<span className="req">*</span>
+          </label>
+          <p className="sub">
+            How people would refer to it. &ldquo;Chemistry seminar
+            lunch&rdquo;, &ldquo;Anderson wedding&rdquo;.
+          </p>
+          <input
+            id="if-event"
+            type="text"
+            value={eventName}
+            onChange={(e) => setEventName(e.target.value)}
+          />
+          {err('eventName')}
+        </div>
+
+        <div className="field">
+          <label htmlFor="if-type">
+            Closest type<span className="req">*</span>
+          </label>
+          <select
+            id="if-type"
+            value={eventTypeId}
+            onChange={(e) => {
+              setEventTypeId(e.target.value);
+              if (e.target.value) setEventTypeOther('');
+            }}
+          >
+            <option value="">Choose one</option>
+            {eventTypes.map((t) => (
+              <option value={t.id} key={t.id}>
+                {t.name}
+              </option>
+            ))}
+            <option value="">Something else</option>
+          </select>
+          {!eventTypeId && (
+            <input
+              type="text"
+              placeholder="Describe it in a few words"
+              value={eventTypeOther}
+              onChange={(e) => setEventTypeOther(e.target.value)}
+              style={{ marginTop: '.5rem' }}
+            />
+          )}
+          {err('eventType')}
+        </div>
+
+        <div className="field">
+          <label htmlFor="if-desc">Tell us about it</label>
+          <p className="sub">
+            What is happening, who is coming, and anything that would help us
+            understand it. This is what the events office reads when working
+            out how your event is classified, so a sentence or two here saves
+            a phone call later.
+          </p>
+          <textarea
+            id="if-desc"
+            rows={4}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
+        </div>
+      </section>
+
+      {/* ============ when and where ============ */}
+      <section className="intake-block">
+        <h2>When and where</h2>
+
+        <div className="grid two">
+          <div className="field">
+            <label htmlFor="if-date">
+              Date<span className="req">*</span>
+            </label>
+            <input
+              id="if-date"
+              type="date"
+              value={eventDate}
+              onChange={(e) => setEventDate(e.target.value)}
+            />
+            {err('eventDate')}
+          </div>
+          <div className="field">
+            <label htmlFor="if-count">
+              How many people<span className="req">*</span>
+            </label>
+            <p className="sub">An estimate is fine for now.</p>
+            <input
+              id="if-count"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              value={attendance}
+              onChange={(e) => setAttendance(e.target.value)}
+            />
+            {err('attendance')}
+          </div>
+          <div className="field">
+            <label htmlFor="if-start">Starts</label>
+            <input
+              id="if-start"
+              type="time"
+              step={1800}
+              value={startTime}
+              onChange={(e) => setStartTime(e.target.value)}
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="if-end">Ends</label>
+            <input
+              id="if-end"
+              type="time"
+              step={1800}
+              value={endTime}
+              onChange={(e) => setEndTime(e.target.value)}
+            />
+          </div>
+        </div>
+
+        <div className="field">
+          <label htmlFor="if-space">
+            Where<span className="req">*</span>
+          </label>
+          <p className="sub">Start typing to narrow the list.</p>
+          <input
+            id="if-space"
+            type="search"
+            placeholder="Vermeer, Maytag, chapel..."
+            value={spaceSearch}
+            onChange={(e) => setSpaceSearch(e.target.value)}
+            autoComplete="off"
+          />
+
+          {spaceId && spaceId !== 'other' && (
+            <div className="chosen-space">
+              <span>
+                <strong>{chosenSpace?.name}</strong>
+                {chosenSpace?.building ? ` \u2014 ${chosenSpace.building}` : ''}
+              </span>
+              <button
+                type="button"
+                className="edit-link"
+                onClick={() => {
+                  setSpaceId('');
+                  setSpaceSearch('');
+                }}
+              >
+                Change
+              </button>
             </div>
+          )}
 
-            <div className="field">
-              <label htmlFor="eventName">Event name<span className="req">*</span></label>
-              <input id="eventName" type="text" value={eventName}
-                onChange={e => setEventName(e.target.value)} />
-              {err('eventName')}
-            </div>
-
-            <div className="field">
-                            <label htmlFor="eventPurpose">Event purpose</label>
-                            <p className="sub">
-                Optional, but helpful. What is the event for, and who is it for?
-              </p>
-              <textarea id="eventPurpose" value={eventPurpose}
-                onChange={e => setEventPurpose(e.target.value)} />
-            </div>
-
-            <div className="grid two">
-              <div className="field">
-                <label htmlFor="eventDate">Event date<span className="req">*</span></label>
-                <input id="eventDate" type="date" value={eventDate}
-                  onChange={e => setEventDate(e.target.value)} />
-                {err('eventDate')}
-              </div>
-              <div className="field">
-                <label htmlFor="estimatedAttendance">Estimated attendance<span className="req">*</span></label>
-                <input id="estimatedAttendance" type="number" min={1} value={estimatedAttendance}
-                  onChange={e => setEstimatedAttendance(e.target.value)} />
-                {err('estimatedAttendance')}
-              </div>
-              <div className="field">
-                <label htmlFor="startTime">Start time<span className="req">*</span></label>
-                {/* step=1800 makes the browser offer half hours, so
-                    nobody has to type ":00" and nobody enters 12:07. */}
-                <input id="startTime" type="time" step={1800} value={startTime}
-                  onChange={e => setStartTime(e.target.value)} />
-                {err('startTime')}
-              </div>
-              <div className="field">
-                <label htmlFor="endTime">End time<span className="req">*</span></label>
-                <input id="endTime" type="time" step={1800} value={endTime}
-                  onChange={e => setEndTime(e.target.value)} />
-                {err('endTime')}
-              </div>
-            </div>
-
-            <div className="field">
-              <label htmlFor="spaceSearch">Location requested<span className="req">*</span></label>
-              <p className="sub">
-                Start typing to narrow the list, or scroll it.
-              </p>
-              <input
-                id="spaceSearch"
-                type="search"
-                placeholder="Vermeer, Maytag, chapel..."
-                value={spaceSearch}
-                onChange={e => setSpaceSearch(e.target.value)}
-                autoComplete="off"
-              />
-
-              {/* Chosen room shown plainly, so the search box can be
-                  cleared without losing what was picked. */}
-              {spaceId && spaceId !== 'other' && (
-                <div className="chosen-space">
-                  <span>
-                    <strong>
-                      {spaces.find(s => s.id === spaceId)?.name}
-                    </strong>
-                    {spaces.find(s => s.id === spaceId)?.building
-                      ? ` — ${spaces.find(s => s.id === spaceId)?.building}`
-                      : ''}
-                  </span>
+          {(!spaceId || spaceId === 'other') && (
+            <ul className="space-options">
+              {matchingSpaces.length === 0 && (
+                <li className="space-none">
+                  Nothing matches &ldquo;{spaceSearch}&rdquo;.
+                </li>
+              )}
+              {matchingSpaces.slice(0, 40).map((s) => (
+                <li key={s.id}>
                   <button
                     type="button"
-                    className="edit-link"
-                    onClick={() => { setSpaceId(''); setSpaceSearch(''); }}
+                    className="space-option"
+                    onClick={() => {
+                      setSpaceId(s.id);
+                      setSpaceSearch('');
+                    }}
                   >
-                    Change
+                    <span className="space-option-name">{s.name}</span>
+                    <span className="space-option-meta">
+                      {s.building}
+                      {s.capacity_seated
+                        ? ` \u00b7 seats ${s.capacity_seated}`
+                        : ''}
+                    </span>
                   </button>
-                </div>
+                </li>
+              ))}
+              {matchingSpaces.length > 40 && (
+                <li className="space-none">
+                  {matchingSpaces.length - 40} more. Keep typing to narrow it.
+                </li>
               )}
-
-              {(!spaceId || spaceId === 'other') && (
-                <ul className="space-options">
-                  {matchingSpaces.length === 0 && (
-                    <li className="space-none">
-                      Nothing matches &ldquo;{spaceSearch}&rdquo;.
-                    </li>
-                  )}
-                  {matchingSpaces.slice(0, 40).map(s => (
-                    <li key={s.id}>
-                      <button
-                        type="button"
-                        className="space-option"
-                        onClick={() => { setSpaceId(s.id); setSpaceSearch(''); }}
-                      >
-                        <span className="space-option-name">{s.name}</span>
-                        <span className="space-option-meta">
-                          {s.building}
-                          {s.capacity_seated ? ` \u00b7 seats ${s.capacity_seated}` : ''}
-                        </span>
-                      </button>
-                    </li>
-                  ))}
-                  {matchingSpaces.length > 40 && (
-                    <li className="space-none">
-                      {matchingSpaces.length - 40} more. Keep typing to narrow it.
-                    </li>
-                  )}
-                  <li>
-                    <button
-                      type="button"
-                      className={`space-option other${spaceId === 'other' ? ' picked' : ''}`}
-                      onClick={() => setSpaceId('other')}
-                    >
-                      <span className="space-option-name">
-                        Other, or not sure yet
-                      </span>
-                      <span className="space-option-meta">
-                        Describe it and we will suggest something
-                      </span>
-                    </button>
-                  </li>
-                </ul>
-              )}
-              {err('spaceId')}
-
-              {notice?.isShort && (
-                <div className="notice-warning">
-                  <strong>
-                    {notice.hoursNotice < 0
-                      ? 'That date has already passed'
-                      : `That is ${Math.round(notice.hoursNotice)} hours away`}
-                  </strong>
-                  <p>
-                    {notice.spaceName} normally needs{' '}
-                    {notice.requiredHours} hours&rsquo; notice. You can still
-                    send this, but it goes to the events office first and they
-                    will say whether it can go ahead before anything else
-                    happens.
-                  </p>
-                  <div className="field">
-                    <label htmlFor="noticeReason">
-                      Anything they should know?
-                    </label>
-                    <p className="sub">
-                      What has changed, or why it could not be asked sooner.
-                      It helps them say yes.
-                    </p>
-                    <textarea
-                      id="noticeReason"
-                      rows={3}
-                      value={noticeReason}
-                      onChange={(e) => setNoticeReason(e.target.value)}
-                    />
-                  </div>
-                </div>
-              )}
-              {spaceId === 'other' && (
-                <div className="conditional on">
-                  <label htmlFor="locationFreetext">Describe the location you have in mind</label>
-                  <input id="locationFreetext" type="text" value={locationFreetext}
-                    onChange={e => setLocationFreetext(e.target.value)} />
-                  {err('locationFreetext')}
-                </div>
-              )}
-            </div>
-
-            <div className="actions">
-              <button className="btn btn-primary" onClick={() => go(1)}>
-                Continue to requirements
-              </button>
-            </div>
-          </section>
-        )}
-
-        {/* ---------- B ---------- */}
-        {step === 1 && (
-          <section className="card">
-            <span className="eyebrow">Section B</span>
-            <h2>Event requirements</h2>
-            <p className="hint">
-              What you would like us to provide. Nothing here is final — you
-              choose specific menu items after your event is classified.
-            </p>
-
-            <div className="field">
-              <label htmlFor="foodNeeds">Food and beverage needs</label>
-              <p className="sub">Meal, refreshments, reception, or none at all.</p>
-              <textarea id="foodNeeds" value={foodNeeds} onChange={e => setFoodNeeds(e.target.value)} />
-            </div>
-            <div className="field">
-              <label htmlFor="serviceExpectations">Service expectations</label>
-              <p className="sub">Buffet, plated, drop-off, staffed bar, self-serve.</p>
-              <textarea id="serviceExpectations" value={serviceExpectations}
-                onChange={e => setServiceExpectations(e.target.value)} />
-            </div>
-            <div className="field">
-              <label htmlFor="dietaryRestrictions">Dietary restrictions or allergies</label>
-              <textarea id="dietaryRestrictions" value={dietaryRestrictions}
-                onChange={e => setDietaryRestrictions(e.target.value)} />
-            </div>
-
-            <SetupChecklist
-              options={setupOptions}
-              values={setupValues}
-              onChange={setSetupValues}
-              spaceChosen={!!spaceId && spaceId !== 'other'}
-            />
-
-            <div className="field" style={{ marginTop: '1.25rem' }}>
-              <label htmlFor="specialRequests">
-                Anything else about the setup
-              </label>
-              <p className="sub">
-                Anything the list above does not cover, or how you would like
-                it arranged.
-              </p>
-              <textarea id="specialRequests" value={specialRequests}
-                onChange={e => setSpecialRequests(e.target.value)} />
-            </div>
-
-            <div className="actions">
-              <button className="btn btn-ghost" onClick={() => go(0)}>Back</button>
-              <button className="btn btn-primary" onClick={() => go(2)}>Continue to funding</button>
-            </div>
-          </section>
-        )}
-
-        {/* ---------- C ---------- */}
-        {step === 2 && (
-          <section className="card">
-            <span className="eyebrow">Section C</span>
-            <h2>Funding and classification</h2>
-            <p className="hint">
-              How the event is paid for and who it is for. These answers
-              determine how it is classified, and therefore what it costs.
-              &ldquo;Not sure&rdquo; is a real answer and simply sends your
-              request for a closer look.
-            </p>
-
-            <div className="field">
-              <label htmlFor="budgetAccount">Central budget or account number</label>
-              <p className="sub">Leave blank if no Central account is funding this.</p>
-              <input id="budgetAccount" type="text" value={budgetAccount}
-                onChange={e => setBudgetAccount(e.target.value)} />
-            </div>
-
-            <div className="field">
-              <label htmlFor="outsideOrgName">
-                Outside organization involved
-              </label>
-              <p className="sub">
-                Any group, business or partner that is not part of Central.
-                Leave blank if there is none.
-              </p>
-              <input id="outsideOrgName" type="text" value={outsideOrgName}
-                onChange={e => setOutsideOrgName(e.target.value)} />
-            </div>
-
-            <fieldset className="field">
-              <span className="legend">Is there outside funding, a grant, or sponsorship?<span className="req">*</span></span>
-              {radios('outsideFunding', outsideFunding, setOutsideFunding,
-                [['yes', 'Yes'], ['no', 'No']])}
-              {err('outsideFunding')}
-              {outsideFunding === 'yes' && (
-                <div className="conditional on">
-                  <label htmlFor="outsideFundingDetail">Describe the funding source</label>
-                  <input id="outsideFundingDetail" type="text" value={outsideFundingDetail}
-                    onChange={e => setOutsideFundingDetail(e.target.value)} />
-                </div>
-              )}
-            </fieldset>
-
-            <fieldset className="field">
-              <span className="legend">Will registration, admission, or other revenue be collected?<span className="req">*</span></span>
-              {radios('revenueCollected', revenueCollected, setRevenueCollected,
-                [['yes', 'Yes'], ['no', 'No']])}
-              {err('revenueCollected')}
-              {revenueCollected === 'yes' && (
-                <div className="conditional on">
-                  <label htmlFor="revenueRecipient">Who receives the revenue?</label>
-                  <input id="revenueRecipient" type="text" value={revenueRecipient}
-                    onChange={e => setRevenueRecipient(e.target.value)} />
-                </div>
-              )}
-            </fieldset>
-
-            <fieldset className="field">
-              <span className="legend">Who assumes the financial risk?<span className="req">*</span></span>
-              <p className="sub">If the event loses money or is cancelled late, who absorbs the cost?</p>
-              {radios('financialRisk', financialRisk, setFinancialRisk, [
-                ['central', 'Central College'], ['shared', 'Shared'],
-                ['outside', 'The outside party'], ['unclear', 'Not sure'],
-              ])}
-              {err('financialRisk')}
-            </fieldset>
-
-            <fieldset className="field">
-              <span className="legend">Is this official Central College business?<span className="req">*</span></span>
-              {radios('officialBusiness', officialBusiness, setOfficialBusiness,
-                [['yes', 'Yes'], ['no', 'No'], ['unsure', 'Not sure']])}
-              {err('officialBusiness')}
-            </fieldset>
-
-            <fieldset className="field">
-              <span className="legend">Who primarily benefits?<span className="req">*</span></span>
-              <p className="sub">
-                Whose purposes does this event serve, if you had to choose one.
-              </p>
-              {radios('primaryBeneficiary', primaryBeneficiary, setPrimaryBeneficiary, [
-                ['central', 'Central'], ['shared', 'Both substantially'],
-                ['outside', 'Outside party'], ['unclear', 'Not sure'],
-              ])}
-              {err('primaryBeneficiary')}
-            </fieldset>
-
-            <fieldset className="field">
-              <span className="legend">Who primarily pays?<span className="req">*</span></span>
-              {radios('primaryPayer', primaryPayer, setPrimaryPayer, [
-                ['central', 'Central'], ['shared', 'Split'],
-                ['outside', 'Outside party'], ['unclear', 'Not sure'],
-              ])}
-              {err('primaryPayer')}
-            </fieldset>
-
-            <div className="field">
-              <label htmlFor="requesterNotes">Anything else we should know?</label>
-              <p className="sub">Context that might affect how this is classified.</p>
-              <textarea id="requesterNotes" value={requesterNotes}
-                onChange={e => setRequesterNotes(e.target.value)} />
-            </div>
-
-            <div className="actions">
-              <button className="btn btn-ghost" onClick={() => go(1)}>Back</button>
-              <button className="btn btn-primary" onClick={() => go(3)}>Review your request</button>
-            </div>
-          </section>
-        )}
-
-        {/* ---------- review ---------- */}
-        {step === 3 && (
-          <section className="card">
-            <span className="eyebrow">Review</span>
-            <h2>Review your request</h2>
-            <p className="hint">
-              Check everything over. Once you submit, the events office reviews
-              your request and confirms the classification — you will hear back
-              before anything is booked.
-            </p>
-
-            {submitError && <div className="alert alert-error">{submitError}</div>}
-
-            <ReviewGroup title="Event details" onEdit={() => go(0)} rows={[
-              ['Event type', selectedType?.name ?? (eventTypeOther || 'Not listed')],
-              ['Department', departmentOrg],
-              ['Phone', contactPhone],
-              ['Event', eventName],
-              ['Purpose', eventPurpose],
-              ['Date', eventDate],
-              ['Time', startTime && endTime ? `${startTime} – ${endTime}` : ''],
-              ['Location', spaces.find(s => s.id === spaceId)?.name ?? locationFreetext],
-              ['Attendance', estimatedAttendance],
-            ]} />
-
-            <ReviewGroup title="Requirements" onEdit={() => go(1)} rows={[
-              ['Food and beverage', foodNeeds],
-              ['Service', serviceExpectations],
-              ['Dietary', dietaryRestrictions],
-              ['Setup and equipment',
-                setupValues
-                  .map((v) => {
-                    const o = setupOptions.find((x) => x.id === v.optionId);
-                    if (!o) return null;
-                    return v.count ? `${o.label} \u00d7${v.count}` : o.label;
-                  })
-                  .filter(Boolean)
-                  .join(', ')],
-              ['Special requests', specialRequests],
-            ]} />
-
-            <ReviewGroup title="Funding and classification" onEdit={() => go(2)} rows={[
-              ['Budget account', budgetAccount],
-              ['Outside organization', outsideOrgName || 'None'],
-              ['Outside funding', PARTY_LABEL[outsideFunding] ?? ''],
-              ['Revenue collected', revenueCollected === 'yes' ? `Yes \u2014 to ${revenueRecipient}` : 'No'],
-              ['Financial risk', PARTY_LABEL[financialRisk] ?? ''],
-              ['Official business', PARTY_LABEL[officialBusiness] ?? ''],
-              ['Benefits', PARTY_LABEL[primaryBeneficiary] ?? ''],
-              ['Pays', PARTY_LABEL[primaryPayer] ?? ''],
-              ['Notes', requesterNotes],
-            ]} />
-
-            <div className="actions">
-              <button className="btn btn-ghost" onClick={() => go(2)}>Back</button>
-              <button className="btn btn-primary" onClick={submit} disabled={busy}>
-                {busy ? 'Submitting…' : 'Submit request'}
-              </button>
-            </div>
-          </section>
-        )}
-      </div>
-
-      {/* ---------- live classification ---------- */}
-      <aside className="panel" aria-live="polite">
-        <div className="panel-head">
-          <h3>Likely classification</h3>
-          <p>Updates as you answer sections C and D</p>
-        </div>
-        <div className="panel-body">
-          {advisory.classification ? (
-            <>
-              <p className={`verdict ${VERDICT_CLASS[advisory.classification]}`}>
-                {classificationLabel(advisory.classification)}
-              </p>
-              <p className="verdict-note">{advisory.rationale}</p>
-              <ul className="reasons">
-                {advisory.reasons.slice(0, 6).map((r, i) => <li key={i}>{r}</li>)}
-              </ul>
-            </>
-          ) : (
-            <>
-              <p className="verdict pending">Not enough answers yet</p>
-              <p className="verdict-note">
-                Choose an event type, or answer the classification questions, and
-                we will show you where your event is likely to land.
-              </p>
-            </>
+              <li>
+                <button
+                  type="button"
+                  className={`space-option other${
+                    spaceId === 'other' ? ' picked' : ''
+                  }`}
+                  onClick={() => setSpaceId('other')}
+                >
+                  <span className="space-option-name">
+                    Somewhere else, or not sure
+                  </span>
+                  <span className="space-option-meta">
+                    Describe it and we will suggest something
+                  </span>
+                </button>
+              </li>
+            </ul>
           )}
-          <p className="disclaimer">
-            This is a preview based on your answers. The events office makes the
-            final determination and may classify your event differently.
-          </p>
-        </div>
-      </aside>
-    </div>
-  );
-}
+          {err('spaceId')}
 
-function ReviewGroup({
-  title, rows, onEdit,
-}: {
-  title: string;
-  rows: [string, string][];
-  onEdit: () => void;
-}) {
-  const filled = rows.filter(([, v]) => v && v.trim());
-  return (
-    <div className="review-group">
-      <h3>
-        {title}
-        <button type="button" className="edit-link" onClick={onEdit}>Edit</button>
-      </h3>
-      {filled.length ? (
-        <dl>
-          {filled.map(([k, v]) => (
-            <div key={k} style={{ display: 'contents' }}>
-              <dt>{k}</dt>
-              <dd>{v}</dd>
+          {spaceId === 'other' && (
+            <div className="conditional on">
+              <label htmlFor="if-where">Roughly where?</label>
+              <input
+                id="if-where"
+                type="text"
+                value={locationFreetext}
+                onChange={(e) => setLocationFreetext(e.target.value)}
+              />
+              {err('locationFreetext')}
             </div>
-          ))}
-        </dl>
-      ) : (
-        <p className="empty">Nothing entered</p>
-      )}
+          )}
+
+          {overCapacity && (
+            <div className="callout c-warn">
+              <strong>That is more people than the room holds</strong>
+              {chosenSpace?.name} takes about{' '}
+              {chosenSpace?.capacity_standing ?? chosenSpace?.capacity_seated}.
+              You can still ask, and we will suggest somewhere that fits.
+            </div>
+          )}
+
+          {notice?.isShort && (
+            <div className="notice-warning">
+              <strong>
+                {notice.hoursNotice < 0
+                  ? 'That date has already passed'
+                  : `That is ${Math.round(notice.hoursNotice)} hours away`}
+              </strong>
+              <p>
+                {notice.spaceName} normally needs {notice.requiredHours}{' '}
+                hours&rsquo; notice. You can still send this, but it goes to
+                the events office first and they will say whether it can go
+                ahead.
+              </p>
+              <div className="field">
+                <label htmlFor="if-notice">Anything they should know?</label>
+                <textarea
+                  id="if-notice"
+                  rows={2}
+                  value={noticeReason}
+                  onChange={(e) => setNoticeReason(e.target.value)}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* ============ food ============ */}
+      <section className="intake-block">
+        <h2>Food and drink</h2>
+
+        <fieldset className="field">
+          <span className="legend">
+            Who is providing it?<span className="req">*</span>
+          </span>
+          <div className="food-choices">
+            {FOOD_SOURCES.map(([v, label, hint]) => (
+              <label
+                className={`food-choice${foodSource === v ? ' picked' : ''}`}
+                key={v}
+              >
+                <input
+                  type="radio"
+                  name="foodSource"
+                  value={v}
+                  checked={foodSource === v}
+                  onChange={() => setFoodSource(v)}
+                />
+                <span>
+                  <span className="food-label">{label}</span>
+                  <span className="food-hint">{hint}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+          {err('foodSource')}
+        </fieldset>
+
+        {foodSource === 'outside_caterer' && (
+          <div className="conditional on">
+            <label htmlFor="if-caterer">Which caterer?</label>
+            <p className="sub">
+              They must be on our approved list before the day.{' '}
+              <Link href="/info/outside-caterer-policy">What that means</Link>
+            </p>
+            <input
+              id="if-caterer"
+              type="text"
+              value={catererName}
+              onChange={(e) => setCatererName(e.target.value)}
+            />
+            {err('catererName')}
+          </div>
+        )}
+
+        {foodSource === 'donated' && (
+          <div className="callout c-warn">
+            <strong>Donated food has rules</strong>
+            Mostly about temperature and labelling, and they are not onerous.{' '}
+            <Link href="/info/donated-food-policy">Read them</Link> before the
+            day, and we will go through them with you.
+          </div>
+        )}
+
+        {wantsCentral && (
+          <>
+            <fieldset className="field">
+              <span className="legend">Do you know what you want?</span>
+              <div className="choices" role="radiogroup">
+                <label className="choice">
+                  <input
+                    type="radio"
+                    name="menuNow"
+                    checked={menuNow === true}
+                    onChange={() => setMenuNow(true)}
+                  />
+                  Yes, let me choose now
+                </label>
+                <label className="choice">
+                  <input
+                    type="radio"
+                    name="menuNow"
+                    checked={menuNow === false}
+                    onChange={() => setMenuNow(false)}
+                  />
+                  Not yet, we will decide later
+                </label>
+              </div>
+            </fieldset>
+
+            {menuNow === false && (
+              <p className="sub">
+                That is fine. We will confirm your classification first, then
+                open the menu at your rate.
+              </p>
+            )}
+
+            {menuNow === true && (
+              <>
+                <div className="callout c-default">
+                  <strong>Prices here are the standard rate</strong>
+                  Central departments and affiliated events pay less. We will
+                  confirm which applies to you and the total will change
+                  accordingly &mdash; nothing is charged until you have seen
+                  the final figure.
+                </div>
+
+                <nav className="menu-jump" aria-label="Jump to a section">
+                  {grouped.map(([category]) => (
+                    <a
+                      href={`#in-${category.replace(/\s+/g, '-').toLowerCase()}`}
+                      key={category}
+                    >
+                      {category}
+                      {chosen.some((m) => m.category === category) && (
+                        <span className="jump-dot" />
+                      )}
+                    </a>
+                  ))}
+                </nav>
+
+                {grouped.map(([category, items]) => (
+                  <div
+                    className="menu-group"
+                    key={category}
+                    id={`in-${category.replace(/\s+/g, '-').toLowerCase()}`}
+                  >
+                    <h3>{category}</h3>
+                    {items.map((m) => {
+                      const qty = quantities[m.id] ?? 0;
+                      return (
+                        <div
+                          className={`menu-row${qty > 0 ? ' chosen' : ''}`}
+                          key={m.id}
+                        >
+                          <div className="menu-info">
+                            <span className="menu-name">{m.name}</span>
+                            {m.description && (
+                              <span className="menu-desc">{m.description}</span>
+                            )}
+                            <span className="menu-price">
+                              {money(Number(m.unit_price))} {m.unit}
+                              {m.minimum_quantity
+                                ? ` \u00b7 minimum ${m.minimum_quantity}`
+                                : ''}
+                            </span>
+                          </div>
+                          <div className="menu-qty">
+                            <label className="sr-only" htmlFor={`q-${m.id}`}>
+                              Quantity of {m.name}
+                            </label>
+                            <input
+                              id={`q-${m.id}`}
+                              type="number"
+                              inputMode="numeric"
+                              min={0}
+                              value={qty || ''}
+                              placeholder="0"
+                              onChange={(e) =>
+                                setQuantities({
+                                  ...quantities,
+                                  [m.id]: Number(e.target.value) || 0,
+                                })
+                              }
+                            />
+                          </div>
+
+                          {qty > 0 &&
+                            (choiceGroups[m.id]?.length ?? 0) > 0 && (
+                              <MenuChoices
+                                groups={choiceGroups[m.id]}
+                                values={choices[m.id] ?? []}
+                                orderedQuantity={qty}
+                                onChange={(next) =>
+                                  setChoices((c) => ({ ...c, [m.id]: next }))
+                                }
+                              />
+                            )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+
+                {chosen.length > 0 && (
+                  <div className="estimate-total">
+                    <span>Estimated at the standard rate</span>
+                    <strong>{money(estimate)}</strong>
+                  </div>
+                )}
+                {err('menu')}
+              </>
+            )}
+          </>
+        )}
+
+        {foodSource && foodSource !== 'no_food' && (
+          <div className="field">
+            <label htmlFor="if-diet">Dietary requirements</label>
+            <p className="sub">
+              Allergies, intolerances, anything we should plan around. Five
+              business days&rsquo; notice for anything unusual.
+            </p>
+            <textarea
+              id="if-diet"
+              rows={2}
+              value={dietary}
+              onChange={(e) => setDietary(e.target.value)}
+            />
+          </div>
+        )}
+      </section>
+
+      {/* ============ the room ============ */}
+      <section className="intake-block">
+        <h2>How the room should look</h2>
+
+        <SetupChecklist
+          options={setupOptions}
+          values={setupValues}
+          onChange={setSetupValues}
+          spaceChosen={!!spaceId && spaceId !== 'other'}
+        />
+
+        <div className="field" style={{ marginTop: '1.25rem' }}>
+          <label htmlFor="if-setup">Anything else about the setup</label>
+          <textarea
+            id="if-setup"
+            rows={2}
+            value={setupNotes}
+            onChange={(e) => setSetupNotes(e.target.value)}
+          />
+        </div>
+      </section>
+
+      {/* ============ money ============ */}
+      <section className="intake-block">
+        <h2>How it is being paid for</h2>
+        <p className="block-note">
+          These answers decide how your event is classified, and therefore what
+          it costs. &ldquo;Not sure&rdquo; is a real answer.
+        </p>
+
+        <div className="field">
+          <label htmlFor="if-budget">Budget account</label>
+          <p className="sub">If a Central account is paying.</p>
+          <input
+            id="if-budget"
+            type="text"
+            value={budgetAccount}
+            onChange={(e) => setBudgetAccount(e.target.value)}
+          />
+        </div>
+
+        <div className="field">
+          <label htmlFor="if-org">Outside organization involved</label>
+          <p className="sub">
+            Any group, business or partner that is not part of Central. Leave
+            blank if there is none.
+          </p>
+          <input
+            id="if-org"
+            type="text"
+            value={outsideOrgName}
+            onChange={(e) => setOutsideOrgName(e.target.value)}
+          />
+        </div>
+
+        <fieldset className="field">
+          <span className="legend">Is anyone outside Central paying toward it?</span>
+          {radios('outsideFunding', outsideFunding, setOutsideFunding, [
+            ['yes', 'Yes'],
+            ['no', 'No'],
+          ])}
+          {outsideFunding === 'yes' && (
+            <div className="conditional on">
+              <label htmlFor="if-fund">Who, and how much?</label>
+              <input
+                id="if-fund"
+                type="text"
+                value={outsideFundingDetail}
+                onChange={(e) => setOutsideFundingDetail(e.target.value)}
+              />
+            </div>
+          )}
+        </fieldset>
+
+        <fieldset className="field">
+          <span className="legend">
+            Are you charging admission or collecting money?
+          </span>
+          {radios('revenueCollected', revenueCollected, setRevenueCollected, [
+            ['yes', 'Yes'],
+            ['no', 'No'],
+          ])}
+          {revenueCollected === 'yes' && (
+            <div className="conditional on">
+              <label htmlFor="if-rev">Who receives it?</label>
+              <input
+                id="if-rev"
+                type="text"
+                value={revenueRecipient}
+                onChange={(e) => setRevenueRecipient(e.target.value)}
+              />
+            </div>
+          )}
+        </fieldset>
+
+        <fieldset className="field">
+          <span className="legend">
+            If it lost money, who would carry that?<span className="req">*</span>
+          </span>
+          {radios('financialRisk', financialRisk, setFinancialRisk, PARTY)}
+          {err('financialRisk')}
+        </fieldset>
+      </section>
+
+      {/* ============ send ============ */}
+      {submitError && <div className="alert alert-error">{submitError}</div>}
+
+      <div className="intake-send">
+        <button className="btn btn-primary" onClick={submit} disabled={busy}>
+          {busy ? 'Sending...' : 'Send this to the events office'}
+        </button>
+        <p className="sub">
+          You will hear back within two working days. Nothing is booked or
+          charged until you have seen and confirmed the details.
+        </p>
+      </div>
     </div>
   );
 }
