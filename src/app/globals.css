@@ -3485,3 +3485,35 @@ label.chk input{margin-top:.2rem}
   accent-color:var(--crimson);
   width:1.05rem;height:1.05rem;
 }
+/* Append these to the end of src/app/globals.css */
+
+/* ---------- one line per variety ---------- */
+.sheet-variety-name{
+  display:inline-block;margin-left:.5rem;
+  font-weight:600;color:var(--crimson);
+}
+.sheet-variety td:first-child{padding-left:1rem}
+
+.sheet-revenue{
+  display:inline-block;margin-top:.15rem;
+  font-size:.62rem;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--slate);background:var(--paper);
+  border-radius:2rem;padding:.05rem .45rem;
+}
+
+/* ---------- what the total is made of ---------- */
+.revenue-split{break-inside:avoid}
+.revenue-table{width:24rem;max-width:100%;border-collapse:collapse}
+.revenue-table td{
+  padding:.3rem 0;border-bottom:1px solid var(--rule);font-size:.9rem;
+}
+.revenue-table td.num{
+  text-align:right;font-variant-numeric:tabular-nums;
+}
+.revenue-table tr:last-child td{border-bottom:0}
+
+@media print{
+  .sheet-revenue{
+    border:1px solid #ccc;background:none;
+  }
+}

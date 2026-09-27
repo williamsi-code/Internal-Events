@@ -6,6 +6,12 @@ import { getCateringSheet, getCateringLines } from '@/lib/catering';
 import { getChoicesForSheet } from '@/lib/choices';
 import { getSheetLines, getSheetNotes } from '@/lib/sheet-extras';
 import { getSetupForRequest } from '@/lib/setup-options';
+import {
+  getSheetLinesFor,
+  getLineNotes,
+  getRevenueBreakdown,
+  REVENUE_LABEL,
+} from '@/lib/sheet-lines';
 import { KIND_LABEL } from '@/lib/setup-labels';
 import { LINE_KINDS } from '@/lib/sheet-line-kinds';
 import SheetExtras from '@/components/SheetExtras';
@@ -33,14 +39,27 @@ export default async function CateringSheetPage({
   const sheet = await getCateringSheet(id);
   if (!sheet) notFound();
 
-  const [lines, choiceRows, manualLines, sheetNotes, setupRows] =
-    await Promise.all([
-      getCateringLines(id),
-      getChoicesForSheet(id),
-      getSheetLines(id),
-      getSheetNotes(id),
-      getSetupForRequest(id),
-    ]);
+  const [
+    lines, choiceRows, manualLines, sheetNotes, setupRows,
+    splitLines, lineNotes, revenue,
+  ] = await Promise.all([
+    getCateringLines(id),
+    getChoicesForSheet(id),
+    getSheetLines(id),
+    getSheetNotes(id),
+    getSetupForRequest(id),
+    getSheetLinesFor(id),
+    getLineNotes(id),
+    getRevenueBreakdown(id),
+  ]);
+
+  // Choices that are not a split belong under the line they came
+  // from, keyed so each line can find its own.
+  const notesFor = new Map<string, typeof lineNotes>();
+  for (const n of lineNotes) {
+    if (!notesFor.has(n.selection_id)) notesFor.set(n.selection_id, []);
+    notesFor.get(n.selection_id)!.push(n);
+  }
 
   const menuTotal = lines.reduce((s, l) => s + Number(l.line_total), 0);
   const manualTotal = manualLines
@@ -71,7 +90,7 @@ export default async function CateringSheetPage({
       if (!byGroup.has(c.group)) byGroup.set(c.group, []);
       byGroup
         .get(c.group)!
-        .push(c.quantity ? `${c.option} \u00d7${c.quantity}` : c.option);
+        .push(c.quantity ? `${c.option} ×${c.quantity}` : c.option);
     }
     return [...byGroup.entries()].map(([group, options]) => ({
       group,
@@ -186,37 +205,62 @@ export default async function CateringSheetPage({
                 </tr>
               </thead>
               <tbody>
-                {Object.entries(grouped).map(([category, items]) => (
-                  <Fragment key={category}>
-                    <tr className="sheet-cat">
-                      <th colSpan={4}>{category}</th>
-                    </tr>
-                    {items.map((l, i) => (
-                      <tr key={`${category}-${i}`}>
-                        <td>
-                          <span className="sheet-item">{l.name}</span>
-                          {l.description && (
-                            <span className="sheet-item-desc">{l.description}</span>
-                          )}
-                          {choiceLines(l.name).map((c) => (
-                            <span className="sheet-choice" key={c.group}>
-                              <span className="sheet-choice-label">
-                                {c.group}
-                              </span>
-                              {c.options}
-                            </span>
-                          ))}
-                          {l.notes && (
-                            <span className="sheet-item-note">{l.notes}</span>
-                          )}
-                        </td>
-                        <td className="num strong">{l.quantity}</td>
-                        <td className="num">{money(l.unit_price_quoted)}</td>
-                        <td className="num">{money(l.line_total)}</td>
+                {/* One row per thing to make. An order split across
+                    varieties is several rows: fifteen beef and
+                    fifteen turkey is two things to cook. */}
+                {[...new Set(splitLines.map((l) => l.category_name))].map(
+                  (category) => (
+                    <Fragment key={category}>
+                      <tr className="sheet-cat">
+                        <th colSpan={4}>{category}</th>
                       </tr>
-                    ))}
-                  </Fragment>
-                ))}
+                      {splitLines
+                        .filter((l) => l.category_name === category)
+                        .map((l, i) => (
+                          <tr
+                            key={`${l.selection_id}-${l.variety ?? i}`}
+                            className={l.is_variety ? 'sheet-variety' : ''}
+                          >
+                            <td>
+                              <span className="sheet-item">
+                                {l.item_name}
+                                {l.variety && (
+                                  <span className="sheet-variety-name">
+                                    {l.variety}
+                                  </span>
+                                )}
+                              </span>
+                              <span className="sheet-revenue">
+                                {REVENUE_LABEL[l.revenue_category] ??
+                                  l.revenue_category}
+                              </span>
+                              {(notesFor.get(l.selection_id) ?? []).map(
+                                (n, j) => (
+                                  <span className="sheet-choice" key={j}>
+                                    <span className="sheet-choice-label">
+                                      {n.group_label}
+                                    </span>
+                                    {n.choice}
+                                    {n.count ? ` ×${n.count}` : ''}
+                                  </span>
+                                )
+                              )}
+                              {l.notes && (
+                                <span className="sheet-item-note">
+                                  {l.notes}
+                                </span>
+                              )}
+                            </td>
+                            <td className="num strong">
+                              {Number(l.quantity)}
+                            </td>
+                            <td className="num">{money(l.unit_price)}</td>
+                            <td className="num">{money(l.line_total)}</td>
+                          </tr>
+                        ))}
+                    </Fragment>
+                  )
+                )}
                 {manualLines.length > 0 && (
                   <Fragment>
                     <tr className="sheet-cat">
@@ -263,6 +307,25 @@ export default async function CateringSheetPage({
           )}
         </section>
 
+        {/* What the total is made of. For the quarterly report more
+            than for the kitchen, but it belongs beside the figure it
+            explains. */}
+        {revenue.length > 1 && (
+          <section className="sheet-section revenue-split">
+            <h2>What this is made up of</h2>
+            <table className="revenue-table">
+              <tbody>
+                {revenue.map((r) => (
+                  <tr key={r.category}>
+                    <td>{REVENUE_LABEL[r.category] ?? r.category}</td>
+                    <td className="num">{money(r.amount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+        )}
+
         {sheetNotes && (
           <section className="sheet-section sheet-notes">
             <h2>Notes</h2>
@@ -278,7 +341,7 @@ export default async function CateringSheetPage({
                 {setupRows.map((r, i) => (
                   <li key={i}>
                     <span className="setup-n">
-                      {r.count ? `${r.count}\u00d7` : '\u2022'}
+                      {r.count ? `${r.count}×` : '\u2022'}
                     </span>
                     <span>
                       {r.label}
