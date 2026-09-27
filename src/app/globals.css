@@ -3450,3 +3450,13 @@ label.chk input{margin-top:.2rem}
 }
 .cc-history strong{display:block;margin-bottom:.2rem}
 .cc-history span{color:var(--slate)}
+/* Append these to the end of src/app/globals.css */
+
+/* ---------- split catering ---------- */
+.split-covers{
+  margin-top:1rem;padding:1rem 1.1rem;
+  background:var(--paper);border:1px solid var(--rule);
+  border-radius:3px;
+}
+.split-covers .sub:first-child{margin-top:0}
+.split-covers .field{margin-bottom:0}

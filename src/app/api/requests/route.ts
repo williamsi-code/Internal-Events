@@ -33,9 +33,12 @@ const Body = z.object({
   estimatedAttendance: z.number().int().positive().max(20_000),
 
   foodSource: z.enum([
-    'central_dining', 'outside_caterer', 'donated', 'no_food',
+    'central_dining', 'outside_caterer', 'split', 'donated', 'no_food',
   ]),
+  catererId: z.string().uuid().nullable().optional(),
   catererName: z.string().max(200).nullable(),
+  centralCovers: z.string().max(500).nullable().optional(),
+  catererCovers: z.string().max(500).nullable().optional(),
   dietaryRestrictions: z.string().max(4000).nullable(),
 
   menuSelections: z
@@ -160,12 +163,33 @@ export async function POST(req: NextRequest) {
       );
       const r = rows[0];
 
-      await c.query(
-        `INSERT INTO event_food_sources
-           (request_id, kind, caterer_other)
-         VALUES ($1, $2::food_source_kind, $3)`,
-        [r.id, b.foodSource, b.catererName]
-      );
+      // A split is two rows, not a third kind: everything downstream
+      // already knows how to read several food sources on one event,
+      // and the facility charge rules are written in those terms.
+      if (b.foodSource === 'split') {
+        await c.query(
+          `INSERT INTO event_food_sources (request_id, kind, covers)
+           VALUES ($1, 'central_dining', $2)`,
+          [r.id, b.centralCovers]
+        );
+        await c.query(
+          `INSERT INTO event_food_sources
+             (request_id, kind, caterer_id, caterer_other, covers)
+           VALUES ($1, 'outside_caterer', $2, $3, $4)`,
+          [r.id, b.catererId ?? null, b.catererName, b.catererCovers]
+        );
+      } else {
+        await c.query(
+          `INSERT INTO event_food_sources
+             (request_id, kind, caterer_id, caterer_other)
+           VALUES ($1, $2::food_source_kind, $3, $4)`,
+          [
+            r.id, b.foodSource,
+            b.foodSource === 'outside_caterer' ? (b.catererId ?? null) : null,
+            b.foodSource === 'outside_caterer' ? b.catererName : null,
+          ]
+        );
+      }
 
       await c.query(
         `INSERT INTO event_requirements

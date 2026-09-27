@@ -47,9 +47,18 @@ interface EventType {
   guidance: string | null;
 }
 
+interface CatererOption {
+  id: string;
+  business_name: string;
+  cuisine_notes: string | null;
+  insurance_lapsed: boolean;
+  license_lapsed: boolean;
+}
+
 const FOOD_SOURCES = [
   ['central_dining', 'Central Catering', 'We cook it and serve it'],
   ['outside_caterer', 'An outside caterer', 'Someone from our approved list'],
+  ['split', 'Some of each', 'We do part of it, a caterer does the rest'],
   ['donated', 'Donated or brought in', 'A potluck, or food somebody is giving'],
   ['no_food', 'No food at all', 'Just the room'],
 ] as const;
@@ -66,6 +75,7 @@ export default function IntakeForm({
   eventTypes,
   menu,
   choiceGroups,
+  caterers,
   defaultName,
   defaultOrg,
   defaultEmail,
@@ -74,6 +84,9 @@ export default function IntakeForm({
   eventTypes: EventType[];
   menu: MenuItem[];
   choiceGroups: Record<string, ChoiceGroup[]>;
+  /** Approved, insured and current. Anyone else has to be approved
+   *  before the day, so they are named rather than picked. */
+  caterers: CatererOption[];
   defaultName: string;
   defaultOrg: string | null;
   defaultEmail: string;
@@ -100,7 +113,12 @@ export default function IntakeForm({
 
   /* ---------- food ---------- */
   const [foodSource, setFoodSource] = useState('');
+  const [catererId, setCatererId] = useState('');
   const [catererName, setCatererName] = useState('');
+  // Split catering: who is doing which part. The facility charge
+  // turns on this, so it is asked rather than inferred.
+  const [centralCovers, setCentralCovers] = useState('');
+  const [catererCovers, setCatererCovers] = useState('');
   const [menuNow, setMenuNow] = useState<boolean | null>(null);
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [choices, setChoices] = useState<Record<string, ChoiceValue[]>>({});
@@ -206,7 +224,10 @@ export default function IntakeForm({
   }, [chosenSpace, attendance]);
 
   /* ---------- the menu ---------- */
-  const wantsCentral = foodSource === 'central_dining';
+  const wantsCentral =
+    foodSource === 'central_dining' || foodSource === 'split';
+  const wantsCaterer =
+    foodSource === 'outside_caterer' || foodSource === 'split';
   const chosen = menu.filter((m) => (quantities[m.id] ?? 0) > 0);
 
   const grouped = useMemo(() => {
@@ -267,8 +288,14 @@ export default function IntakeForm({
     if (spaceId === 'other' && !locationFreetext.trim())
       e.locationFreetext = 'Tell us roughly where.';
     if (!foodSource) e.foodSource = 'Choose one.';
-    if (foodSource === 'outside_caterer' && !catererName.trim())
-      e.catererName = 'Which caterer?';
+    if (
+      (foodSource === 'outside_caterer' || foodSource === 'split') &&
+      !catererId &&
+      !catererName.trim()
+    )
+      e.catererName = 'Choose a caterer, or tell us who you have in mind.';
+    if (catererId === 'other' && !catererName.trim())
+      e.catererName = 'Who do you have in mind?';
     if (!financialRisk) e.financialRisk = 'Choose one.';
     if (incomplete.length > 0)
       e.menu = `Still to choose: ${incomplete.map((m) => m.name).join(', ')}.`;
@@ -307,7 +334,11 @@ export default function IntakeForm({
           estimatedAttendance: Number(attendance),
 
           foodSource,
+          catererId:
+            catererId && catererId !== 'other' ? catererId : null,
           catererName: catererName.trim() || null,
+          centralCovers: centralCovers.trim() || null,
+          catererCovers: catererCovers.trim() || null,
           dietaryRestrictions: dietary.trim() || null,
 
           menuSelections: wantsCentral
@@ -717,20 +748,96 @@ export default function IntakeForm({
           {err('foodSource')}
         </fieldset>
 
-        {foodSource === 'outside_caterer' && (
+        {wantsCaterer && (
           <div className="conditional on">
             <label htmlFor="if-caterer">Which caterer?</label>
             <p className="sub">
-              They must be on our approved list before the day.{' '}
-              <Link href="/info/outside-caterer-policy">What that means</Link>
+              These are approved to work on campus, which means their license
+              and insurance are current and they know our kitchens and loading
+              arrangements.{' '}
+              <Link href="/info/outside-caterer-policy">
+                What approval involves
+              </Link>
             </p>
-            <input
-              id="if-caterer"
-              type="text"
-              value={catererName}
-              onChange={(e) => setCatererName(e.target.value)}
-            />
+
+            {caterers.length === 0 ? (
+              <p className="sub">
+                No caterers are currently approved. Name who you have in mind
+                below and we will start the approval, which takes three to
+                four weeks.
+              </p>
+            ) : (
+              <select
+                id="if-caterer"
+                value={catererId}
+                onChange={(e) => {
+                  setCatererId(e.target.value);
+                  if (e.target.value) setCatererName('');
+                }}
+              >
+                <option value="">Choose one</option>
+                {caterers.map((c) => (
+                  <option value={c.id} key={c.id}>
+                    {c.business_name}
+                    {c.cuisine_notes ? ` — ${c.cuisine_notes}` : ''}
+                  </option>
+                ))}
+                <option value="other">
+                  Someone else, not on this list
+                </option>
+              </select>
+            )}
+
+            {(catererId === 'other' || caterers.length === 0) && (
+              <div className="conditional on">
+                <label htmlFor="if-caterer-other">Who do you have in mind?</label>
+                <p className="sub">
+                  They will need approving before the day. Allow three to four
+                  weeks, and tell us as early as you can.
+                </p>
+                <input
+                  id="if-caterer-other"
+                  type="text"
+                  value={catererName}
+                  onChange={(e) => setCatererName(e.target.value)}
+                />
+              </div>
+            )}
             {err('catererName')}
+          </div>
+        )}
+
+        {foodSource === 'split' && (
+          <div className="split-covers">
+            <p className="sub">
+              Say roughly who is doing what. It decides whether the room is
+              charged, which is a judgement rather than a rule, so the more you
+              tell us the fewer questions we come back with.
+            </p>
+            <div className="grid two">
+              <div className="field">
+                <label htmlFor="if-central-covers">
+                  Central Catering provides
+                </label>
+                <input
+                  id="if-central-covers"
+                  type="text"
+                  placeholder="Dessert and coffee"
+                  value={centralCovers}
+                  onChange={(e) => setCentralCovers(e.target.value)}
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="if-caterer-covers">The caterer provides</label>
+                <input
+                  id="if-caterer-covers"
+                  type="text"
+                  placeholder="The main meal"
+                  value={catererCovers}
+                  onChange={(e) => setCatererCovers(e.target.value)}
+                />
+              </div>
+            </div>
           </div>
         )}
 
@@ -746,7 +853,11 @@ export default function IntakeForm({
         {wantsCentral && (
           <>
             <fieldset className="field">
-              <span className="legend">Do you know what you want?</span>
+              <span className="legend">
+                {foodSource === 'split'
+                  ? 'Do you know what you want from us?'
+                  : 'Do you know what you want?'}
+              </span>
               <div className="choices" role="radiogroup">
                 <label className="choice">
                   <input

@@ -15,11 +15,19 @@ interface EventType {
   guidance: string | null;
 }
 
+interface CatererOption {
+  id: string;
+  business_name: string;
+  cuisine_notes: string | null;
+  insurance_lapsed: boolean;
+  license_lapsed: boolean;
+}
+
 export default async function StartPage() {
   const user = await getSessionUser();
   if (!user) redirect('/sign-in?next=/start');
 
-  const [spaces, eventTypes, menu, choiceGroups] = await Promise.all([
+  const [spaces, eventTypes, menu, choiceGroups, caterers] = await Promise.all([
     getOrderSpaces(),
     // Queried here rather than through a helper: the event type is
     // now only a label on the form and a column in the report, so it
@@ -32,6 +40,15 @@ export default async function StartPage() {
     ),
     getPublicMenu(),
     getChoiceGroups(),
+    // usable_caterers is the approved list with current insurance
+    // and license. Offering a lapsed one would be offering something
+    // that gets turned away at the door.
+    query<CatererOption>(
+      `SELECT id, business_name, cuisine_notes,
+              insurance_lapsed, license_lapsed
+         FROM usable_caterers
+        ORDER BY business_name`
+    ),
   ]);
 
   return (
@@ -53,6 +70,7 @@ export default async function StartPage() {
             eventTypes={eventTypes}
             menu={menu}
             choiceGroups={choiceGroups}
+            caterers={caterers}
             defaultName={user.full_name}
             defaultOrg={user.department_org}
             defaultEmail={user.email}
