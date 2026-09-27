@@ -3460,3 +3460,28 @@ label.chk input{margin-top:.2rem}
 }
 .split-covers .sub:first-child{margin-top:0}
 .split-covers .field{margin-bottom:0}
+/* Append these to the end of src/app/globals.css.
+
+   Replaces the .split-covers rules from the previous batch, which
+   are no longer used. Leaving them in place is harmless. */
+
+/* ---------- one block per food provider ---------- */
+.source-block{
+  margin-top:1.25rem;padding:1.1rem 1.2rem;
+  background:var(--paper);
+  border:1px solid var(--rule);border-left:3px solid var(--slate);
+  border-radius:3px;
+}
+.source-block h3{
+  font-family:Spectral,Georgia,serif;
+  font-size:1.05rem;font-weight:600;margin:0 0 .9rem;
+}
+.source-block .field:last-child{margin-bottom:0}
+.source-block .menu-group:first-of-type{margin-top:1rem}
+
+/* Checkboxes rather than radios: the tick needs to read as
+   "and also", not "instead of". */
+.food-choice input[type=checkbox]{
+  accent-color:var(--crimson);
+  width:1.05rem;height:1.05rem;
+}

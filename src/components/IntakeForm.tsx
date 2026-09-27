@@ -55,12 +55,15 @@ interface CatererOption {
   license_lapsed: boolean;
 }
 
+/**
+ * More than one may apply. Central doing dessert while a caterer does
+ * the main is one event with two food sources, and the facility
+ * charge rules are written in exactly those terms.
+ */
 const FOOD_SOURCES = [
   ['central_dining', 'Central Catering', 'We cook it and serve it'],
   ['outside_caterer', 'An outside caterer', 'Someone from our approved list'],
-  ['split', 'Some of each', 'We do part of it, a caterer does the rest'],
   ['donated', 'Donated or brought in', 'A potluck, or food somebody is giving'],
-  ['no_food', 'No food at all', 'Just the room'],
 ] as const;
 
 const PARTY = [
@@ -112,13 +115,14 @@ export default function IntakeForm({
   const [locationFreetext, setLocationFreetext] = useState('');
 
   /* ---------- food ---------- */
-  const [foodSource, setFoodSource] = useState('');
+  const [sources, setSources] = useState<string[]>([]);
+  const [noFood, setNoFood] = useState(false);
   const [catererId, setCatererId] = useState('');
   const [catererName, setCatererName] = useState('');
-  // Split catering: who is doing which part. The facility charge
-  // turns on this, so it is asked rather than inferred.
-  const [centralCovers, setCentralCovers] = useState('');
-  const [catererCovers, setCatererCovers] = useState('');
+  // Who covers what. Only asked when more than one is providing
+  // food, because that is when the facility charge becomes a
+  // judgement rather than a rule.
+  const [covers, setCovers] = useState<Record<string, string>>({});
   const [menuNow, setMenuNow] = useState<boolean | null>(null);
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [choices, setChoices] = useState<Record<string, ChoiceValue[]>>({});
@@ -224,10 +228,17 @@ export default function IntakeForm({
   }, [chosenSpace, attendance]);
 
   /* ---------- the menu ---------- */
-  const wantsCentral =
-    foodSource === 'central_dining' || foodSource === 'split';
-  const wantsCaterer =
-    foodSource === 'outside_caterer' || foodSource === 'split';
+  const wantsCentral = sources.includes('central_dining');
+  const wantsCaterer = sources.includes('outside_caterer');
+  const wantsDonated = sources.includes('donated');
+  const isSplit = sources.length > 1;
+
+  function toggleSource(kind: string) {
+    setNoFood(false);
+    setSources((s) =>
+      s.includes(kind) ? s.filter((x) => x !== kind) : [...s, kind]
+    );
+  }
   const chosen = menu.filter((m) => (quantities[m.id] ?? 0) > 0);
 
   const grouped = useMemo(() => {
@@ -287,12 +298,9 @@ export default function IntakeForm({
     if (!spaceId) e.spaceId = 'Where would you like it?';
     if (spaceId === 'other' && !locationFreetext.trim())
       e.locationFreetext = 'Tell us roughly where.';
-    if (!foodSource) e.foodSource = 'Choose one.';
-    if (
-      (foodSource === 'outside_caterer' || foodSource === 'split') &&
-      !catererId &&
-      !catererName.trim()
-    )
+    if (sources.length === 0 && !noFood)
+      e.foodSource = 'Choose at least one, or "no food at all".';
+    if (wantsCaterer && !catererId && !catererName.trim())
       e.catererName = 'Choose a caterer, or tell us who you have in mind.';
     if (catererId === 'other' && !catererName.trim())
       e.catererName = 'Who do you have in mind?';
@@ -333,12 +341,15 @@ export default function IntakeForm({
           locationFreetext: locationFreetext.trim() || null,
           estimatedAttendance: Number(attendance),
 
-          foodSource,
+          foodSources: noFood
+            ? [{ kind: 'no_food', covers: null }]
+            : sources.map((kind) => ({
+                kind,
+                covers: covers[kind]?.trim() || null,
+              })),
           catererId:
             catererId && catererId !== 'other' ? catererId : null,
           catererName: catererName.trim() || null,
-          centralCovers: centralCovers.trim() || null,
-          catererCovers: catererCovers.trim() || null,
           dietaryRestrictions: dietary.trim() || null,
 
           menuSelections: wantsCentral
@@ -601,7 +612,7 @@ export default function IntakeForm({
             <div className="chosen-space">
               <span>
                 <strong>{chosenSpace?.name}</strong>
-                {chosenSpace?.building ? ` \u2014 ${chosenSpace.building}` : ''}
+                {chosenSpace?.building ? ` — ${chosenSpace.building}` : ''}
               </span>
               <button
                 type="button"
@@ -637,7 +648,7 @@ export default function IntakeForm({
                     <span className="space-option-meta">
                       {s.building}
                       {s.capacity_seated
-                        ? ` \u00b7 seats ${s.capacity_seated}`
+                        ? ` · seats ${s.capacity_seated}`
                         : ''}
                     </span>
                   </button>
@@ -725,18 +736,20 @@ export default function IntakeForm({
           <span className="legend">
             Who is providing it?<span className="req">*</span>
           </span>
+          <p className="sub">
+            Choose as many as apply. Central doing dessert while a caterer
+            does the main is perfectly normal.
+          </p>
           <div className="food-choices">
             {FOOD_SOURCES.map(([v, label, hint]) => (
               <label
-                className={`food-choice${foodSource === v ? ' picked' : ''}`}
+                className={`food-choice${sources.includes(v) ? ' picked' : ''}`}
                 key={v}
               >
                 <input
-                  type="radio"
-                  name="foodSource"
-                  value={v}
-                  checked={foodSource === v}
-                  onChange={() => setFoodSource(v)}
+                  type="checkbox"
+                  checked={sources.includes(v)}
+                  onChange={() => toggleSource(v)}
                 />
                 <span>
                   <span className="food-label">{label}</span>
@@ -744,117 +757,166 @@ export default function IntakeForm({
                 </span>
               </label>
             ))}
+            <label className={`food-choice${noFood ? ' picked' : ''}`}>
+              <input
+                type="checkbox"
+                checked={noFood}
+                onChange={() => {
+                  // Nothing at all is the one that cannot be combined.
+                  setNoFood((v) => !v);
+                  setSources([]);
+                }}
+              />
+              <span>
+                <span className="food-label">No food at all</span>
+                <span className="food-hint">Just the room</span>
+              </span>
+            </label>
           </div>
           {err('foodSource')}
         </fieldset>
 
-        {wantsCaterer && (
-          <div className="conditional on">
-            <label htmlFor="if-caterer">Which caterer?</label>
-            <p className="sub">
-              These are approved to work on campus, which means their license
-              and insurance are current and they know our kitchens and loading
-              arrangements.{' '}
-              <Link href="/info/outside-caterer-policy">
-                What approval involves
-              </Link>
-            </p>
-
-            {caterers.length === 0 ? (
-              <p className="sub">
-                No caterers are currently approved. Name who you have in mind
-                below and we will start the approval, which takes three to
-                four weeks.
-              </p>
-            ) : (
-              <select
-                id="if-caterer"
-                value={catererId}
-                onChange={(e) => {
-                  setCatererId(e.target.value);
-                  if (e.target.value) setCatererName('');
-                }}
-              >
-                <option value="">Choose one</option>
-                {caterers.map((c) => (
-                  <option value={c.id} key={c.id}>
-                    {c.business_name}
-                    {c.cuisine_notes ? ` — ${c.cuisine_notes}` : ''}
-                  </option>
-                ))}
-                <option value="other">
-                  Someone else, not on this list
-                </option>
-              </select>
-            )}
-
-            {(catererId === 'other' || caterers.length === 0) && (
-              <div className="conditional on">
-                <label htmlFor="if-caterer-other">Who do you have in mind?</label>
-                <p className="sub">
-                  They will need approving before the day. Allow three to four
-                  weeks, and tell us as early as you can.
-                </p>
-                <input
-                  id="if-caterer-other"
-                  type="text"
-                  value={catererName}
-                  onChange={(e) => setCatererName(e.target.value)}
-                />
-              </div>
-            )}
-            {err('catererName')}
+        {isSplit && (
+          <div className="callout c-default">
+            <strong>More than one provider</strong>
+            Tell us roughly who is doing which part below. It decides whether
+            the room is charged, which is a judgement for your event rather
+            than a rule, so what you write saves us asking.
           </div>
         )}
 
-        {foodSource === 'split' && (
-          <div className="split-covers">
-            <p className="sub">
-              Say roughly who is doing what. It decides whether the room is
-              charged, which is a judgement rather than a rule, so the more you
-              tell us the fewer questions we come back with.
-            </p>
-            <div className="grid two">
+        {wantsCaterer && (
+          <div className="source-block">
+            <h3>The outside caterer</h3>
+            <div className="field">
+              <label htmlFor="if-caterer">Which caterer?</label>
+              <p className="sub">
+                These are approved to work on campus, which means their
+                license and insurance are current and they know our kitchens
+                and loading arrangements.{' '}
+                <Link href="/info/outside-caterer-policy">
+                  What approval involves
+                </Link>
+              </p>
+
+              {caterers.length === 0 ? (
+                <p className="sub">
+                  No caterers are currently approved. Name who you have in
+                  mind below and we will start the approval, which takes three
+                  to four weeks.
+                </p>
+              ) : (
+                <select
+                  id="if-caterer"
+                  value={catererId}
+                  onChange={(e) => {
+                    setCatererId(e.target.value);
+                    if (e.target.value !== 'other') setCatererName('');
+                  }}
+                >
+                  <option value="">Choose one</option>
+                  {caterers.map((c) => (
+                    <option value={c.id} key={c.id}>
+                      {c.business_name}
+                      {c.cuisine_notes ? ` — ${c.cuisine_notes}` : ''}
+                    </option>
+                  ))}
+                  <option value="other">Someone else, not on this list</option>
+                </select>
+              )}
+
+              {(catererId === 'other' || caterers.length === 0) && (
+                <div className="conditional on">
+                  <label htmlFor="if-caterer-other">
+                    Who do you have in mind?
+                  </label>
+                  <p className="sub">
+                    They will need approving before the day. Allow three to
+                    four weeks, and tell us as early as you can.
+                  </p>
+                  <input
+                    id="if-caterer-other"
+                    type="text"
+                    value={catererName}
+                    onChange={(e) => setCatererName(e.target.value)}
+                  />
+                </div>
+              )}
+              {err('catererName')}
+            </div>
+
+            {isSplit && (
               <div className="field">
-                <label htmlFor="if-central-covers">
-                  Central Catering provides
-                </label>
+                <label htmlFor="cov-caterer">What are they providing?</label>
                 <input
-                  id="if-central-covers"
-                  type="text"
-                  placeholder="Dessert and coffee"
-                  value={centralCovers}
-                  onChange={(e) => setCentralCovers(e.target.value)}
-                />
-              </div>
-              <div className="field">
-                <label htmlFor="if-caterer-covers">The caterer provides</label>
-                <input
-                  id="if-caterer-covers"
+                  id="cov-caterer"
                   type="text"
                   placeholder="The main meal"
-                  value={catererCovers}
-                  onChange={(e) => setCatererCovers(e.target.value)}
+                  value={covers.outside_caterer ?? ''}
+                  onChange={(e) =>
+                    setCovers({ ...covers, outside_caterer: e.target.value })
+                  }
                 />
               </div>
+            )}
+          </div>
+        )}
+
+        {wantsDonated && (
+          <div className="source-block">
+            <h3>Food being brought in</h3>
+            <div className="callout c-warn">
+              <strong>Donated food has rules</strong>
+              Mostly about temperature and labelling, and they are not
+              onerous.{' '}
+              <Link href="/info/donated-food-policy">Read them</Link> before
+              the day, and we will go through them with you.
+            </div>
+            <div className="field">
+              <label htmlFor="cov-donated">
+                What is being brought, and by whom?
+              </label>
+              <p className="sub">
+                Whether it is shop-bought or made at home matters, so say
+                which if you know.
+              </p>
+              <input
+                id="cov-donated"
+                type="text"
+                placeholder="Departmental potluck, mostly home-made"
+                value={covers.donated ?? ''}
+                onChange={(e) =>
+                  setCovers({ ...covers, donated: e.target.value })
+                }
+              />
             </div>
           </div>
         )}
 
-        {foodSource === 'donated' && (
-          <div className="callout c-warn">
-            <strong>Donated food has rules</strong>
-            Mostly about temperature and labelling, and they are not onerous.{' '}
-            <Link href="/info/donated-food-policy">Read them</Link> before the
-            day, and we will go through them with you.
-          </div>
-        )}
-
         {wantsCentral && (
-          <>
+          <div className="source-block">
+            <h3>{isSplit ? 'What Central Catering provides' : 'Your menu'}</h3>
+
+            {isSplit && (
+              <div className="field">
+                <label htmlFor="cov-central">
+                  What are we providing?
+                </label>
+                <input
+                  id="cov-central"
+                  type="text"
+                  placeholder="Dessert and coffee"
+                  value={covers.central_dining ?? ''}
+                  onChange={(e) =>
+                    setCovers({ ...covers, central_dining: e.target.value })
+                  }
+                />
+              </div>
+            )}
+
             <fieldset className="field">
               <span className="legend">
-                {foodSource === 'split'
+                {isSplit
                   ? 'Do you know what you want from us?'
                   : 'Do you know what you want?'}
               </span>
@@ -933,7 +995,7 @@ export default function IntakeForm({
                             <span className="menu-price">
                               {money(Number(m.unit_price))} {m.unit}
                               {m.minimum_quantity
-                                ? ` \u00b7 minimum ${m.minimum_quantity}`
+                                ? ` · minimum ${m.minimum_quantity}`
                                 : ''}
                             </span>
                           </div>
@@ -983,10 +1045,10 @@ export default function IntakeForm({
                 {err('menu')}
               </>
             )}
-          </>
+          </div>
         )}
 
-        {foodSource && foodSource !== 'no_food' && (
+        {sources.length > 0 && (
           <div className="field">
             <label htmlFor="if-diet">Dietary requirements</label>
             <p className="sub">

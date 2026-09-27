@@ -32,13 +32,21 @@ const Body = z.object({
   locationFreetext: z.string().max(300).nullable(),
   estimatedAttendance: z.number().int().positive().max(20_000),
 
-  foodSource: z.enum([
-    'central_dining', 'outside_caterer', 'split', 'donated', 'no_food',
-  ]),
+  // More than one may apply: Central doing dessert while a caterer
+  // does the main is one event with two food sources.
+  foodSources: z
+    .array(
+      z.object({
+        kind: z.enum([
+          'central_dining', 'outside_caterer', 'donated', 'no_food',
+        ]),
+        covers: z.string().max(500).nullable(),
+      })
+    )
+    .min(1)
+    .max(4),
   catererId: z.string().uuid().nullable().optional(),
   catererName: z.string().max(200).nullable(),
-  centralCovers: z.string().max(500).nullable().optional(),
-  catererCovers: z.string().max(500).nullable().optional(),
   dietaryRestrictions: z.string().max(4000).nullable(),
 
   menuSelections: z
@@ -92,7 +100,7 @@ const FIELD_LABELS: Record<string, string> = {
   eventName: 'Event name',
   eventDate: 'Date',
   estimatedAttendance: 'How many people',
-  foodSource: 'Who is providing the food',
+  foodSources: 'Who is providing the food',
   'funding.financialRiskBearer': 'Who carries the risk',
 };
 
@@ -163,30 +171,18 @@ export async function POST(req: NextRequest) {
       );
       const r = rows[0];
 
-      // A split is two rows, not a third kind: everything downstream
-      // already knows how to read several food sources on one event,
-      // and the facility charge rules are written in those terms.
-      if (b.foodSource === 'split') {
-        await c.query(
-          `INSERT INTO event_food_sources (request_id, kind, covers)
-           VALUES ($1, 'central_dining', $2)`,
-          [r.id, b.centralCovers]
-        );
+      // One row per provider. The caterer's identity only belongs on
+      // the caterer row.
+      for (const src of b.foodSources) {
         await c.query(
           `INSERT INTO event_food_sources
              (request_id, kind, caterer_id, caterer_other, covers)
-           VALUES ($1, 'outside_caterer', $2, $3, $4)`,
-          [r.id, b.catererId ?? null, b.catererName, b.catererCovers]
-        );
-      } else {
-        await c.query(
-          `INSERT INTO event_food_sources
-             (request_id, kind, caterer_id, caterer_other)
-           VALUES ($1, $2::food_source_kind, $3, $4)`,
+           VALUES ($1, $2::food_source_kind, $3, $4, $5)`,
           [
-            r.id, b.foodSource,
-            b.foodSource === 'outside_caterer' ? (b.catererId ?? null) : null,
-            b.foodSource === 'outside_caterer' ? b.catererName : null,
+            r.id, src.kind,
+            src.kind === 'outside_caterer' ? (b.catererId ?? null) : null,
+            src.kind === 'outside_caterer' ? b.catererName : null,
+            src.covers,
           ]
         );
       }
