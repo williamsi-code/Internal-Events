@@ -5,6 +5,7 @@ import { getSessionUser } from '@/lib/auth';
 import { listMyRequests } from '@/lib/requests';
 import { listMyEnquiries } from '@/lib/enquiries';
 import { classificationLabel, type Classification } from '@/lib/classify';
+import RoomBookingsSection from '@/components/RoomBookingsSection';
 
 export const metadata = { title: 'My requests' };
 export const dynamic = 'force-dynamic';
@@ -155,6 +156,16 @@ export default async function MyRequestsPage() {
                   </div>
                 </>
               )}
+
+              {/* Rooms booked without food. From where they sit it is
+                  the same kind of thing as an event. */}
+              <RoomBookingsSection
+                userId={user.id}
+                isStaff={
+                  user.roles.includes('events_staff') ||
+                  user.roles.includes('admin')
+                }
+              />
 
               {openEnquiries.length > 0 && (
                 <>

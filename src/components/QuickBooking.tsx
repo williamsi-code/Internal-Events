@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import AddCatering from './AddCatering';
 
 /**
  * Booking a meeting room in one step.
@@ -57,7 +58,10 @@ export default function QuickBooking({
   const [check, setCheck] = useState<CheckResult | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState<{ confirmed: boolean } | null>(null);
+  const [done, setDone] = useState<{
+    confirmed: boolean;
+    bookingId: string;
+  } | null>(null);
 
   // Check the slot whenever the times change, so a clash shows before
   // they have filled anything in.
@@ -114,7 +118,7 @@ export default function QuickBooking({
         setBusy(false);
         return;
       }
-      setDone({ confirmed: d.confirmed });
+      setDone({ confirmed: d.confirmed, bookingId: d.bookingId });
       router.refresh();
       setBusy(false);
     } catch {
@@ -158,12 +162,16 @@ export default function QuickBooking({
             : 'The room is held pending their confirmation. It shows on the schedule as tentative in the meantime.'}
         </div>
 
+        {/* The moment someone is most likely to realise they also
+            want food is the moment the room is theirs. */}
         {check?.supports_catering && (
-          <p className="sub">
-            This room takes catering. If you decide you want food,{' '}
-            <Link href="/start">start an event request</Link> and mention this
-            booking.
-          </p>
+          <AddCatering
+            bookingId={done.bookingId}
+            title={title}
+            attendance={Number(attendance) || null}
+            supportsCatering
+            isStaff={isStaff}
+          />
         )}
 
         <div className="actions">

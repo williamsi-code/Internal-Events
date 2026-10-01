@@ -3517,3 +3517,34 @@ label.chk input{margin-top:.2rem}
     border:1px solid #ccc;background:none;
   }
 }
+/* Append these to the end of src/app/globals.css */
+
+/* ---------- growing a booking into an event ---------- */
+.add-catering{
+  display:flex;justify-content:space-between;align-items:center;
+  gap:1.25rem;flex-wrap:wrap;
+  margin-top:1rem;padding:.9rem 1.1rem;
+  background:var(--paper);border:1px solid var(--rule);
+  border-left:3px solid var(--crimson);border-radius:3px;
+}
+.add-catering strong{display:block;font-size:.93rem}
+.add-catering span{
+  display:block;font-size:.8rem;color:var(--slate);margin-top:.1rem;
+}
+.add-catering .btn{flex:none}
+
+.add-catering.open{
+  display:block;background:var(--surface);
+}
+.add-catering.open h4{
+  font-family:Spectral,Georgia,serif;
+  font-size:1.05rem;font-weight:600;margin:0 0 .3rem;
+}
+
+@media(max-width:600px){
+  .add-catering{flex-direction:column;align-items:stretch}
+}
+
+/* A room booking card is not a link, so it should not look like one. */
+.qcard.static{cursor:default}
+.qcard.static:hover{border-color:var(--rule)}
