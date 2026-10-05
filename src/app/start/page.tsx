@@ -15,6 +15,8 @@ interface EventType {
   id: string;
   name: string;
   guidance: string | null;
+  group_name: string;
+  group_order: number;
 }
 
 interface CatererOption {
@@ -111,9 +113,9 @@ export default async function StartPage({
     await Promise.all([
       getOrderSpaces(),
       query<EventType>(
-        `SELECT id, name, guidance
+        `SELECT id, name, guidance, group_name, group_order
            FROM event_types WHERE is_active
-          ORDER BY sort_order, name`
+          ORDER BY group_order, group_name, sort_order, name`
       ),
       need === 'food' ? getPublicMenu() : Promise.resolve([]),
       need === 'food' ? getChoiceGroups() : Promise.resolve({}),

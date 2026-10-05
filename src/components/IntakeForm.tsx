@@ -45,6 +45,8 @@ interface EventType {
   id: string;
   name: string;
   guidance: string | null;
+  group_name: string;
+  group_order: number;
 }
 
 interface CatererOption {
@@ -224,6 +226,21 @@ export default function IntakeForm({
 
   const chosenSpace = spaces.find((s) => s.id === spaceId);
 
+  /** Forty types in one list is a list nobody reads. Grouped,
+   *  someone finds their part of it in a glance. */
+  const typeGroups = useMemo(() => {
+    const map = new Map<string, EventType[]>();
+    for (const t of eventTypes) {
+      if (!map.has(t.group_name)) map.set(t.group_name, []);
+      map.get(t.group_name)!.push(t);
+    }
+    return [...map.entries()].sort(
+      (a, b) => a[1][0].group_order - b[1][0].group_order
+    );
+  }, [eventTypes]);
+
+  const chosenType = eventTypes.find((t) => t.id === eventTypeId);
+
   const overCapacity = useMemo(() => {
     if (!chosenSpace || !attendance) return false;
     const cap =
@@ -295,7 +312,7 @@ export default function IntakeForm({
       e.departmentOrg = 'Which department or organization?';
     if (!eventName.trim()) e.eventName = 'Give your event a name.';
     if (!eventTypeId && !eventTypeOther.trim())
-      e.eventType = 'Choose the closest type, or describe it.';
+      e.eventType = 'Choose the closest type, or tell us what it is.';
     if (!eventDate) e.eventDate = 'When is it?';
     if (!attendance || Number(attendance) < 1)
       e.attendance = 'Roughly how many people?';
@@ -501,28 +518,47 @@ export default function IntakeForm({
           </label>
           <select
             id="if-type"
-            value={eventTypeId}
+            value={eventTypeId || (eventTypeOther ? 'other' : '')}
             onChange={(e) => {
+              if (e.target.value === 'other') {
+                setEventTypeId('');
+                setEventTypeOther(' ');
+                return;
+              }
               setEventTypeId(e.target.value);
-              if (e.target.value) setEventTypeOther('');
+              setEventTypeOther('');
             }}
           >
             <option value="">Choose one</option>
-            {eventTypes.map((t) => (
-              <option value={t.id} key={t.id}>
-                {t.name}
-              </option>
+            {typeGroups.map(([group, types]) => (
+              <optgroup label={group} key={group}>
+                {types.map((t) => (
+                  <option value={t.id} key={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </optgroup>
             ))}
-            <option value="">Something else</option>
+            <option value="other">Not on this list</option>
           </select>
-          {!eventTypeId && (
-            <input
-              type="text"
-              placeholder="Describe it in a few words"
-              value={eventTypeOther}
-              onChange={(e) => setEventTypeOther(e.target.value)}
-              style={{ marginTop: '.5rem' }}
-            />
+
+          {chosenType?.guidance && (
+            <p className="type-guidance">{chosenType.guidance}</p>
+          )}
+
+          {!eventTypeId && eventTypeOther !== '' && (
+            <div className="conditional on">
+              <label htmlFor="if-type-other">What is it, then?</label>
+              <p className="sub">
+                A few words. It helps us add it to the list for next time.
+              </p>
+              <input
+                id="if-type-other"
+                type="text"
+                value={eventTypeOther.trim()}
+                onChange={(e) => setEventTypeOther(e.target.value || ' ')}
+              />
+            </div>
           )}
           {err('eventType')}
         </div>

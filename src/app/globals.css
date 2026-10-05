@@ -3583,3 +3583,22 @@ label.chk input{margin-top:.2rem}
   background:var(--paper);border-style:dashed;
 }
 .need-card.disabled h2{color:var(--slate)}
+/* Append these to the end of src/app/globals.css */
+
+/* ---------- grouped event types ---------- */
+select optgroup{
+  font-family:Inter,system-ui,sans-serif;
+  font-size:.72rem;text-transform:uppercase;letter-spacing:.09em;
+  color:var(--slate);font-weight:600;
+  background:var(--paper);
+}
+select optgroup option{
+  text-transform:none;letter-spacing:0;font-weight:400;
+  font-size:.92rem;color:var(--ink);background:var(--surface);
+}
+
+.type-guidance{
+  margin:.5rem 0 0;padding:.55rem .75rem;
+  background:var(--paper);border-left:2px solid var(--slate);
+  font-size:.84rem;line-height:1.55;color:var(--slate);
+}
