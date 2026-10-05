@@ -3548,3 +3548,38 @@ label.chk input{margin-top:.2rem}
 /* A room booking card is not a link, so it should not look like one. */
 .qcard.static{cursor:default}
 .qcard.static:hover{border-color:var(--rule)}
+/* Append these to the end of src/app/globals.css */
+
+/* ---------- what do you need ---------- */
+.need-choices{display:flex;flex-direction:column;gap:.7rem}
+
+.need-card{
+  display:block;padding:1.25rem 1.4rem;
+  background:var(--surface);border:1px solid var(--rule);
+  border-radius:3px;text-decoration:none;color:inherit;
+  position:relative;
+}
+.need-card:hover{
+  border-color:var(--crimson);
+  box-shadow:0 1px 3px rgba(0,0,0,.06);
+}
+.need-card h2{
+  font-family:Spectral,Georgia,serif;
+  font-size:1.2rem;font-weight:600;margin:0 0 .35rem;
+}
+.need-card p{
+  font-size:.9rem;line-height:1.6;color:var(--slate);margin:0 0 .6rem;
+}
+.need-go{font-size:.85rem;color:var(--crimson);font-weight:500}
+
+.need-eyebrow{
+  position:absolute;top:1.25rem;right:1.4rem;
+  font-size:.64rem;text-transform:uppercase;letter-spacing:.1em;
+  background:var(--crimson);color:#fff;
+  border-radius:2rem;padding:.15rem .6rem;
+}
+
+.need-card.disabled{
+  background:var(--paper);border-style:dashed;
+}
+.need-card.disabled h2{color:var(--slate)}

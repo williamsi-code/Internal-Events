@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import Masthead from '@/components/Masthead';
 import ScheduleGrid from '@/components/ScheduleGrid';
 import { getSessionUser } from '@/lib/auth';
+import { bookingAccess } from '@/lib/campus';
 import {
   listBookings,
   listSchedulableSpaces,
@@ -29,12 +30,11 @@ export default async function SchedulePage({
 
   const canEdit =
     user.roles.includes('events_staff') || user.roles.includes('admin');
-  const isViewer = user.roles.includes('schedule_viewer');
-
-  // Anyone signed in can see the schedule and ask for a room. Staff
-  // can change bookings; security and facilities can only look;
-  // everyone else can look and book.
-  const canBook = !isViewer;
+  // One definition of who may do what, shared with /book so the two
+  // pages cannot drift apart.
+  const access = bookingAccess(user);
+  if (!access.canView) redirect('/');
+  const canBook = access.canBook;
 
   const sp = await searchParams;
   const view: View = ['day', 'week', 'month'].includes(sp.view ?? '')

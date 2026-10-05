@@ -79,6 +79,7 @@ export default function IntakeForm({
   menu,
   choiceGroups,
   caterers,
+  needsFood,
   defaultName,
   defaultOrg,
   defaultEmail,
@@ -90,6 +91,9 @@ export default function IntakeForm({
   /** Approved, insured and current. Anyone else has to be approved
    *  before the day, so they are named rather than picked. */
   caterers: CatererOption[];
+  /** False for a room-and-setup request: the food section is not
+   *  asked at all rather than asked and answered "none". */
+  needsFood: boolean;
   defaultName: string;
   defaultOrg: string | null;
   defaultEmail: string;
@@ -116,7 +120,7 @@ export default function IntakeForm({
 
   /* ---------- food ---------- */
   const [sources, setSources] = useState<string[]>([]);
-  const [noFood, setNoFood] = useState(false);
+  const [noFood, setNoFood] = useState(!needsFood);
   const [catererId, setCatererId] = useState('');
   const [catererName, setCatererName] = useState('');
   // Who covers what. Only asked when more than one is providing
@@ -298,7 +302,7 @@ export default function IntakeForm({
     if (!spaceId) e.spaceId = 'Where would you like it?';
     if (spaceId === 'other' && !locationFreetext.trim())
       e.locationFreetext = 'Tell us roughly where.';
-    if (sources.length === 0 && !noFood)
+    if (needsFood && sources.length === 0 && !noFood)
       e.foodSource = 'Choose at least one, or "no food at all".';
     if (wantsCaterer && !catererId && !catererName.trim())
       e.catererName = 'Choose a caterer, or tell us who you have in mind.';
@@ -729,6 +733,7 @@ export default function IntakeForm({
       </section>
 
       {/* ============ food ============ */}
+      {needsFood && (
       <section className="intake-block">
         <h2>Food and drink</h2>
 
@@ -1064,6 +1069,17 @@ export default function IntakeForm({
           </div>
         )}
       </section>
+      )}
+
+      {!needsFood && (
+        <section className="intake-block">
+          <div className="callout c-default">
+            <strong>No food with this one</strong>
+            If that changes, you can add catering to the booking later without
+            losing the room.
+          </div>
+        </section>
+      )}
 
       {/* ============ the room ============ */}
       <section className="intake-block">

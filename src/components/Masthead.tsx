@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { bookingAccess } from '@/lib/campus';
 import { getSessionUser } from '@/lib/auth';
 import { getNotices } from '@/lib/notifications';
 import Notifications from './Notifications';
@@ -32,6 +33,7 @@ export default async function Masthead({
   const isStaff =
     user?.roles.includes('events_staff') || user?.roles.includes('admin');
   // Security and facilities get the schedule and nothing else.
+  const canBookRooms = bookingAccess(user).canBook;
   const scheduleOnly = !isStaff && user?.roles.includes('schedule_viewer');
 
   const notices = user ? await getNotices(user.id, !!isStaff) : [];
@@ -65,6 +67,14 @@ export default async function Masthead({
                 {scheduleOnly && (
                   <>
                     <Link href="/staff/schedule">Schedule</Link>
+                    {' \u00b7 '}
+                  </>
+                )}
+                {/* A Central address can take a meeting room without
+                    asking anyone, so the way in belongs here. */}
+                {!isStaff && !scheduleOnly && canBookRooms && (
+                  <>
+                    <Link href="/book">Book a room</Link>
                     {' \u00b7 '}
                   </>
                 )}
