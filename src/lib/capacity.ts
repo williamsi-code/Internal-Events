@@ -74,28 +74,83 @@ export async function getCapacityContext(requestId: string) {
 }
 
 export interface SameDayBooking {
+  booking_id: string;
   title: string;
   space_name: string;
+  building: string | null;
   status: string;
   window: string;
   request_id: string | null;
   attendance: number | null;
+  /** What kind of thing this is, so a room hold does not read like
+   *  a catered event. */
+  origin: string;
+  classification: string | null;
+  requester_name: string | null;
+  department_org: string | null;
+  food_sources: string | null;
+  setup_summary: string | null;
+  reference_code: string | null;
+  same_space: boolean;
 }
 
 /** Everything else on the calendar that day, so the staffing call is
  *  made against the real picture rather than one event in isolation. */
 export async function listSameDayBookings(requestId: string) {
   return query<SameDayBooking>(
-    `SELECT b.title, s.name AS space_name, b.status::text,
+    `SELECT b.id AS booking_id,
+            b.title, s.name AS space_name, s.building,
+            b.status::text,
             to_char(b.event_starts_at AT TIME ZONE 'America/Chicago', 'FMHH12:MI AM')
               || ' - ' ||
             to_char(b.event_ends_at AT TIME ZONE 'America/Chicago', 'FMHH12:MI AM')
               AS window,
             b.request_id,
-            coalesce(o.final_attendance, o.estimated_attendance) AS attendance
+            coalesce(o.final_attendance, o.estimated_attendance,
+                     b.quick_attendance) AS attendance,
+
+            CASE
+              WHEN b.is_blackout THEN 'Out of service'
+              WHEN b.is_quick_booking THEN 'Room only'
+              WHEN b.import_batch_id IS NOT NULL THEN 'Imported'
+              WHEN b.series_id IS NOT NULL THEN 'Recurring'
+              WHEN o.id IS NOT NULL THEN 'Catered event'
+              ELSE 'Booking'
+            END AS origin,
+
+            cd.classification::text,
+            o.requester_name,
+            o.department_org,
+
+            -- What food is involved, so the kitchen's day is visible
+            -- from here rather than from four other pages.
+            (SELECT string_agg(
+                      CASE fs.kind
+                        WHEN 'central_dining' THEN 'Central catering'
+                        WHEN 'outside_caterer' THEN 'Outside caterer'
+                        WHEN 'donated' THEN 'Donated'
+                        ELSE 'No food'
+                      END, ', ')
+               FROM event_food_sources fs
+              WHERE fs.request_id = o.id) AS food_sources,
+
+            (SELECT string_agg(
+                      so.label || CASE WHEN rss.count IS NOT NULL
+                                       THEN ' x' || rss.count ELSE '' END,
+                      ', ' ORDER BY so.sort_order)
+               FROM request_setup_selections rss
+               JOIN setup_options so ON so.id = rss.option_id
+              WHERE rss.request_id = o.id
+                AND so.kind = 'setup') AS setup_summary,
+
+            o.reference_code,
+            (b.space_id = (SELECT space_id FROM event_requests WHERE id = $1))
+              AS same_space
        FROM bookings b
        JOIN spaces s ON s.id = b.space_id
        LEFT JOIN event_requests o ON o.id = b.request_id
+       LEFT JOIN classification_decisions cd
+              ON cd.request_id = o.id AND cd.is_current
       WHERE b.status <> 'released'
         AND (b.starts_at AT TIME ZONE 'America/Chicago')::date
             = (SELECT event_date FROM event_requests WHERE id = $1)

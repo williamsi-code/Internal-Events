@@ -170,3 +170,74 @@ export async function getDaySummary(day: string) {
     [day]
   );
 }
+
+
+/* ============================================================
+   The catering calendar
+   
+   The same shape as the room scheduler, filtered to events with
+   food. A different question from the prep grid: this one answers
+   "what are we catering on Thursday", not "what is in which oven".
+   ============================================================ */
+
+export interface CateredBooking {
+  id: string;
+  request_id: string;
+  reference_code: string;
+  title: string;
+  event_name: string;
+  customer_name: string | null;
+  space_id: string;
+  space_name: string;
+  building: string | null;
+  status: string;
+  classification: string | null;
+  attendance: number | null;
+  food_kinds: string | null;
+  central_cooking: boolean;
+  menu_lines: number;
+  tasks: number;
+  tasks_done: number;
+  event_date: string;
+  start_minutes: number;
+  end_minutes: number;
+  hold_start_minutes: number;
+  hold_end_minutes: number;
+}
+
+export async function getCateredBookings(from: string, to: string) {
+  return query<CateredBooking>(
+    `SELECT id, request_id, reference_code, title, event_name,
+            customer_name, space_id, space_name, building,
+            status, classification, attendance, food_kinds,
+            central_cooking, menu_lines, tasks, tasks_done,
+            to_char(event_date, 'YYYY-MM-DD') AS event_date,
+            (extract(hour from event_starts_at AT TIME ZONE 'America/Chicago') * 60
+             + extract(minute from event_starts_at AT TIME ZONE 'America/Chicago'))::int
+              AS start_minutes,
+            (extract(hour from event_ends_at AT TIME ZONE 'America/Chicago') * 60
+             + extract(minute from event_ends_at AT TIME ZONE 'America/Chicago'))::int
+              AS end_minutes,
+            (extract(hour from starts_at AT TIME ZONE 'America/Chicago') * 60
+             + extract(minute from starts_at AT TIME ZONE 'America/Chicago'))::int
+              AS hold_start_minutes,
+            (extract(hour from ends_at AT TIME ZONE 'America/Chicago') * 60
+             + extract(minute from ends_at AT TIME ZONE 'America/Chicago'))::int
+              AS hold_end_minutes
+       FROM catered_bookings
+      WHERE event_date BETWEEN $1::date AND $2::date
+      ORDER BY event_starts_at`,
+    [from, to]
+  );
+}
+
+export async function getCateredSpaces(from: string, to: string) {
+  return query<{
+    id: string;
+    name: string;
+    building: string | null;
+    category: string | null;
+    capacity_seated: number | null;
+    events: number;
+  }>('SELECT * FROM catered_spaces_between($1::date, $2::date)', [from, to]);
+}

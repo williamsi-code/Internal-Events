@@ -69,6 +69,9 @@ export default function CapacityPanel({
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [reopening, setReopening] = useState(false);
+  // Which same-day booking is open. One at a time: the point is a
+  // quick look, not a second page of reading.
+  const [expanded, setExpanded] = useState<string | null>(null);
 
   const done = !!context.existing_outcome && !reopening;
 
@@ -135,7 +138,7 @@ export default function CapacityPanel({
           <div className="recorded">
             <strong>{OUTCOME_LABEL[context.existing_outcome!]}</strong>
             <span className="when">
-              {context.checked_by_name} {'\u00b7'} {context.checked_at}
+              {context.checked_by_name} {'·'} {context.checked_at}
             </span>
           </div>
           <button className="btn btn-ghost" onClick={() => setReopening(true)}>
@@ -193,52 +196,110 @@ export default function CapacityPanel({
                   </span>
                 )}
               </summary>
-              <ul>
-                {sameDay.map((s, i) => {
-                  const sameSpace = s.space_name === context.space_name;
-                  // An imported hold or a blackout has no event behind
-                  // it, so there is nothing to open.
-                  const body = (
-                    <span>
-                      <strong>{s.title}</strong>
-                      <br />
-                      <span className="sub">
-                        {s.space_name} {'\u00b7'} {s.window}
-                        {s.attendance ? ` \u00b7 ${s.attendance} guests` : ''}
-                      </span>
-                    </span>
-                  );
 
+              <ul className="sameday-list">
+                {sameDay.map((s) => {
+                  const isOpen = expanded === s.booking_id;
                   return (
-                    <li key={i} className={sameSpace ? 'same-space' : ''}>
-                      {s.request_id ? (
-                        <Link
-                          href={`/staff/${s.request_id}`}
-                          className="sameday-link"
-                        >
-                          {body}
-                        </Link>
-                      ) : (
-                        body
+                    <li
+                      key={s.booking_id}
+                      className={s.same_space ? 'same-space' : ''}
+                    >
+                      <button
+                        type="button"
+                        className="sameday-head"
+                        aria-expanded={isOpen}
+                        onClick={() =>
+                          setExpanded(isOpen ? null : s.booking_id)
+                        }
+                      >
+                        <span className="sameday-main">
+                          <span className="sameday-title">{s.title}</span>
+                          <span className="sameday-sub">
+                            {s.space_name}
+                            {s.building ? ` · ${s.building}` : ''}
+                            {' · '}
+                            {s.window}
+                            {s.attendance
+                              ? ` · ${s.attendance} guests`
+                              : ''}
+                          </span>
+                        </span>
+                        <span className="sameday-right">
+                          <span className="sameday-origin">{s.origin}</span>
+                          <span className={`pill p-${s.status}`}>
+                            {s.status}
+                          </span>
+                          <span className="sameday-arrow" aria-hidden="true">
+                            {isOpen ? '−' : '+'}
+                          </span>
+                        </span>
+                      </button>
+
+                      {isOpen && (
+                        <div className="sameday-detail">
+                          <dl>
+                            <div>
+                              <dt>Where</dt>
+                              <dd>
+                                {s.space_name}
+                                {s.building ? `, ${s.building}` : ''}
+                              </dd>
+                            </div>
+                            <div>
+                              <dt>When</dt>
+                              <dd>{s.window}</dd>
+                            </div>
+                            <div>
+                              <dt>Guests</dt>
+                              <dd>{s.attendance ?? 'Not given'}</dd>
+                            </div>
+                            <div>
+                              <dt>Food</dt>
+                              <dd>{s.food_sources ?? 'None'}</dd>
+                            </div>
+                            {s.requester_name && (
+                              <div>
+                                <dt>Who</dt>
+                                <dd>
+                                  {s.requester_name}
+                                  {s.department_org
+                                    ? `, ${s.department_org}`
+                                    : ''}
+                                </dd>
+                              </div>
+                            )}
+                            {s.setup_summary && (
+                              <div>
+                                <dt>Setup</dt>
+                                <dd>{s.setup_summary}</dd>
+                              </div>
+                            )}
+                          </dl>
+
+                          {s.request_id ? (
+                            <Link
+                              href={`/staff/${s.request_id}`}
+                              className="btn btn-ghost"
+                            >
+                              Open {s.reference_code ?? 'the event'}
+                            </Link>
+                          ) : (
+                            <p className="sub">
+                              A room hold with no event behind it, so there is
+                              nothing more to open.
+                            </p>
+                          )}
+                        </div>
                       )}
-                      <span className="sameday-right">
-                        <span className={`pill p-${s.status}`}>{s.status}</span>
-                        {s.request_id && (
-                          <Link
-                            href={`/staff/${s.request_id}`}
-                            className="edit-link"
-                          >
-                            Open
-                          </Link>
-                        )}
-                      </span>
                     </li>
                   );
                 })}
               </ul>
+
               <p className="sub">
-                Bookings in this same room are highlighted. Ones with no link
-                are room holds with no catering behind them.
+                Everything on campus that day, including rooms booked without
+                catering. Bookings in this same room are highlighted.
               </p>
             </details>
           )}

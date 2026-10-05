@@ -3913,3 +3913,126 @@ select optgroup option{
   .pick-qty input{font-size:16px}
   .pick-step{width:2.4rem;height:2.4rem}
 }
+/* Append these to the end of src/app/globals.css */
+
+/* ============================================================
+   The catering calendar
+   ============================================================ */
+
+.resgrid.catering .resgrid-label{width:10rem}
+
+.catering-block{
+  position:absolute;top:4px;bottom:4px;z-index:2;
+  border-radius:2px;padding:.25rem .5rem;overflow:hidden;
+  display:flex;flex-direction:column;justify-content:center;
+  text-decoration:none;color:#fff;
+  background:var(--crimson);
+}
+.catering-block.ours{background:var(--crimson)}
+.catering-block.theirs{
+  background:var(--slate);
+  background-image:repeating-linear-gradient(
+    135deg,transparent,transparent 5px,
+    rgba(255,255,255,.14) 5px,rgba(255,255,255,.14) 10px);
+}
+.catering-block.tentative{opacity:.72}
+.catering-block:hover{filter:brightness(1.1)}
+
+.cb-title{
+  display:block;font-size:.76rem;font-weight:600;line-height:1.2;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.cb-meta{
+  display:block;font-size:.66rem;opacity:.88;line-height:1.2;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+
+/* The room is held longer than the event runs. */
+.catering-hold{
+  position:absolute;top:0;bottom:0;z-index:1;
+  background:var(--crimson-soft);
+  border-left:1px solid var(--rule);
+  border-right:1px solid var(--rule);
+}
+
+.cal-legend{
+  display:flex;gap:1.25rem;flex-wrap:wrap;
+  margin-top:.7rem;font-size:.78rem;color:var(--slate);
+}
+.cal-legend .swatch{
+  display:inline-block;width:.8rem;height:.8rem;
+  border-radius:2px;margin-right:.35rem;vertical-align:-1px;
+}
+.cal-legend .swatch.ours{background:var(--crimson)}
+.cal-legend .swatch.theirs{background:var(--slate)}
+.cal-legend .swatch.hold{background:var(--crimson-soft);border:1px solid var(--rule)}
+
+/* ---------- the day in full ---------- */
+.catering-list{display:flex;flex-direction:column;gap:.4rem}
+.catering-row{
+  display:flex;justify-content:space-between;align-items:center;
+  gap:1.25rem;padding:.7rem .9rem;
+  background:var(--surface);border:1px solid var(--rule);
+  border-radius:3px;text-decoration:none;color:inherit;
+}
+.catering-row:hover{border-color:var(--crimson)}
+.catering-name{display:block;font-weight:500;font-size:.93rem}
+.catering-meta{display:block;font-size:.78rem;color:var(--slate);margin-top:.1rem}
+.catering-prep{flex:none}
+
+/* ============================================================
+   Same-day bookings in the capacity check
+   ============================================================ */
+
+.sameday-list{list-style:none;margin:0;padding:0}
+.sameday-list li{
+  border-bottom:1px solid var(--rule);
+}
+.sameday-list li:last-child{border-bottom:0}
+.sameday-list li.same-space{
+  background:var(--crimson-soft);
+  box-shadow:inset 3px 0 0 var(--crimson);
+}
+
+.sameday-head{
+  display:flex;justify-content:space-between;align-items:center;
+  gap:1rem;width:100%;
+  padding:.6rem .7rem;background:none;border:0;
+  cursor:pointer;font:inherit;text-align:left;
+}
+.sameday-head:hover{background:var(--paper)}
+.sameday-list li.same-space .sameday-head:hover{background:transparent}
+
+.sameday-main{min-width:0}
+.sameday-title{display:block;font-weight:500;font-size:.9rem}
+.sameday-sub{display:block;font-size:.76rem;color:var(--slate);margin-top:.1rem}
+
+.sameday-right{display:flex;align-items:center;gap:.5rem;flex:none}
+.sameday-origin{
+  font-size:.64rem;text-transform:uppercase;letter-spacing:.07em;
+  color:var(--slate);background:var(--paper);
+  border:1px solid var(--rule);border-radius:2rem;padding:.08rem .5rem;
+}
+.sameday-arrow{
+  width:1rem;text-align:center;color:var(--slate);font-size:.95rem;
+}
+
+.sameday-detail{
+  padding:.2rem .7rem 1rem;
+}
+.sameday-detail dl{
+  display:grid;gap:.5rem 1.25rem;
+  grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+  margin:0 0 .8rem;
+}
+.sameday-detail dt{
+  font-size:.65rem;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--slate);font-weight:500;
+}
+.sameday-detail dd{margin:.1rem 0 0;font-size:.86rem;line-height:1.4}
+.sameday-detail .btn{text-decoration:none}
+
+@media(max-width:640px){
+  .resgrid.catering .resgrid-label{width:7rem}
+  .catering-row{flex-direction:column;align-items:flex-start;gap:.5rem}
+}

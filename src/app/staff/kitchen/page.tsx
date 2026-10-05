@@ -2,8 +2,11 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import Masthead from '@/components/Masthead';
 import KitchenGrid from '@/components/KitchenGrid';
+import CateringCalendar from '@/components/CateringCalendar';
 import { getSessionUser } from '@/lib/auth';
 import {
+  getCateredBookings,
+  getCateredSpaces,
   getProductionDay,
   getServiceDay,
   listStations,
@@ -20,7 +23,7 @@ const iso = (d: Date) => d.toISOString().slice(0, 10);
 export default async function KitchenPage({
   searchParams,
 }: {
-  searchParams: Promise<{ date?: string }>;
+  searchParams: Promise<{ date?: string; view?: string }>;
 }) {
   const user = await getSessionUser();
   if (!user) redirect('/sign-in');
@@ -33,6 +36,10 @@ export default async function KitchenPage({
     ? sp.date
     : iso(new Date());
 
+  // Two questions, two calendars. "What are we catering Thursday"
+  // wants rooms and times; "what is in which oven" wants stations.
+  const view = sp.view === 'prep' ? 'prep' : 'events';
+
   const anchor = new Date(day + 'T12:00:00');
   const prev = new Date(anchor);
   prev.setDate(prev.getDate() - 1);
@@ -44,15 +51,19 @@ export default async function KitchenPage({
   const weekTo = new Date(anchor);
   weekTo.setDate(weekTo.getDate() + 10);
 
-  const [tasks, windows, stations, unplanned, summary, load] =
-    await Promise.all([
-      getProductionDay(day),
-      getServiceDay(day),
-      listStations(),
-      getUnplanned(),
-      getDaySummary(day),
-      getLoadRange(iso(weekFrom), iso(weekTo)),
-    ]);
+  const [
+    tasks, windows, stations, unplanned, summary, load,
+    catered, cateredSpaces,
+  ] = await Promise.all([
+    getProductionDay(day),
+    getServiceDay(day),
+    listStations(),
+    getUnplanned(),
+    getDaySummary(day),
+    getLoadRange(iso(weekFrom), iso(weekTo)),
+    getCateredBookings(day, day),
+    getCateredSpaces(day, day),
+  ]);
 
   return (
     <>
@@ -61,9 +72,9 @@ export default async function KitchenPage({
         <div className="pagehead">
           <h1>Catering schedule</h1>
           <p className="lede">
-            What the kitchen has to make and when it has to be out. Separate
-            from the room schedule, and checked against it &mdash; a van
-            arriving before the room is held is a problem either way.
+            {view === 'events'
+              ? 'Everything with food in it, by room and time. The room schedule shows the rest of campus alongside it.'
+              : 'What the kitchen has to make and when it has to be out, against the stations it happens at.'}
           </p>
         </div>
 
@@ -71,7 +82,7 @@ export default async function KitchenPage({
           <div className="sched-bar">
             <div className="sched-nav">
               <Link
-                href={`/staff/kitchen?date=${iso(prev)}`}
+                href={`/staff/kitchen?date=${iso(prev)}&view=${view}`}
                 className="btn btn-ghost"
               >
                 &larr;
@@ -84,7 +95,7 @@ export default async function KitchenPage({
                 })}
               </span>
               <Link
-                href={`/staff/kitchen?date=${iso(next)}`}
+                href={`/staff/kitchen?date=${iso(next)}&view=${view}`}
                 className="btn btn-ghost"
               >
                 &rarr;
@@ -96,8 +107,34 @@ export default async function KitchenPage({
                 Today
               </Link>
             </div>
-            <Link href="/staff/schedule" className="edit-link">
+            <Link
+              href={`/staff/schedule?date=${day}&view=day`}
+              className="edit-link"
+            >
               Room schedule
+            </Link>
+          </div>
+
+          <div className="filters" role="group" aria-label="Which calendar">
+            <Link
+              href={`/staff/kitchen?date=${day}&view=events`}
+              className="chip"
+              aria-pressed={view === 'events'}
+            >
+              What we are catering
+              {catered.length > 0 && (
+                <span className="n">{catered.length}</span>
+              )}
+            </Link>
+            <Link
+              href={`/staff/kitchen?date=${day}&view=prep`}
+              className="chip"
+              aria-pressed={view === 'prep'}
+            >
+              Prep and duties
+              {(summary?.tasks ?? 0) > 0 && (
+                <span className="n">{summary?.tasks}</span>
+              )}
             </Link>
           </div>
 
@@ -110,7 +147,7 @@ export default async function KitchenPage({
               const busy = hours > 20;
               return (
                 <Link
-                  href={`/staff/kitchen?date=${l.day}`}
+                  href={`/staff/kitchen?date=${l.day}&view=${view}`}
                   className={`load-day${l.day === day ? ' here' : ''}${
                     heavy ? ' heavy' : busy ? ' busy' : ''
                   }`}
@@ -159,13 +196,21 @@ export default async function KitchenPage({
             )}
           </div>
 
-          <KitchenGrid
-            day={day}
-            tasks={tasks}
-            windows={windows}
-            stations={stations}
-            unplanned={unplanned}
-          />
+          {view === 'events' ? (
+            <CateringCalendar
+              bookings={catered}
+              spaces={cateredSpaces}
+              day={day}
+            />
+          ) : (
+            <KitchenGrid
+              day={day}
+              tasks={tasks}
+              windows={windows}
+              stations={stations}
+              unplanned={unplanned}
+            />
+          )}
         </div>
       </main>
     </>
