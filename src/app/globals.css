@@ -3790,3 +3790,126 @@ select optgroup option{
 
   .choice-qty{width:4.4rem;font-size:16px}
 }
+/* Append these to the end of src/app/globals.css */
+
+/* ============================================================
+   Choosing a menu without reading a menu
+   ============================================================ */
+
+.menu-picker{margin-top:1rem}
+
+.pick-search{
+  width:100%;margin:0 0 1rem;
+  padding:.6rem .8rem;font-size:.95rem;
+}
+
+/* ---------- what they have so far ---------- */
+.pick-basket{
+  background:var(--crimson-soft);
+  border:1px solid var(--rule);border-left:3px solid var(--crimson);
+  border-radius:3px;padding:.9rem 1.1rem;margin-bottom:1.25rem;
+}
+.pick-basket h4{
+  font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;
+  color:var(--crimson);font-weight:600;margin:0 0 .5rem;
+}
+.pick-basket .pick-row{background:none}
+.pick-basket .pick-row:last-child{border-bottom:0}
+
+/* ---------- sections, closed until opened ---------- */
+.pick-categories{
+  border:1px solid var(--rule);border-radius:3px;overflow:hidden;
+}
+.pick-cat-block{border-bottom:1px solid var(--rule)}
+.pick-cat-block:last-child{border-bottom:0}
+
+.pick-cat-head{
+  display:flex;justify-content:space-between;align-items:center;
+  width:100%;gap:1rem;
+  padding:.7rem 1rem;background:var(--surface);
+  border:0;cursor:pointer;font:inherit;text-align:left;
+}
+.pick-cat-head:hover{background:var(--paper)}
+.pick-cat-block.open .pick-cat-head{
+  background:var(--paper);border-bottom:1px solid var(--rule);
+}
+.pick-cat-name{font-weight:500;font-size:.95rem}
+.pick-cat-meta{
+  display:flex;align-items:center;gap:.6rem;flex:none;
+}
+.pick-cat-count{
+  font-size:.7rem;color:#fff;background:var(--crimson);
+  border-radius:2rem;padding:.1rem .55rem;
+}
+.pick-cat-n{font-size:.75rem;color:var(--mute)}
+.pick-cat-arrow{
+  font-size:1rem;color:var(--slate);width:1rem;text-align:center;
+}
+
+.pick-cat-items{padding:0 1rem}
+
+/* ---------- a row ---------- */
+.pick-row{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  grid-template-areas:
+    "main actions"
+    "choices choices";
+  gap:0 1rem;align-items:start;
+  padding:.7rem 0;border-bottom:1px solid var(--rule);
+}
+.pick-row:last-child{border-bottom:0}
+.pick-main{grid-area:main;min-width:0}
+.pick-actions{grid-area:actions;flex:none}
+.pick-row > .choice-groups{grid-area:choices}
+
+.pick-name{display:block;font-weight:500;font-size:.92rem;line-height:1.35}
+.pick-desc{
+  display:block;font-size:.8rem;line-height:1.5;
+  color:var(--slate);margin-top:.15rem;
+}
+.pick-price{
+  display:block;font-size:.78rem;color:var(--slate);
+  margin-top:.2rem;font-variant-numeric:tabular-nums;
+}
+
+.pick-add{display:flex;gap:.35rem;flex-wrap:wrap;justify-content:flex-end}
+.pick-add .btn{padding:.3rem .7rem;font-size:.82rem;white-space:nowrap}
+
+.pick-qty{display:flex;align-items:center;gap:.2rem}
+.pick-qty input{
+  width:3.6rem;text-align:center;margin:0;
+  padding:.3rem .2rem;font-variant-numeric:tabular-nums;
+}
+.pick-step{
+  width:1.9rem;height:1.9rem;flex:none;
+  border:1px solid var(--rule);background:var(--surface);
+  border-radius:2px;cursor:pointer;font-size:1rem;line-height:1;
+  color:var(--ink);
+}
+.pick-step:hover{border-color:var(--crimson);color:var(--crimson)}
+
+/* ---------- search results ---------- */
+.pick-results{
+  border:1px solid var(--rule);border-radius:3px;padding:0 1rem;
+}
+.pick-result{position:relative}
+.pick-cat{
+  display:block;font-size:.65rem;text-transform:uppercase;
+  letter-spacing:.09em;color:var(--mute);padding-top:.6rem;
+}
+.pick-result .pick-row{padding-top:.2rem}
+
+@media(max-width:640px){
+  .pick-row{
+    grid-template-columns:1fr;
+    grid-template-areas:"main" "actions" "choices";
+    gap:.5rem 0;
+  }
+  .pick-actions{justify-self:stretch}
+  .pick-add{justify-content:stretch}
+  .pick-add .btn{flex:1}
+  .pick-qty{justify-content:flex-start}
+  .pick-qty input{font-size:16px}
+  .pick-step{width:2.4rem;height:2.4rem}
+}

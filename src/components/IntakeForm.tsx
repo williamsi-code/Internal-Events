@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import SetupChecklist, { type SetupValue } from './SetupChecklist';
-import MenuChoices, { type ChoiceValue } from './MenuChoices';
+import type { ChoiceValue } from './MenuChoices';
+import MenuPicker from './MenuPicker';
 import type { SetupOption } from '@/lib/setup-labels';
 import type { ChoiceGroup } from '@/lib/choices';
 
@@ -261,15 +262,6 @@ export default function IntakeForm({
     );
   }
   const chosen = menu.filter((m) => (quantities[m.id] ?? 0) > 0);
-
-  const grouped = useMemo(() => {
-    const map = new Map<string, MenuItem[]>();
-    for (const m of menu) {
-      if (!map.has(m.category)) map.set(m.category, []);
-      map.get(m.category)!.push(m);
-    }
-    return [...map.entries()];
-  }, [menu]);
 
   function unitPrice(m: MenuItem) {
     const picked = choices[m.id] ?? [];
@@ -1000,82 +992,24 @@ export default function IntakeForm({
                   the final figure.
                 </div>
 
-                <nav className="menu-jump" aria-label="Jump to a section">
-                  {grouped.map(([category]) => (
-                    <a
-                      href={`#in-${category.replace(/\s+/g, '-').toLowerCase()}`}
-                      key={category}
-                    >
-                      {category}
-                      {chosen.some((m) => m.category === category) && (
-                        <span className="jump-dot" />
-                      )}
-                    </a>
-                  ))}
-                </nav>
-
-                {grouped.map(([category, items]) => (
-                  <div
-                    className="menu-group"
-                    key={category}
-                    id={`in-${category.replace(/\s+/g, '-').toLowerCase()}`}
-                  >
-                    <h3>{category}</h3>
-                    {items.map((m) => {
-                      const qty = quantities[m.id] ?? 0;
-                      return (
-                        <div
-                          className={`menu-row${qty > 0 ? ' chosen' : ''}`}
-                          key={m.id}
-                        >
-                          <div className="menu-info">
-                            <span className="menu-name">{m.name}</span>
-                            {m.description && (
-                              <span className="menu-desc">{m.description}</span>
-                            )}
-                            <span className="menu-price">
-                              {money(Number(m.unit_price))} {m.unit}
-                              {m.minimum_quantity
-                                ? ` · minimum ${m.minimum_quantity}`
-                                : ''}
-                            </span>
-                          </div>
-                          <div className="menu-qty">
-                            <label className="sr-only" htmlFor={`q-${m.id}`}>
-                              Quantity of {m.name}
-                            </label>
-                            <input
-                              id={`q-${m.id}`}
-                              type="number"
-                              inputMode="numeric"
-                              min={0}
-                              value={qty || ''}
-                              placeholder="0"
-                              onChange={(e) =>
-                                setQuantities({
-                                  ...quantities,
-                                  [m.id]: Number(e.target.value) || 0,
-                                })
-                              }
-                            />
-                          </div>
-
-                          {qty > 0 &&
-                            (choiceGroups[m.id]?.length ?? 0) > 0 && (
-                              <MenuChoices
-                                groups={choiceGroups[m.id]}
-                                values={choices[m.id] ?? []}
-                                orderedQuantity={qty}
-                                onChange={(next) =>
-                                  setChoices((c) => ({ ...c, [m.id]: next }))
-                                }
-                              />
-                            )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                ))}
+                <MenuPicker
+                  menu={menu}
+                  choiceGroups={choiceGroups}
+                  quantities={quantities}
+                  choices={choices}
+                  guests={Number(attendance) || 0}
+                  onQuantity={(id, q) =>
+                    setQuantities((prev) => {
+                      const next = { ...prev };
+                      if (q <= 0) delete next[id];
+                      else next[id] = q;
+                      return next;
+                    })
+                  }
+                  onChoices={(id, values) =>
+                    setChoices((c) => ({ ...c, [id]: values }))
+                  }
+                />
 
                 {chosen.length > 0 && (
                   <div className="estimate-total">
