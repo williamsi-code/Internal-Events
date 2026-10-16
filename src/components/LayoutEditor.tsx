@@ -63,6 +63,7 @@ export default function LayoutEditor({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const drag = useRef<{ id: string; dx: number; dy: number } | null>(null);
 
@@ -239,6 +240,27 @@ export default function LayoutEditor({
     }
   }
 
+  async function deleteLayout() {
+    setBusy(true);
+    try {
+      const res = await fetch('/api/staff/layout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete', layoutId: layout.id }),
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        setError(d.error ?? 'Could not delete it.');
+        setBusy(false);
+        return;
+      }
+      router.push('/staff/manage/layouts');
+    } catch {
+      setError('Could not reach the server.');
+      setBusy(false);
+    }
+  }
+
   async function save() {
     const d = await send({
       action: 'save',
@@ -374,6 +396,35 @@ export default function LayoutEditor({
             <button className="btn btn-primary" onClick={save} disabled={busy}>
               {busy ? 'Saving...' : 'Save layout'}
             </button>
+
+            {/* Deleting the whole layout, as against removing a piece
+                from it. Two clicks, because it cannot be undone and
+                somebody may have been sent this drawing. */}
+            {confirmingDelete ? (
+              <span className="delete-confirm">
+                <span>Delete this layout?</span>
+                <button
+                  className="btn btn-ghost danger"
+                  onClick={deleteLayout}
+                  disabled={busy}
+                >
+                  {busy ? 'Deleting...' : 'Yes, delete it'}
+                </button>
+                <button
+                  className="edit-link"
+                  onClick={() => setConfirmingDelete(false)}
+                >
+                  Keep it
+                </button>
+              </span>
+            ) : (
+              <button
+                className="edit-link danger"
+                onClick={() => setConfirmingDelete(true)}
+              >
+                Delete layout
+              </button>
+            )}
           </div>
         </div>
 

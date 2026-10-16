@@ -4036,3 +4036,54 @@ select optgroup option{
   .resgrid.catering .resgrid-label{width:7rem}
   .catering-row{flex-direction:column;align-items:flex-start;gap:.5rem}
 }
+/* Append these to the end of src/app/globals.css */
+
+/* ============================================================
+   The queue, grouped by what needs doing
+   ============================================================ */
+
+.queue-band{margin-bottom:2rem}
+
+.band-head{
+  display:flex;justify-content:space-between;align-items:baseline;
+  gap:1rem;flex-wrap:wrap;margin-bottom:.7rem;
+  padding-bottom:.4rem;border-bottom:1px solid var(--rule);
+}
+.band-title{
+  font-family:Spectral,Georgia,serif;
+  font-size:1.1rem;font-weight:600;margin:0;
+  display:flex;align-items:center;gap:.5rem;
+}
+.band-title.urgent{color:var(--crimson)}
+.band-n{
+  font-size:.7rem;font-weight:500;
+  background:var(--paper);color:var(--slate);
+  border-radius:2rem;padding:.1rem .55rem;
+}
+.band-title.urgent .band-n{background:var(--crimson);color:#fff}
+.band-note{font-size:.78rem;color:var(--slate)}
+
+.qcard.urgent{
+  border-color:var(--crimson);
+  box-shadow:inset 3px 0 0 var(--crimson);
+}
+
+.qneeds{
+  font-size:.7rem;text-transform:uppercase;letter-spacing:.07em;
+  color:var(--crimson);font-weight:500;
+}
+.qcard:not(.needs-you) .qneeds{color:var(--mute)}
+
+.qdays{font-size:.72rem;color:var(--slate)}
+.qdays.past{color:var(--brass)}
+.qwaiting{
+  font-size:.72rem;color:var(--crimson);font-style:italic;
+}
+
+/* ---------- deleting a saved layout ---------- */
+.delete-confirm{
+  display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;
+  font-size:.85rem;
+}
+.edit-link.danger{color:var(--crimson)}
+.edit-link.danger:hover{text-decoration:underline}
